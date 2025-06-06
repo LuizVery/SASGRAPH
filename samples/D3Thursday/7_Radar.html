@@ -322,79 +322,36 @@ document.addEventListener("DOMContentLoaded", function() {
     dir: "n" // Tooltip direction
   };
 
-  // Gradient variables
+// Gradient variables
   const GRAD = {
-    fill: {
-      Hybrid: "#21b9b7",
-      Sedan: "#4141e0",
-      Sports: "#7db71a",
-      SUV: "#8e2f8a",
-      Truck: "#d38506",
-      Wagon: "#0abf85"
-    }, // Fill colors by key
-    stroke: {
-      Hybrid: "#1d9992",
-      Sedan: "#2222bc",
-      Sports: "#6a9617",
-      SUV: "#6d256d",
-      Truck: "#ba7006",
-      Wagon: "#0a9e69"
-    }, // Stroke colors by key
+    fill: { // Usado para os pontos (data-points) e legenda
+      Hybrid: "#4CAF50",
+      Sedan:  "#8BC34A",
+      Sports: "#2E7D32",
+      SUV:    "#00695C",
+      Truck:  "#689F38",
+      Wagon:  "#9CCC65"
+    }, 
+    stroke: { // Usado para as linhas do gráfico (data-path)
+      Hybrid: "#4CAF50",
+      Sedan:  "#8BC34A",
+      Sports: "#2E7D32",
+      SUV:    "#00695C",
+      Truck:  "#689F38",
+      Wagon:  "#9CCC65"
+    },
+    // Paletas de backup, também em tons de verde
     fillScale: d3.scaleOrdinal([
-      "#21b9b7",
-      "#4141e0",
-      "#7db71a",
-      "#8e2f8a",
-      "#d38506",
-      "#0abf85",
-      "#2f90ec",
-      "#db3851",
-      "#61F9F7",
-      "#8181FF",
-      "#BDF75A",
-      "#CE6FCA",
-      "#FFC546",
-      "#4AFFC5",
-      "#6FD0FF",
-      "#FF7891",
-      "#007977",
-      "#0101A0",
-      "#3D7700",
-      "#4E004A",
-      "#934500",
-      "#007F45",
-      "#0050AC",
-      "#9B0011"
-    ]), // Backup ordinal scale for fills
+        "#4CAF50", "#8BC34A", "#2E7D32", "#00695C", "#689F38", "#9CCC65",
+        "#33691E", "#7CB342", "#1B5E20", "#004D40", "#558B2F", "#76FF03"
+    ]), 
     strokeScale: d3.scaleOrdinal([
-      "#1d9992",
-      "#2222bc",
-      "#6a9617",
-      "#6d256d",
-      "#ba7006",
-      "#0a9e69",
-      "#07689e",
-      "#a50a2f",
-      "#5DD9D2",
-      "#6262FC",
-      "#AAD657",
-      "#AD65AD",
-      "#FAB046",
-      "#4ADEA9",
-      "#47A8DE",
-      "#E54A6F",
-      "#005952",
-      "#00007C",
-      "#2A5600",
-      "#2D002D",
-      "#7A3000",
-      "#005E29",
-      "#00285E",
-      "#650000"
-    ]), // Backup ordinal scale for strokes
-    data: undefined, // Array of keys and ids used to create gradients
-    defsSelection: undefined, // Defs selections
-    gradsDataJoin: undefined // Gradients data join
+        "#4CAF50", "#8BC34A", "#2E7D32", "#00695C", "#689F38", "#9CCC65",
+        "#33691E", "#7CB342", "#1B5E20", "#004D40", "#558B2F", "#76FF03"
+    ]),
+    data: undefined, 
+    defsSelection: undefined,
+    gradsDataJoin: undefined 
   };
 
   /*************************************************** Setup Callback Functions ***************************************************/
@@ -724,14 +681,8 @@ document.addEventListener("DOMContentLoaded", function() {
       .attr("id", function(d) {
         return d.category + "-path";
       })
-      .attr("fill", function(d) {
-        return GRAD.fill[d.category]
-          ? GRAD.fill[d.category]
-          : GRAD.fillScale(d.category);
-      })
-      .attr("fill-opacity", function(d) {
-        return getOpacity(d.category, OPACITY.fill);
-      })
+      .attr("fill", "none") // Remove o preenchimento
+// A linha de "fill-opacity" pode ser removida ou comentada
       .attr("stroke", function(d) {
         return GRAD.stroke[d.category]
           ? GRAD.stroke[d.category]
@@ -986,16 +937,8 @@ document.addEventListener("DOMContentLoaded", function() {
       return d.category;
     });
 
-    DATA_PATHS.attr("fill", function(d) {
-      return GRAD.fill[d.category]
-        ? GRAD.fill[d.category]
-        : GRAD.fillScale(d.category);
-    })
-      .attr("stroke", function(d) {
-        return GRAD.stroke[d.category]
-          ? GRAD.stroke[d.category]
-          : GRAD.strokeScale(d.category);
-      })
+    DATA_PATHS.attr("fill", "none") // Remove o preenchimento
+// A linha de "fill-opacity" pode ser removida ou comentada
       .each(function(d, i) {
         // Find where point was entered/removed and add duplicate point for entered point
         const oldMetrics = Object.values(OLD_METADATA.metrics);
