@@ -37,8 +37,8 @@ limitations under the License.
 
   /* Define a fonte padrão e o tamanho para todos os textos */
   text {
-    font-family: 'Avenir Next', AvenirNext, sans-serif;
-    font-size: .6em; /* ALTERADO */
+    font-family: Arial, Helvetica, sans-serif; /* ALTERADO */
+    font-size: 10px; /* ALTERADO */
   }
 
   /* Define um tamanho menor para o título da legenda */
@@ -46,13 +46,13 @@ limitations under the License.
     font-weight: bold;
     text-anchor: middle;
     dominant-baseline: hanging;
-    font-size: .45em; /* ALTERADO */
+    font-size: 0.5em; /* ALTERADO */
   }
 
   /* Define um tamanho menor para o texto da legenda */
   .legend-text {
     dominant-baseline: central;
-    font-size: .45em; /* ALTERADO */
+    font-size: 0.6em; /* ALTERADO */
   }
 
   .legend-rect {
@@ -305,8 +305,8 @@ document.addEventListener("DOMContentLoaded", function() {
 
   // Legend variables
   const LEG = {
-    topPad: 10, // Padding between chart and legend title
-    titlePad: 5, // Padding between legend title bottom and first row of legend
+    topPad: 5, // Padding between chart and legend title
+    titlePad: 0, // Padding between legend title bottom and first row of legend
     rowPad: 3, // Padding between legend rows
     rectWidth: 12, // Width of legend rects
     rectPad: 5, // Padding between legend rect and legend text
