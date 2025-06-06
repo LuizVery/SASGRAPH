@@ -36,18 +36,17 @@ limitations under the License.
   }
 
   text {
-    font-family: Verdana, sans-serif;
+    font-family: 'Avenir Next', AvenirNext, sans-serif;
+    font-size: 9px;
   }
 
   .legend-title {
-    font-size: .9em;
     font-weight: bold;
     text-anchor: middle;
     dominant-baseline: hanging;
   }
 
   .legend-text {
-    font-size: .8em;
     dominant-baseline: central;
   }
 
@@ -73,7 +72,6 @@ limitations under the License.
   }
 
   .measure-label {
-    font-size: .8em;
     dominant-baseline: hanging;
   }
 
@@ -175,7 +173,6 @@ limitations under the License.
   .d3-tip-content {
     white-space: nowrap;
     font-family: Verdana, sans-serif;
-    font-size: .9em;
     text-align: left;
   }
 </style>
@@ -468,8 +465,8 @@ document.addEventListener("DOMContentLoaded", function() {
       DATA.push(datum);
     }
 
-    // Assign data variables for legend
-    LEG.title = METADATA.category;
+// Assign data variables for legend
+    LEG.title = ""; // Define o título como uma string vazia
     LEG.data = DATA.map(function(d) {
       return {
         key: d.category,
