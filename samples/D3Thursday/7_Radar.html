@@ -28,12 +28,24 @@ limitations under the License.
 </head>
 <body>
 <style type="text/css">
-  html, body, svg {
-    overflow: hidden;
-    margin: 0px;
-    width: 100%;
-    height: 100%;
-  }
+html, body {
+  overflow: hidden;
+  margin: 0px;
+  width: 100%;
+  height: 100%;
+}
+
+svg {
+  /* Defina aqui o tamanho fixo que desejar */
+  width: 800px; 
+  height: 600px;
+  
+  /* Opcional: estas linhas centralizam o gráfico na página */
+  display: block;
+  margin: auto;
+  position: absolute;
+  top: 0; bottom: 0; left: 0; right: 0;
+}
 
   /* Define a fonte padrão e o tamanho para todos os textos */
   text {
@@ -369,7 +381,7 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 
   // Listen for resize event
-  va.contentUtil.setupResizeListener(drawElements);
+// va.contentUtil.setupResizeListener(drawElements);
 
   /****************************************************** Callback Functions ******************************************************/
 
@@ -444,33 +456,28 @@ document.addEventListener("DOMContentLoaded", function() {
       };
     }
 
-    // Restructure data from 2d array to array of objects
-    let datum, metric;
-    OLD_DATA = DATA;
-    DATA = [];
-    for (let i = 0; i < VA_MESSAGE.data.length / numMeasures; i++) {
-      // Iterate over each category
-      datum = {
-        category: VA_MESSAGE.data[i * numMeasures][0],
-        id: "id-" +  VA_MESSAGE.data[i * numMeasures][0].replace(/[\W]/g, "_"),
-        metrics: []
-      };
+// Restructure data using a more robust nesting method
+  OLD_DATA = DATA;
 
-      for (let j = 0; j < numMeasures; j++) {
-        // Iterate over  metrics
-        metric = {
-          metric: VA_MESSAGE.data[i * numMeasures + j][1],
-          measure: VA_MESSAGE.data[i * numMeasures + j][2],
-          scaledMeasure:
-            VA_MESSAGE.data[i * numMeasures + j][2] /
-            METADATA.metrics[VA_MESSAGE.data[i * numMeasures + j][1]].maximum
+  const dataGroupedByCategory = d3.nest()
+    .key(function(d) { return d[0]; }) // Agrupa por Categoria (coluna 0)
+    .entries(VA_MESSAGE.data);
+
+  DATA = dataGroupedByCategory.map(function(categoryGroup) {
+    const datum = {
+      category: categoryGroup.key,
+      id: "id-" + categoryGroup.key.replace(/[\W]/g, "_"),
+      metrics: categoryGroup.values.map(function(d) {
+        const metric = {
+          metric: d[1], // Nome da métrica
+          measure: d[2], // Valor da métrica
+          scaledMeasure: d[2] / METADATA.metrics[d[1]].maximum
         };
-
-        datum.metrics.push(metric);
-      }
-
-      DATA.push(datum);
-    }
+        return metric;
+      })
+    };
+    return datum;
+  });
 
 // Assign data variables for legend
     LEG.title = ""; // Define o título como uma string vazia
@@ -500,8 +507,8 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     // Calculate dimensions for graph based on container dimensions
-    WIDTH = document.body.clientWidth;
-    HEIGHT = document.body.clientHeight;
+    WIDTH = 800; // Mesma largura definida no CSS
+    HEIGHT = 600; // Mesma altura definida no CSS
 
     // Append svg and save reference
     d3.select("body")
