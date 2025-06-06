@@ -35,19 +35,24 @@ limitations under the License.
     height: 100%;
   }
 
+  /* Define a fonte padrão e o tamanho para todos os textos */
   text {
     font-family: 'Avenir Next', AvenirNext, sans-serif;
-    font-size:. 8em;
+    font-size: .6em; /* ALTERADO */
   }
 
+  /* Define um tamanho menor para o título da legenda */
   .legend-title {
     font-weight: bold;
     text-anchor: middle;
     dominant-baseline: hanging;
+    font-size: .45em; /* ALTERADO */
   }
 
+  /* Define um tamanho menor para o texto da legenda */
   .legend-text {
     dominant-baseline: central;
+    font-size: .45em; /* ALTERADO */
   }
 
   .legend-rect {
@@ -75,12 +80,14 @@ limitations under the License.
     dominant-baseline: hanging;
   }
 
+  /* Ajusta o tamanho da fonte do container do tooltip */
   .d3-tip {
     pointer-events: none !important;
     background: white;
     position: relative;
     border: 1px solid #C4C4C4;
     border-radius: 2px;
+    font-size: .6em; /* ALTERADO */
   }
 
   /* Create arrow on tooltip */
@@ -172,8 +179,8 @@ limitations under the License.
   /* Style tip content */
   .d3-tip-content {
     white-space: nowrap;
-    font-family: Verdana, sans-serif;
     text-align: left;
+    /* Linha de font-family removida para herdar o padrão 'Avenir Next' */
   }
 </style>
 
@@ -269,7 +276,7 @@ document.addEventListener("DOMContentLoaded", function() {
   const TRANS_DELAY = 20; // Small buffer to ensure all callbacks have finished before allowing new transition
   const HOVER_TRANS_TIME = 100; // Duration of focus transitions
   const ENTER_REMOVE_TRANS_TIME = 200; // Duration of enter and exit transitions for data points and grid lines
-  const MEASURE_LABEL_PADDING = 10; // Padding between edge of radar chart and measure labels
+  const MEASURE_LABEL_PADDING = 5; // Padding between edge of radar chart and measure labels
 
   // Dynamic dimension variables
   let WIDTH; // Width of SVG element
