@@ -28,43 +28,30 @@ limitations under the License.
 </head>
 <body>
 <style type="text/css">
-html, body {
-  overflow: hidden;
-  margin: 0px;
-  width: 100%;
-  height: 100%;
-}
-
-svg {
-  /* Defina aqui o tamanho fixo que desejar */
-  width: 800px; 
-  height: 600px;
+  html, body, svg {
+    overflow: hidden;
+    margin: 0px;
+    width: 100%;
+    height: 100%;
+  }
+    /* Define a fonte padrão e o tamanho para todos os textos */
+    text {
+      font-family: Arial, Helvetica, sans-serif; /* ALTERADO */
+      font-size: 12px; /* ALTERADO */
+    }
   
-  /* Opcional: estas linhas centralizam o gráfico na página */
-  display: block;
-  margin: auto;
-  position: absolute;
-  top: 0; bottom: 0; left: 0; right: 0;
-}
-
-  /* Define a fonte padrão e o tamanho para todos os textos */
-  text {
-    font-family: Arial, Helvetica, sans-serif; /* ALTERADO */
-    font-size: 16px; /* ALTERADO */
-  }
-
-  /* Define um tamanho menor para o título da legenda */
-  .legend-title {
-    font-weight: bold;
-    text-anchor: middle;
-    dominant-baseline: hanging;
-    font-size: 0.5em; /* ALTERADO */
-  }
+    /* Define um tamanho menor para o título da legenda */
+    .legend-title {
+      font-weight: bold;
+      text-anchor: middle;
+      dominant-baseline: hanging;
+      font-size: 0.7em; /* ALTERADO */
+    }
 
   /* Define um tamanho menor para o texto da legenda */
   .legend-text {
     dominant-baseline: central;
-    font-size: 0.5em; /* ALTERADO */
+    font-size: 0.7em; /* ALTERADO */
   }
 
   .legend-rect {
@@ -381,7 +368,7 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 
   // Listen for resize event
-// va.contentUtil.setupResizeListener(drawElements);
+  va.contentUtil.setupResizeListener(drawElements);
 
   /****************************************************** Callback Functions ******************************************************/
 
@@ -506,9 +493,8 @@ document.addEventListener("DOMContentLoaded", function() {
       return;
     }
 
-    // Calculate dimensions for graph based on container dimensions
-    WIDTH = 800; // Mesma largura definida no CSS
-    HEIGHT = 600; // Mesma altura definida no CSS
+    WIDTH = document.body.clientWidth;
+    HEIGHT = document.body.clientHeight;
 
     // Append svg and save reference
     d3.select("body")
@@ -574,6 +560,8 @@ document.addEventListener("DOMContentLoaded", function() {
     OLD_RADIUS = RADIUS;
     RADIUS =
       Math.min(WIDTH - 2 * SIDE_PAD, HEIGHT - LEG.height - 2 * TOP_PAD) / 2;
+      // ADICIONE ESTA LINHA PARA REDUZIR O TAMANHO
+      RADIUS = RADIUS * 0.8;
 
     // Append/update chart-area group and save reference
     SVG.selectAll(".g-chart-area")
