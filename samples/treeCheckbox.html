@@ -1,362 +1,625 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>D3 Tree Selector para SAS VA</title>
-
-    <!-- Dependências do SAS VA DDC (caminhos relativos esperados na estrutura do DDC) -->
+    <title>Tree Selector Filter</title>
     <script type="text/javascript" src="../util/messagingUtil.js"></script>
     <script type="text/javascript" src="../util/contentUtil.js"></script>
-
-    <!-- Dependências do nosso seletor -->
-    <script src="https://d3js.org/d3.v7.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
     <style>
-        /* Estilos do seletor (mantidos do exemplo anterior) */
         html {
             overflow: hidden;
         }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+        html, body {
+            width: 100%;
+            height: 100%;
             margin: 0;
-            padding: 10px;
-            background-color: #f0f2f5;
-            color: #333;
+            padding: 0;
+            font-family: "Albany AMT", arial;
+            font-size: 10pt;
             overflow-y: auto;
         }
-        .tree-selector-container {
-            width: 100%;
+
+        div {
             position: relative;
         }
-        #selector-display {
-            padding: 10px 15px;
-            border: 1px solid #ccc;
-            border-radius: 8px;
-            cursor: pointer;
-            background-color: #fff;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            user-select: none;
-            transition: border-color 0.2s;
-        }
-        #selector-display.open {
-            border-color: #007bff;
-            border-bottom-left-radius: 0;
-            border-bottom-right-radius: 0;
-        }
-        #selector-display .placeholder { color: #888; }
-        #tree-dropdown {
-            position: absolute;
+
+        #container {
+            position: relative;
             width: 100%;
-            border: 1px solid #007bff;
-            border-top: none;
-            border-radius: 0 0 8px 8px;
-            background-color: #fff;
-            max-height: 400px;
+            height: 100%;
+        }
+
+        .tree-container {
+            background: white;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            width: 100%;
+            height: 100%;
             overflow: hidden;
             display: flex;
             flex-direction: column;
-            z-index: 1000;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
-        .search-container {
-            padding: 10px;
-            border-bottom: 1px solid #eee;
+
+        .tree-header {
+            padding: 12px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            font-weight: 600;
+            color: #333;
+            cursor: pointer;
             display: flex;
+            justify-content: space-between;
             align-items: center;
+            flex-shrink: 0;
         }
-        .search-container i { color: #aaa; margin-right: 8px; }
-        #search-input {
+
+        .tree-header:hover {
+            background: #e9ecef;
+        }
+
+        .chevron {
+            transition: transform 0.2s ease;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .chevron.expanded {
+            transform: rotate(180deg);
+        }
+
+        .tree-content {
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+        }
+
+        .tree-content.collapsed {
+            max-height: 0;
+        }
+
+        .tree-content.expanded {
+            max-height: 100%;
+        }
+
+        .search-box {
+            padding: 8px 12px;
+            border-bottom: 1px solid #e9ecef;
+            flex-shrink: 0;
+        }
+
+        .search-input {
             width: 100%;
-            padding: 8px;
+            padding: 6px 10px;
             border: 1px solid #ddd;
-            border-radius: 6px;
+            border-radius: 3px;
+            font-size: 10pt;
             outline: none;
+            box-sizing: border-box;
         }
-        #search-input:focus { border-color: #007bff; }
-        #tree-render-area { padding: 10px; overflow-y: auto; }
-        .node {
+
+        .search-input:focus {
+            border-color: #4285f4;
+            box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.2);
+        }
+
+        .tree-nodes {
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .tree-node {
+            display: block;
+            padding: 6px 12px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            font-size: 10pt;
+        }
+
+        .tree-node:hover {
+            background-color: #f8f9fa;
+        }
+
+        .tree-node:last-child {
+            border-bottom: none;
+        }
+
+        .node-content {
             display: flex;
             align-items: center;
-            padding: 4px 0;
-            cursor: pointer;
-            font-size: 15px;
-            transition: background-color 0.2s;
-            border-radius: 4px;
+            gap: 6px;
         }
-        .node:hover { background-color: #f0f8ff; }
-        .node .node-content { display: flex; align-items: center; }
-        .node-content.selected { font-weight: bold; color: #007bff; }
-        .node i.toggle-icon {
-            width: 20px;
-            text-align: center;
-            color: #777;
-            font-size: 0.8em;
-            cursor: pointer;
+
+        .expand-icon {
+            width: 14px;
+            height: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 9px;
+            color: #666;
+            transition: transform 0.2s ease;
         }
-        .node input[type="radio"] { margin: 0 8px 0 0; cursor: pointer; }
-        .hidden { display: none; }
+
+        .expand-icon.expanded {
+            transform: rotate(90deg);
+        }
+
+        .expand-icon.leaf {
+            visibility: hidden;
+        }
+
+        .checkbox {
+            width: 14px;
+            height: 14px;
+            border: 1px solid #ddd;
+            border-radius: 2px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: white;
+            transition: all 0.2s ease;
+            font-size: 9px;
+        }
+
+        .checkbox.checked {
+            background: #4285f4;
+            border-color: #4285f4;
+            color: white;
+        }
+
+        .checkbox.indeterminate {
+            background: #4285f4;
+            border-color: #4285f4;
+            color: white;
+        }
+
+        .node-label {
+            flex: 1;
+            color: #333;
+            font-size: 10pt;
+        }
+
+        .tree-node.parent {
+            font-weight: 500;
+        }
+
+        .tree-node.child {
+            font-weight: normal;
+            color: #555;
+        }
+
+        .tree-node.hidden {
+            display: none;
+        }
+
+        .selected-count {
+            padding: 8px 12px;
+            background: #f8f9fa;
+            border-top: 1px solid #e9ecef;
+            font-size: 9pt;
+            color: #666;
+            flex-shrink: 0;
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+            background-color: #f5f5f5;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            border-radius: 3px;
+            background-color: #888888;
+        }
+
+        ::-webkit-scrollbar-track {
+            border-radius: 3px;
+            background-color: #f5f5f5;
+        }
     </style>
 </head>
 <body>
-
-    <div class="tree-selector-container">
-        <div id="selector-display">
-            <span id="selected-value" class="placeholder">Selecione um item...</span>
-            <i class="fa-solid fa-chevron-down"></i>
-        </div>
-        <div id="tree-dropdown" class="hidden">
-            <div class="search-container">
-                 <i class="fa-solid fa-magnifying-glass"></i>
-                <input type="text" id="search-input" placeholder="Procurar...">
-            </div>
-            <div id="tree-render-area"></div>
-        </div>
-    </div>
+    <div id="container"></div>
 
     <script>
         "use strict";
 
-        // Variáveis globais para o seletor D3
-        const duration = 200;
-        let selectedNodeId = null;
-        let root = null; 
-        
-        // Ponteiros para elementos do DOM
-        const selectorDisplay = d3.select("#selector-display");
-        const dropdown = d3.select("#tree-dropdown");
-        const treeContainer = d3.select("#tree-render-area");
-        const searchInput = d3.select("#search-input");
-        const selectedValueSpan = d3.select("#selected-value");
-        
-        /**
-         * Função chamada quando dados são recebidos do SAS Visual Analytics.
-         * @param {object} resultData - O objeto de dados do VA.
-         */
+        let treeSelector = null;
+        let isVAEnvironment = typeof va !== 'undefined';
+
         function onDataReceived(resultData) {
             if (!resultData) return;
 
-            // Limpa seleções de execuções anteriores (somente no ambiente VA)
-            if (typeof va !== "undefined" && va.contentUtil) {
-                va.contentUtil.initializeSelections(resultData);
-            }
+            let resultName = resultData.resultName;
             
-            // Converte os dados tabulares do VA para uma hierarquia que o D3 entende
-            const hierarchyData = createD3Hierarchy(resultData);
-            if (!hierarchyData) return;
+            // Only call VA utilities if in VA environment
+            let selections = isVAEnvironment ? va.contentUtil.initializeSelections(resultData) : null;
 
-            // Configura a hierarquia do D3
-            root = d3.hierarchy(hierarchyData);
-            root.x0 = 0;
-            root.y0 = 0;
+            const treeData = createTreeData(resultData);
 
-            // Inicia com todos os nós recolhidos
-            if (root.children) {
-                root.children.forEach(collapse);
+            // Initialize or update tree selector
+            if (treeSelector) {
+                treeSelector.updateData(treeData, resultName);
+            } else {
+                treeSelector = new TreeSelector('#container', treeData, resultName);
             }
-            
-            // Renderiza a árvore e configura os listeners de eventos
-            setupEventListeners(resultData.resultName);
-            update(root);
         }
 
-        /**
-         * Converte a estrutura de dados tabular do VA para uma hierarquia aninhada para D3.
-         * @param {object} resultData - O objeto de dados do VA.
-         * @returns {object} - Um único objeto raiz para a hierarquia D3.
-         */
-        function createD3Hierarchy(resultData) {
-            const data = resultData.data;
-            const treeData = [];
-            let idCounter = 0;
-            
-            data.forEach((row, rowIndex) => {
-                row.reduce((branch, key) => {
-                    let node = branch.find(child => child.text === key);
-                    if (!node) {
-                        node = {
-                            id: `node-${++idCounter}`,
-                            text: key,
-                            children: []
-                        };
-                        branch.push(node);
-                    }
-                    
-                    if (row.indexOf(key) === row.length - 1) {
-                        node.row = rowIndex;
-                        delete node.children;
-                    }
+        // Mock data for testing when not in VA environment
+        function loadMockData() {
+            const mockData = {
+                "version": "1",
+                "resultName": "mock_data",
+                "rowCount": 14,
+                "availableRowCount": 14,
+                "data": [
+                    ["Brasil", "Centro-Oeste", "Distrito Federal"],
+                    ["Brasil", "Centro-Oeste", "Goiás"],
+                    ["Brasil", "Centro-Oeste", "Mato Grosso"],
+                    ["Brasil", "Centro-Oeste", "Mato Grosso do Sul"],
+                    ["Brasil", "Nordeste", "Alagoas"],
+                    ["Brasil", "Nordeste", "Bahia"],
+                    ["Brasil", "Nordeste", "Ceará"],
+                    ["Brasil", "Norte", "Acre"],
+                    ["Brasil", "Norte", "Amapá"],
+                    ["Brasil", "Norte", "Amazonas"],
+                    ["Brasil", "Sudeste", "Espírito Santo"],
+                    ["Brasil", "Sudeste", "Minas Gerais"],
+                    ["Brasil", "Sul", "Paraná"],
+                    ["Brasil", "Sul", "Santa Catarina"]
+                ],
+                "columns": [
+                    {"name": "pais", "label": "País", "type": "string"},
+                    {"name": "regiao", "label": "Região", "type": "string"},
+                    {"name": "estado", "label": "Estado", "type": "string"}
+                ]
+            };
+            onDataReceived(mockData);
+        }
 
-                    return node.children || [];
+        class TreeSelector {
+            constructor(container, data, resultName) {
+                this.container = d3.select(container);
+                this.data = data;
+                this.resultName = resultName;
+                this.selectedItems = new Set();
+                this.expandedNodes = new Set();
+                this.isCollapsed = false;
+                this.searchTerm = '';
+                this.flatNodes = [];
+                
+                this.init();
+            }
+
+            init() {
+                // Clear container
+                this.container.selectAll('*').remove();
+                
+                this.createStructure();
+                this.bindEvents();
+                this.render();
+            }
+
+            updateData(data, resultName) {
+                this.data = data;
+                this.resultName = resultName;
+                this.selectedItems.clear();
+                this.expandedNodes.clear();
+                this.searchTerm = '';
+                this.render();
+            }
+
+            createStructure() {
+                const treeContainer = this.container
+                    .append('div')
+                    .attr('class', 'tree-container');
+
+                // Header
+                this.header = treeContainer
+                    .append('div')
+                    .attr('class', 'tree-header')
+                    .html(`
+                        <span>Região, UF, município</span>
+                        <span class="chevron">▼</span>
+                    `);
+
+                // Content container
+                this.content = treeContainer
+                    .append('div')
+                    .attr('class', 'tree-content expanded');
+
+                // Search box
+                this.searchContainer = this.content
+                    .append('div')
+                    .attr('class', 'search-box');
+
+                this.searchInput = this.searchContainer
+                    .append('input')
+                    .attr('class', 'search-input')
+                    .attr('type', 'text')
+                    .attr('placeholder', 'Procurar...');
+
+                // Tree nodes container
+                this.treeNodes = this.content
+                    .append('div')
+                    .attr('class', 'tree-nodes');
+
+                // Selected count
+                this.selectedCount = treeContainer
+                    .append('div')
+                    .attr('class', 'selected-count')
+                    .text('0 itens selecionados');
+            }
+
+            bindEvents() {
+                // Toggle main collapse
+                this.header.on('click', () => {
+                    this.toggleCollapse();
+                });
+
+                // Search functionality
+                this.searchInput.on('input', (event) => {
+                    this.searchTerm = event.target.value.toLowerCase();
+                    this.render();
+                });
+            }
+
+            toggleCollapse() {
+                this.isCollapsed = !this.isCollapsed;
+                
+                this.content
+                    .classed('collapsed', this.isCollapsed)
+                    .classed('expanded', !this.isCollapsed);
+
+                this.header.select('.chevron')
+                    .classed('expanded', this.isCollapsed);
+            }
+
+            flattenTree(node, parent = null, level = 0) {
+                const result = [];
+                const nodeData = {
+                    ...node,
+                    parent,
+                    level,
+                    hasChildren: !!(node.children && node.children.length > 0)
+                };
+                
+                result.push(nodeData);
+                
+                if (node.children) {
+                    node.children.forEach(child => {
+                        result.push(...this.flattenTree(child, node.id, level + 1));
+                    });
+                }
+                
+                return result;
+            }
+
+            filterNodes(nodes) {
+                if (!this.searchTerm) return nodes;
+                
+                return nodes.filter(node => {
+                    return node.text.toLowerCase().includes(this.searchTerm);
+                });
+            }
+
+            isNodeVisible(node, allNodes) {
+                if (!node.parent) return true;
+                
+                const parentNode = allNodes.find(n => n.id === node.parent);
+                return this.expandedNodes.has(node.parent) && this.isNodeVisible(parentNode, allNodes);
+            }
+
+            getSelectionState(node, allNodes) {
+                if (!node.hasChildren) {
+                    return this.selectedItems.has(node.id) ? 'checked' : 'unchecked';
+                }
+                
+                const children = allNodes.filter(n => n.parent === node.id);
+                const selectedChildren = children.filter(child => {
+                    if (child.hasChildren) {
+                        return this.getSelectionState(child, allNodes) !== 'unchecked';
+                    }
+                    return this.selectedItems.has(child.id);
+                });
+                
+                if (selectedChildren.length === 0) return 'unchecked';
+                if (selectedChildren.length === children.length) {
+                    const allFullySelected = children.every(child => {
+                        if (child.hasChildren) {
+                            return this.getSelectionState(child, allNodes) === 'checked';
+                        }
+                        return this.selectedItems.has(child.id);
+                    });
+                    return allFullySelected ? 'checked' : 'indeterminate';
+                }
+                return 'indeterminate';
+            }
+
+            toggleSelection(node, allNodes) {
+                if (node.hasChildren) {
+                    const currentState = this.getSelectionState(node, allNodes);
+                    const newState = currentState === 'checked' ? false : true;
+                    this.setChildrenSelection(node, allNodes, newState);
+                } else {
+                    if (this.selectedItems.has(node.id)) {
+                        this.selectedItems.delete(node.id);
+                    } else {
+                        this.selectedItems.add(node.id);
+                    }
+                }
+                this.render();
+                this.sendSelectionToVA();
+            }
+
+            setChildrenSelection(parentNode, allNodes, selected) {
+                const children = allNodes.filter(n => n.parent === parentNode.id);
+                
+                children.forEach(child => {
+                    if (child.hasChildren) {
+                        this.setChildrenSelection(child, allNodes, selected);
+                    } else {
+                        if (selected) {
+                            this.selectedItems.add(child.id);
+                        } else {
+                            this.selectedItems.delete(child.id);
+                        }
+                    }
+                });
+            }
+
+            sendSelectionToVA() {
+                // Get selected rows (only leaf nodes have row property)
+                const selectedRows = this.flatNodes
+                    .filter(node => this.selectedItems.has(node.id) && node.hasOwnProperty('row'))
+                    .map(node => node.row);
+                
+                // Send to VA only if in VA environment
+                if (isVAEnvironment && va.messagingUtil) {
+                    va.messagingUtil.postSelectionMessage(this.resultName, selectedRows);
+                } else {
+                    // Console log for testing
+                    console.log('Selected rows:', selectedRows);
+                    console.log('Selected items:', Array.from(this.selectedItems));
+                }
+            }
+
+            render() {
+                this.flatNodes = this.flattenTree(this.data[0] || {});
+                const filteredNodes = this.filterNodes(this.flatNodes);
+                
+                const nodeSelection = this.treeNodes
+                    .selectAll('.tree-node')
+                    .data(filteredNodes, d => d.id);
+
+                // Remove old nodes
+                nodeSelection.exit().remove();
+
+                // Add new nodes
+                const nodeEnter = nodeSelection.enter()
+                    .append('div')
+                    .attr('class', d => `tree-node ${d.hasChildren ? 'parent' : 'child'}`)
+                    .style('padding-left', d => `${12 + (d.level * 20)}px`);
+
+                nodeEnter.append('div')
+                    .attr('class', 'node-content');
+
+                // Update all nodes
+                const nodeUpdate = nodeEnter.merge(nodeSelection);
+
+                nodeUpdate
+                    .classed('hidden', d => {
+                        if (d.level === 0) return false;
+                        return !this.isNodeVisible(d, this.flatNodes);
+                    });
+
+                const nodeContent = nodeUpdate.select('.node-content');
+                nodeContent.selectAll('*').remove();
+
+                // Expand icon
+                nodeContent.append('div')
+                    .attr('class', d => `expand-icon ${d.hasChildren ? '' : 'leaf'} ${this.expandedNodes.has(d.id) ? 'expanded' : ''}`)
+                    .text(d => d.hasChildren ? '▶' : '')
+                    .on('click', (event, d) => {
+                        event.stopPropagation();
+                        if (d.hasChildren) {
+                            if (this.expandedNodes.has(d.id)) {
+                                this.expandedNodes.delete(d.id);
+                            } else {
+                                this.expandedNodes.add(d.id);
+                            }
+                            this.render();
+                        }
+                    });
+
+                // Checkbox
+                const checkbox = nodeContent.append('div')
+                    .attr('class', d => {
+                        const state = this.getSelectionState(d, this.flatNodes);
+                        return `checkbox ${state}`;
+                    })
+                    .on('click', (event, d) => {
+                        event.stopPropagation();
+                        this.toggleSelection(d, this.flatNodes);
+                    });
+
+                checkbox.text(d => {
+                    const state = this.getSelectionState(d, this.flatNodes);
+                    if (state === 'checked') return '✓';
+                    if (state === 'indeterminate') return '−';
+                    return '';
+                });
+
+                // Label
+                nodeContent.append('div')
+                    .attr('class', 'node-label')
+                    .text(d => d.text)
+                    .on('click', (event, d) => {
+                        this.toggleSelection(d, this.flatNodes);
+                    });
+
+                // Update selected count
+                const selectedCount = this.flatNodes
+                    .filter(node => this.selectedItems.has(node.id) && node.hasOwnProperty('row'))
+                    .length;
+                this.selectedCount.text(`${selectedCount} itens selecionados`);
+            }
+        }
+
+        // Function to create tree data from VA result data
+        function createTreeData(resultData) {
+            // Only use columns that are categories in the tree selector
+            const columns = resultData.columns
+                .map((e, i) => ({ type: e.type, index: i }))
+                .filter(e => e.type !== "number")
+                .map(e => e.index);
+            
+            // Create copy of the original data with only the columns to be used
+            const data = [];
+            resultData.data.forEach((elem, i) => {
+                const row = elem.filter((e, col) => columns.includes(col));
+                data.push(row);
+            });
+
+            // Eliminate leaf hierarchy levels with missing value
+            data.forEach((row) => {
+                let index = row.findLastIndex((element) => element !== "(missing)");
+                if (index >= 0) row.splice(index + 1);
+            });
+
+            // Create the tree data structure
+            let treeData = [];
+            let id = 0;
+            data.forEach(function (row, rowNumber) {
+                row.reduce(function (tree, key, currIndex, rowArray) {
+                    let temp = tree.find(({ text }) => key === text);
+                    if (!temp) {
+                        temp = { id: ++id, text: key, children: [] };
+                        // Add row information only for last level of hierarchy
+                        if (currIndex === rowArray.length - 1) temp.row = rowNumber;
+                        tree.push(temp);
+                    }
+                    return temp.children;
                 }, treeData);
             });
 
-            return {
-                id: "root",
-                text: "All",
-                children: treeData
-            };
+            return treeData;
         }
 
-        /**
-         * Renderiza e atualiza a visualização da árvore.
-         * @param {object} source - O nó de origem da atualização.
-         */
-        function update(source) {
-            const nodes = root.descendants().filter(d => !d.hidden && d.data.id !== 'root'); 
-
-            const node = treeContainer.selectAll("div.node")
-                .data(nodes, d => d.data.id);
-
-            const nodeEnter = node.enter().append("div")
-                .attr("class", "node")
-                .style("opacity", 0);
-
-            const nodeContent = nodeEnter.append('div')
-                .attr('class', 'node-content')
-                .style("padding-left", d => `${(d.depth -1) * 20}px`);
-
-            nodeContent.append("i")
-                .attr("class", d => d._children ? "fa-solid fa-plus toggle-icon" : "fa-solid fa-minus toggle-icon")
-                .style("visibility", d => d.children || d._children ? "visible" : "hidden")
-                .on("click", (event, d) => {
-                    toggleChildren(d);
-                    update(d);
-                });
-
-            nodeContent.append("input")
-                .attr("type", "radio")
-                .attr("name", "tree-selector-radio")
-                .style("visibility", d => d.data.hasOwnProperty('row') ? "visible" : "hidden")
-                .attr("value", d => d.data.id)
-                .property("checked", d => d.data.id === selectedNodeId)
-                .on("click", (event, d) => {
-                    selectNode(d, source.resultName);
-                });
-
-            nodeContent.append("span").text(d => d.data.text);
-            
-            nodeEnter.transition().duration(duration).style("opacity", 1);
-            
-            const nodeUpdate = node.merge(nodeEnter);
-            nodeUpdate.select('.node-content').classed('selected', d => d.data.id === selectedNodeId);
-            nodeUpdate.select('input[type="radio"]').property("checked", d => d.data.id === selectedNodeId);
-            nodeUpdate.select("i.toggle-icon").attr("class", d => d._children ? "fa-solid fa-plus toggle-icon" : "fa-solid fa-minus toggle-icon");
-
-            node.exit().transition().duration(duration).style("opacity", 0).remove();
-        }
-
-        /**
-         * Manipula a seleção de um nó.
-         * @param {object} d - O nó de dados D3 selecionado.
-         * @param {string} resultName - O nome do resultado do VA para enviar a seleção.
-         */
-        function selectNode(d, resultName) {
-            if (!d.data.hasOwnProperty('row')) return;
-
-            selectedNodeId = d.data.id;
-            
-            const path = d.ancestors().reverse().slice(1).map(n => n.data.text).join(' / ');
-            selectedValueSpan.text(path).classed("placeholder", false);
-            
-            // Envia a seleção para o SAS VA somente se estiver no ambiente VA
-            if (typeof va !== "undefined" && va.messagingUtil) {
-                va.messagingUtil.postSelectionMessage(resultName, [d.data.row]);
-            } else {
-                console.log(`Seleção para VA (simulado): resultName=${resultName}, rows=[${d.data.row}]`);
-            }
-
-            update(d);
-            toggleDropdown(false);
-        }
-
-        // --- Funções Auxiliares do D3 ---
-        function toggleChildren(d) {
-            if (d.children) { d._children = d.children; d.children = null; } 
-            else { d.children = d._children; d._children = null; }
-        }
-        function collapse(d) {
-            if (d.children) { d._children = d.children; d._children.forEach(collapse); d.children = null; }
-        }
-        function expand(d) {
-            if (d._children) { d.children = d._children; d._children = null; }
-        }
-        function toggleDropdown(show) {
-            const isHidden = dropdown.classed("hidden");
-            const shouldBeHidden = show !== undefined ? !show : !isHidden;
-            dropdown.classed("hidden", shouldBeHidden);
-            selectorDisplay.classed("open", !shouldBeHidden);
-            if (!shouldBeHidden) { searchInput.node().focus(); } 
-            else { if (searchInput.node().value) { searchInput.node().value = ''; filterTree(); }}
-        }
-        function filterTree() {
-            const text = searchInput.node().value.toLowerCase();
-            if (text.length > 0) {
-                root.each(d => { if (d.children) { d._children = d.children; d.children = null; }});
-                const matchingNodes = [];
-                root.each(d => { if (d.data.text.toLowerCase().includes(text)) { matchingNodes.push(d); }});
-                root.each(d => d.hidden = true);
-                matchingNodes.forEach(d => {
-                    d.hidden = false;
-                    let current = d;
-                    while (current.parent) { current = current.parent; expand(current); current.hidden = false; }
-                });
-            } else {
-                root.each(d => { d.hidden = false; });
-                expand(root);
-                if (root.children) { root.children.forEach(collapse); }
-            }
-            update(root);
-        }
-
-        /**
-         * Configura os listeners de eventos da UI.
-         * @param {string} resultName - O nome do resultado para ser usado na seleção.
-         */
-        function setupEventListeners(resultName) {
-            update.resultName = resultName;
-            selectorDisplay.on("click", (event) => {
-                event.stopPropagation();
-                toggleDropdown();
-            });
-            d3.select(window).on("click", (event) => {
-                if (!event.target.closest('.tree-selector-container')) { toggleDropdown(false); }
-            });
-            searchInput.on("keyup", filterTree);
-        }
-
-        // --- Ponto de Entrada Principal --- [MODIFICADO]
-        document.addEventListener("DOMContentLoaded", function () {
-            // Verifica se o código está rodando dentro do SAS VA
-            if (typeof va !== "undefined" && va.messagingUtil) {
-                // Ambiente SAS VA: define o callback para receber dados.
+        document.addEventListener("DOMContentLoaded", function (event) {
+            if (isVAEnvironment && va.messagingUtil) {
                 va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
             } else {
-                // Ambiente de teste (fora do SAS VA): carrega dados de exemplo.
-                console.log("Ambiente fora do SAS VA detectado. Carregando dados de exemplo.");
-                const sampleData = {
-                    resultName: "sampleResult",
-                    data: [
-                        ["América do Sul", "Brasil", "São Paulo"],
-                        ["América do Sul", "Brasil", "Rio de Janeiro"],
-                        ["América do Sul", "Argentina", "Buenos Aires"],
-                        ["Europa", "França", "Paris"],
-                        ["Europa", "Espanha", "Madrid"],
-                        ["Europa", "Espanha", "Barcelona"]
-                    ],
-                    columns: [
-                        { "label": "Continente", "type": "string" },
-                        { "label": "País", "type": "string" },
-                        { "label": "Cidade", "type": "string" }
-                    ]
-                };
-                onDataReceived(sampleData);
+                // Load mock data for testing
+                loadMockData();
             }
         });
-
     </script>
 </body>
 </html>
