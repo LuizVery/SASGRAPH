@@ -558,8 +558,10 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Determine radius now that legend height has been determined
     OLD_RADIUS = RADIUS;
-    RADIUS =
-      Math.min(WIDTH - 2 * SIDE_PAD, HEIGHT - LEG.height - 2 * TOP_PAD) / 2;
+      // Para diminuir a distância, subtraia um valor de LEG.height
+      // Experimente com valores como 20, 30, etc. Quanto maior o valor, menor a distância.
+      RADIUS =
+        Math.min(WIDTH - 2 * SIDE_PAD, HEIGHT - (LEG.height - 20) - 2 * TOP_PAD) / 2;
       // ADICIONE ESTA LINHA PARA REDUZIR O TAMANHO
       RADIUS = RADIUS * 0.8;
 
