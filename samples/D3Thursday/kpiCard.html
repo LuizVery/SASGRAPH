@@ -4,6 +4,7 @@ Adaptado para SAS Visual Analytics.
 Estrutura baseada no exemplo D3 Radar Chart fornecido pela SAS.
 Lógica do card KPI e design fornecidos pelo usuário.
 VERSÃO ADAPTADA: Trabalha com múltiplas linhas ao invés de arrays
+MODIFICAÇÃO: Linha de tendência posicionada ao lado do valor principal
 -->
 <html>
 <head>
@@ -118,19 +119,19 @@ function initializeKPICard() {
         resultName: "kpiCardSample",
         rowCount: 6,
         data: [
-            ["Vendas Anuais", 2019, 5.2, 8.3, 11.2],
-            ["Vendas Anuais", 2020, 6.8, 8.3, 11.2],
-            ["Vendas Anuais", 2021, 7.1, 8.3, 11.2],
-            ["Vendas Anuais", 2022, 8.3, 8.3, 11.2],
-            ["Vendas Anuais", 2023, 9.7, 8.3, 11.2],
-            ["Vendas Anuais", 2024, 11.2, 8.3, 11.2]
+            ["Vendas Anuais", 2019, 1250000, 1500000, 2000000],
+            ["Vendas Anuais", 2020, 1380000, 1500000, 2000000],
+            ["Vendas Anuais", 2021, 1420000, 1500000, 2000000],
+            ["Vendas Anuais", 2022, 1650000, 1500000, 2000000],
+            ["Vendas Anuais", 2023, 1850000, 1500000, 2000000],
+            ["Vendas Anuais", 2024, 1920000, 1500000, 2000000]
         ],
         columns: [
             { label: "Título", type: "string" },
             { label: "Ano", type: "number" },
-            { label: "Valor Temporal", type: "number", format: { name: "BEST", precision: 1 } },
-            { label: "Média Histórica", type: "number", format: { name: "BEST", precision: 1 } },
-            { label: "Meta Anual", type: "number", format: { name: "BEST", precision: 1 } }
+            { label: "Valor Temporal", type: "number", format: { name: "BEST", precision: 0 } },
+            { label: "Média Histórica", type: "number", format: { name: "BEST", precision: 0 } },
+            { label: "Meta Anual", type: "number", format: { name: "BEST", precision: 0 } }
         ]
     };
 
@@ -262,7 +263,12 @@ function initializeKPICard() {
         const valores = timeSeriesData.map(function(d) { return d.valor; });
         const ultimoValor = valores[valores.length - 1];
         const primeiroValor = valores[0];
-        const variacao = ultimoValor - primeiroValor;
+        
+        // Cálculo correto da variação percentual: ((Final - Inicial) / Inicial) * 100
+        let variacao = 0;
+        if (primeiroValor !== 0 && primeiroValor !== null && ultimoValor !== null) {
+            variacao = ((ultimoValor - primeiroValor) / primeiroValor) * 100;
+        }
         
         processedData = {
             titulo: titulo,
@@ -270,7 +276,7 @@ function initializeKPICard() {
                 label: "Variação no Período",
                 value: variacao,
                 format: function(val) { 
-                    return val !== null ? d3.format("+.1f")(val) : "N/A"; 
+                    return val !== null ? d3.format("+.1f")(val) + "%" : "N/A"; 
                 }
             },
             valorSecundario1: {
@@ -361,11 +367,20 @@ function initializeKPICard() {
             .attr("font-size", titleFontSize + "px")
             .text(processedData.titulo);
 
+        // --- Seção Principal: Valor + Gráfico lado a lado ---
+        const mainSectionY = height * 0.3;
+        const mainSectionHeight = height * 0.35;
+        
+        // Divide a seção principal em duas partes: valor (60%) e gráfico (40%)
+        const valorWidth = contentWidth * 0.55;
+        const chartWidth = contentWidth * 0.4;
+        const chartX = padding + valorWidth + (contentWidth * 0.05); // 5% de espaçamento
+
         // --- Rótulo do Valor Principal ---
         mainGroup.append("text")
             .attr("class", "main-label-text")
             .attr("x", padding)
-            .attr("y", height * 0.35)
+            .attr("y", mainSectionY)
             .attr("font-size", labelFontSize + "px")
             .text(processedData.valorPrincipal.label);
 
@@ -373,16 +388,13 @@ function initializeKPICard() {
         mainGroup.append("text")
             .attr("class", "main-value-text")
             .attr("x", padding)
-            .attr("y", height * 0.55)
+            .attr("y", mainSectionY + mainValueFontSize * 1.2)
             .attr("font-size", mainValueFontSize + "px")
-            .text(processedData.valorPrincipal.format(processedData.valorPrincipal.value) + " p.p.");
+            .text(processedData.valorPrincipal.format(processedData.valorPrincipal.value));
 
-        // --- Gráfico de Tendência Temporal ---
-        // Calcula dimensões e posição baseadas no tamanho da tela
-        const chartWidth = Math.min(contentWidth * 0.4, width * 0.3);
-        const chartHeight = Math.min(height * 0.28, chartWidth * 0.65);
-        const chartX = width - chartWidth - padding;
-        const chartY = height * 0.28;
+        // --- Gráfico de Tendência Temporal (ao lado do valor) ---
+        const chartHeight = Math.min(mainSectionHeight * 0.8, chartWidth * 0.6);
+        const chartY = mainSectionY - (chartHeight * 0.1);
         
         const chartGroup = mainGroup.append("g")
             .attr("transform", "translate(" + chartX + ", " + chartY + ")");
@@ -484,16 +496,18 @@ function initializeKPICard() {
                 .attr("cursor", "pointer")
                 .append("title")
                 .text(function(d) { 
-                    return d.period + ": " + d.value.toFixed(1) + " p.p."; 
+                    return d.period + ": " + d3.format(",.0f")(d.value); 
                 });
                 
             // Adiciona labels dos anos nos extremos (se há espaço)
-            if (chartWidth > 120 && periodos.length > 1) {
+            if (chartWidth > 80 && periodos.length > 1) {
+                const labelFontSize = Math.min(9, width * 0.018);
+                
                 // Primeiro período
                 chartGroup.append("text")
                     .attr("x", chartPadding)
                     .attr("y", chartHeight + 12)
-                    .attr("font-size", Math.min(10, width * 0.02) + "px")
+                    .attr("font-size", labelFontSize + "px")
                     .attr("fill", "rgba(255,255,255,0.7)")
                     .attr("text-anchor", "start")
                     .text(periodos[0]);
@@ -502,7 +516,7 @@ function initializeKPICard() {
                 chartGroup.append("text")
                     .attr("x", chartWidth - chartPadding)
                     .attr("y", chartHeight + 12)
-                    .attr("font-size", Math.min(10, width * 0.02) + "px")
+                    .attr("font-size", labelFontSize + "px")
                     .attr("fill", "rgba(255,255,255,0.7)")
                     .attr("text-anchor", "end")
                     .text(periodos[periodos.length - 1]);
@@ -530,8 +544,8 @@ function initializeKPICard() {
             .attr("stroke-width", 1);
 
         // --- Seção Inferior ---
-        const bottomSectionY = separatorY + height * 0.1;
-        const bottomSectionSpacing = height * 0.1;
+        const bottomSectionY = separatorY + height * 0.08;
+        const bottomSectionSpacing = height * 0.08;
         
         // Rótulo Valor Secundário 1
         mainGroup.append("text")
@@ -547,7 +561,7 @@ function initializeKPICard() {
             .attr("x", width - padding)
             .attr("y", bottomSectionY)
             .attr("font-size", secondaryValueFontSize + "px")
-            .text(processedData.valorSecundario1.format(processedData.valorSecundario1.value) + " p.p.");
+            .text(processedData.valorSecundario1.format(processedData.valorSecundario1.value));
             
         // Rótulo Valor Secundário 2
         mainGroup.append("text")
@@ -563,7 +577,7 @@ function initializeKPICard() {
             .attr("x", width - padding)
             .attr("y", bottomSectionY + bottomSectionSpacing)
             .attr("font-size", secondaryValueFontSize + "px")
-            .text(processedData.valorSecundario2.format(processedData.valorSecundario2.value) + " p.p.");
+            .text(processedData.valorSecundario2.format(processedData.valorSecundario2.value));
     }
 }
 </script>
