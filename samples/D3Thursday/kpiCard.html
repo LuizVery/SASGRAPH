@@ -116,13 +116,15 @@ function initializeKPICard() {
         resultName: "kpiCardSample",
         rowCount: 1,
         data: [
-            ["Escolas Total (Exemplo)", 4.8, 0.5, 0.7]
+            ["Vendas Anuais", 12.5, 8.3, 11.2, [5.2, 6.8, 7.1, 8.3, 9.7, 11.2], ["2019", "2020", "2021", "2022", "2023", "2024"]]
         ],
         columns: [
             { label: "Título", type: "string" },
             { label: "Variação no período", type: "number", format: { name: "BEST", precision: 1 } },
             { label: "Média anual", type: "number", format: { name: "BEST", precision: 1 } },
-            { label: "Último ano", type: "number", format: { name: "BEST", precision: 1 } }
+            { label: "Último ano", type: "number", format: { name: "BEST", precision: 1 } },
+            { label: "Série Temporal", type: "array" },
+            { label: "Períodos", type: "array" }
         ]
     };
 
@@ -189,17 +191,21 @@ function initializeKPICard() {
         vaMessage = messageFromVA;
         VA_RESULT_NAME = messageFromVA.resultName;
 
-        // Validação de papéis (roles): espera 1 string e 3 números
+        // Validação de papéis (roles): espera dados temporais obrigatórios
         if (isInSASVA() && typeof va !== 'undefined' && va.contentUtil) {
-            if (!va.contentUtil.validateRoles(messageFromVA, ["string", "number", "number", "number"])) {
+            const expectedRoles = ["string", "number", "number", "number", "array", "array"];
+                
+            if (!va.contentUtil.validateRoles(messageFromVA, expectedRoles, false)) {
                 if (va.messagingUtil) {
                     va.messagingUtil.postInstructionalMessage(
                         VA_RESULT_NAME,
-                        "O Card KPI espera que as colunas sejam atribuídas nesta ordem:\n" +
+                        "O Card KPI com Tendência Temporal espera que as colunas sejam atribuídas nesta ordem:\n" +
                         " 1. Título (string)\n" +
                         " 2. Valor Principal (número)\n" +
                         " 3. Valor Secundário 1 (número)\n" +
-                        " 4. Valor Secundário 2 (número)"
+                        " 4. Valor Secundário 2 (número)\n" +
+                        " 5. Série Temporal - Valores (array de números)\n" +
+                        " 6. Períodos - Labels (array de strings - anos/meses)"
                     );
                 }
                 return;
@@ -233,6 +239,12 @@ function initializeKPICard() {
                 label: columns[3].label,
                 value: dataRow[3],
                 format: dataRow[3] !== null ? d3.format(".1f") : function() { return "N/A"; }
+            },
+            // Dados temporais para linha de tendência
+            serieTemporal: {
+                valores: dataRow[4] || [],
+                periodos: dataRow[5] || [],
+                label: columns[4] ? columns[4].label : "Série Temporal"
             }
         };
 
@@ -317,28 +329,147 @@ function initializeKPICard() {
             .attr("font-size", mainValueFontSize + "px")
             .text(processedData.valorPrincipal.format(processedData.valorPrincipal.value) + " p.p.");
 
-        // --- Ícone de Gráfico (simples) ---
+        // --- Gráfico de Tendência Temporal ---
+        // Calcula dimensões e posição baseadas no tamanho da tela
+        const chartWidth = Math.min(contentWidth * 0.4, width * 0.3);
+        const chartHeight = Math.min(height * 0.28, chartWidth * 0.65);
+        const chartX = width - chartWidth - padding;
+        const chartY = height * 0.28;
+        
         const chartGroup = mainGroup.append("g")
-            .attr("transform", "translate(" + (width - contentWidth * 0.3 - padding) + ", " + (height * 0.3) + ")");
+            .attr("transform", "translate(" + chartX + ", " + chartY + ")");
         
-        const lineData = [
-            {x: 0, y: height * 0.2},
-            {x: contentWidth * 0.05, y: height * 0.15},
-            {x: contentWidth * 0.1, y: height * 0.12},
-            {x: contentWidth * 0.15, y: height * 0.08},
-            {x: contentWidth * 0.2, y: height * 0.05},
-            {x: contentWidth * 0.25, y: height * 0.02}
-        ];
+        // Desenha fundo semi-transparente para o gráfico
+        chartGroup.append("rect")
+            .attr("width", chartWidth)
+            .attr("height", chartHeight)
+            .attr("rx", 4)
+            .attr("fill", "rgba(0,0,0,0.1)")
+            .attr("stroke", "rgba(255,255,255,0.2)")
+            .attr("stroke-width", 1);
         
-        const line = d3.line().x(function(d) { return d.x; }).y(function(d) { return d.y; }).curve(d3.curveMonotoneX);
+        const valores = processedData.serieTemporal.valores;
+        const periodos = processedData.serieTemporal.periodos;
         
-        chartGroup.append("path")
-            .datum(lineData)
-            .attr("d", line)
-            .attr("stroke", "rgba(0,0,0,0.3)")
-            .attr("stroke-width", 3)
-            .attr("fill", "none")
-            .attr("stroke-linecap", "round");
+        if (valores.length > 0) {
+            // Calcula escala para os dados
+            const minVal = d3.min(valores);
+            const maxVal = d3.max(valores);
+            const range = maxVal - minVal || 1;
+            
+            // Margem interna do gráfico
+            const chartPadding = chartWidth * 0.08;
+            const innerWidth = chartWidth - (chartPadding * 2);
+            const innerHeight = chartHeight - (chartPadding * 2);
+            
+            // Prepara os dados para a linha
+            const lineData = valores.map((valor, i) => {
+                const x = chartPadding + (innerWidth / Math.max(valores.length - 1, 1)) * i;
+                const normalizedY = range > 0 ? (valor - minVal) / range : 0.5;
+                const y = chartPadding + innerHeight * (1 - normalizedY);
+                
+                return {
+                    x: x,
+                    y: y,
+                    value: valor,
+                    period: periodos[i] || `P${i + 1}`
+                };
+            });
+            
+            // Desenha área sob a curva (preenchimento)
+            const area = d3.area()
+                .x(function(d) { return d.x; })
+                .y0(chartHeight - chartPadding)
+                .y1(function(d) { return d.y; })
+                .curve(d3.curveMonotoneX);
+            
+            chartGroup.append("path")
+                .datum(lineData)
+                .attr("d", area)
+                .attr("fill", "rgba(255, 255, 255, 0.15)")
+                .attr("opacity", 0.6);
+            
+            // Desenha a linha principal
+            const line = d3.line()
+                .x(function(d) { return d.x; })
+                .y(function(d) { return d.y; })
+                .curve(d3.curveMonotoneX);
+            
+            chartGroup.append("path")
+                .datum(lineData)
+                .attr("d", line)
+                .attr("stroke", "#ffffff")
+                .attr("stroke-width", Math.max(2.5, width * 0.005))
+                .attr("fill", "none")
+                .attr("stroke-linecap", "round")
+                .attr("opacity", 0.9);
+                
+            // Adiciona pontos interativos
+            const points = chartGroup.selectAll(".trend-point")
+                .data(lineData)
+                .enter()
+                .append("g")
+                .attr("class", "trend-point");
+                
+            // Círculo principal
+            points.append("circle")
+                .attr("cx", function(d) { return d.x; })
+                .attr("cy", function(d) { return d.y; })
+                .attr("r", Math.max(3, width * 0.004))
+                .attr("fill", "#ffffff")
+                .attr("stroke", "rgba(0,0,0,0.2)")
+                .attr("stroke-width", 1);
+                
+            // Círculo interno para destaque
+            points.append("circle")
+                .attr("cx", function(d) { return d.x; })
+                .attr("cy", function(d) { return d.y; })
+                .attr("r", Math.max(1.5, width * 0.002))
+                .attr("fill", "#afca0b");
+            
+            // Adiciona tooltips invisíveis para interação
+            points.append("circle")
+                .attr("cx", function(d) { return d.x; })
+                .attr("cy", function(d) { return d.y; })
+                .attr("r", Math.max(8, width * 0.008))
+                .attr("fill", "transparent")
+                .attr("cursor", "pointer")
+                .append("title")
+                .text(function(d) { 
+                    return d.period + ": " + d.value.toFixed(1) + " p.p."; 
+                });
+                
+            // Adiciona labels dos anos nos extremos (se há espaço)
+            if (chartWidth > 120 && periodos.length > 1) {
+                // Primeiro período
+                chartGroup.append("text")
+                    .attr("x", chartPadding)
+                    .attr("y", chartHeight + 12)
+                    .attr("font-size", Math.min(10, width * 0.02) + "px")
+                    .attr("fill", "rgba(255,255,255,0.7)")
+                    .attr("text-anchor", "start")
+                    .text(periodos[0]);
+                    
+                // Último período
+                chartGroup.append("text")
+                    .attr("x", chartWidth - chartPadding)
+                    .attr("y", chartHeight + 12)
+                    .attr("font-size", Math.min(10, width * 0.02) + "px")
+                    .attr("fill", "rgba(255,255,255,0.7)")
+                    .attr("text-anchor", "end")
+                    .text(periodos[periodos.length - 1]);
+            }
+            
+        } else {
+            // Exibe mensagem quando não há dados temporais
+            chartGroup.append("text")
+                .attr("x", chartWidth / 2)
+                .attr("y", chartHeight / 2)
+                .attr("font-size", Math.min(12, width * 0.025) + "px")
+                .attr("fill", "rgba(255,255,255,0.6)")
+                .attr("text-anchor", "middle")
+                .text("Sem dados temporais");
+        }
 
         // --- Linha Separadora ---
         const separatorY = height * 0.7;
