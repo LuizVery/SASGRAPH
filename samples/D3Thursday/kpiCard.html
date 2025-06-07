@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<!--
+Adaptado para SAS Visual Analytics.
+Estrutura baseada no exemplo D3 Radar Chart fornecido pela SAS.
+Lógica do card KPI e design fornecidos pelo usuário.
+-->
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>KPI Card para SAS VA</title>
+    <!-- Import D3.js -->
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+
+    <!-- Importar utilitários do SAS VA (apenas se disponível) -->
+    <script type="text/javascript">
+        // Verifica se os utilitários do SAS VA estão disponíveis antes de importar
+        if (typeof window !== 'undefined' && window.self !== window.top) {
+            // Está em iframe, pode tentar carregar os utilitários do SAS
+            try {
+                document.write('<script type="text/javascript" src="../../util/messagingUtil.js"><\/script>');
+                document.write('<script type="text/javascript" src="../../util/contentUtil.js"><\/script>');
+            } catch(e) {
+                console.log("Utilitários do SAS VA não disponíveis");
+            }
+        }
+    </script>
+</head>
+<body>
+<style type="text/css">
+    /* Estilos globais para garantir que o SVG preencha o espaço */
+    html, body, svg {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden; /* Evita barras de rolagem indesejadas */
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background-color: #f5f5f5; /* Cor de fundo para modo de depuração */
+    }
+
+    /* Estilos para os textos dentro do card */
+    .title-text {
+        fill: #ffffff;
+        font-weight: 400;
+        text-anchor: middle;
+    }
+
+    .main-label-text {
+        fill: rgba(255,255,255,0.9);
+        font-weight: 400;
+    }
+
+    .main-value-text {
+        fill: #ffffff;
+        font-weight: 300;
+    }
+
+    .secondary-label-text {
+        fill: rgba(255,255,255,0.9);
+        font-weight: 400;
+    }
+
+    .secondary-value-text {
+        fill: #ffffff;
+        font-weight: 400;
+        text-anchor: end;
+    }
+</style>
+
+<div id="chart-container"></div>
+
+<script>
+"use strict";
+
+// Função para aguardar o carregamento do D3
+function waitForD3(callback) {
+    if (typeof d3 !== 'undefined') {
+        callback();
+    } else {
+        setTimeout(function() { 
+            waitForD3(callback); 
+        }, 100);
+    }
+}
+
+// Aguarda tanto o DOM quanto o D3 estarem prontos
+document.addEventListener("DOMContentLoaded", function() {
+    waitForD3(function() {
+        initializeKPICard();
+    });
+});
+
+function initializeKPICard() {
+    /*******************************************************
+     * DECLARAÇÃO DE VARIÁVEIS               *
+     *******************************************************/
+
+    // Constantes e configurações
+    const SVG_CONTAINER_ID = "chart-container"; // ID do container do gráfico
+    let VA_RESULT_NAME; // Nome do resultado para comunicação com o VA
+
+    // Dados dinâmicos
+    let vaMessage; // Mensagem de dados recebida do VA
+    let processedData; // Dados processados e prontos para uso
+    let lastRenderTime = 0; // Para debouncing de atualizações
+    const renderDelay = 250; // Atraso para evitar renderizações excessivas
+
+    // Elementos D3
+    let svg, mainGroup;
+
+    /*******************************************************
+     * CONFIGURAÇÃO PARA DEBUG FORA DO SAS VA      *
+     *******************************************************/
+    // Mensagem de dados de exemplo para renderizar o gráfico fora do VA para depuração
+    const SAMPLE_MESSAGE = {
+        resultName: "kpiCardSample",
+        rowCount: 1,
+        data: [
+            ["Escolas Total (Exemplo)", 4.8, 0.5, 0.7]
+        ],
+        columns: [
+            { label: "Título", type: "string" },
+            { label: "Variação no período", type: "number", format: { name: "BEST", precision: 1 } },
+            { label: "Média anual", type: "number", format: { name: "BEST", precision: 1 } },
+            { label: "Último ano", type: "number", format: { name: "BEST", precision: 1 } }
+        ]
+    };
+
+    /*******************************************************
+     * FUNÇÕES DE CALLBACK DO SAS VA          *
+     *******************************************************/
+
+    if (isInSASVA()) {
+        // Este bloco é executado APENAS DENTRO do SAS Visual Analytics
+        // Define a função de callback para receber dados do SAS VA
+        if (typeof va !== 'undefined' && va.messagingUtil) {
+            va.messagingUtil.setOnDataReceivedCallback(handleDataReceived);
+        }
+
+        // Define a função de callback para redimensionamento da janela
+        if (typeof va !== 'undefined' && va.contentUtil) {
+            va.contentUtil.setupResizeListener(renderCard);
+        }
+    } else {
+        // Este bloco é executado FORA do SAS VA (para debug local)
+        // Usa os dados de exemplo para renderizar o card
+        handleDataReceived(SAMPLE_MESSAGE);
+        // Adiciona um listener de redimensionamento padrão do navegador
+        window.addEventListener("resize", renderCard);
+    }
+
+    /**
+     * Verifica se está rodando dentro do SAS Visual Analytics
+     * @returns {boolean} - Verdadeiro se estiver no SAS VA
+     */
+    function isInSASVA() {
+        try {
+            // Verifica se está em iframe E se o objeto va está disponível
+            return window.self !== window.top && 
+                   typeof va !== 'undefined' && 
+                   va.messagingUtil && 
+                   va.contentUtil;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    /**
+     * Controla o fluxo de recebimento de dados para evitar atualizações simultâneas.
+     * @param {object} messageFromVA - O objeto de dados enviado pelo SAS VA.
+     */
+    function handleDataReceived(messageFromVA) {
+        const now = Date.now();
+        if (now - lastRenderTime < renderDelay) {
+            setTimeout(function() { 
+                onDataReceived(messageFromVA); 
+            }, renderDelay);
+        } else {
+            onDataReceived(messageFromVA);
+        }
+        lastRenderTime = now;
+    }
+
+    /**
+     * Processa os dados recebidos do SAS VA e inicia a renderização.
+     * @param {object} messageFromVA - O objeto de dados.
+     */
+    function onDataReceived(messageFromVA) {
+        vaMessage = messageFromVA;
+        VA_RESULT_NAME = messageFromVA.resultName;
+
+        // Validação de papéis (roles): espera 1 string e 3 números
+        if (isInSASVA() && typeof va !== 'undefined' && va.contentUtil) {
+            if (!va.contentUtil.validateRoles(messageFromVA, ["string", "number", "number", "number"])) {
+                if (va.messagingUtil) {
+                    va.messagingUtil.postInstructionalMessage(
+                        VA_RESULT_NAME,
+                        "O Card KPI espera que as colunas sejam atribuídas nesta ordem:\n" +
+                        " 1. Título (string)\n" +
+                        " 2. Valor Principal (número)\n" +
+                        " 3. Valor Secundário 1 (número)\n" +
+                        " 4. Valor Secundário 2 (número)"
+                    );
+                }
+                return;
+            }
+        }
+
+        // Se não houver dados, limpa o gráfico e sai
+        if (!messageFromVA.data || messageFromVA.data.length === 0) {
+            processedData = null;
+            d3.select("#" + SVG_CONTAINER_ID).selectAll("*").remove();
+            return;
+        }
+
+        // Processa os dados para um formato mais fácil de usar
+        const dataRow = messageFromVA.data[0];
+        const columns = messageFromVA.columns;
+
+        processedData = {
+            titulo: dataRow[0],
+            valorPrincipal: {
+                label: columns[1].label,
+                value: dataRow[1],
+                format: dataRow[1] !== null ? d3.format(".1f") : function() { return "N/A"; }
+            },
+            valorSecundario1: {
+                label: columns[2].label,
+                value: dataRow[2],
+                format: dataRow[2] !== null ? d3.format(".1f") : function() { return "N/A"; }
+            },
+            valorSecundario2: {
+                label: columns[3].label,
+                value: dataRow[3],
+                format: dataRow[3] !== null ? d3.format(".1f") : function() { return "N/A"; }
+            }
+        };
+
+        renderCard();
+    }
+
+    /*******************************************************
+     * FUNÇÃO PRINCIPAL DE RENDERIZAÇÃO      *
+     *******************************************************/
+
+    /**
+     * Renderiza ou atualiza o card KPI no SVG.
+     * Esta função é chamada na primeira carga, em atualizações de dados e em redimensionamentos.
+     */
+    function renderCard() {
+        if (!processedData) {
+            return;
+        }
+
+        // Obtém as dimensões do container
+        const width = document.body.clientWidth;
+        const height = document.body.clientHeight;
+
+        // Limpa o container antes de desenhar
+        d3.select("#" + SVG_CONTAINER_ID).selectAll("*").remove();
+
+        // Cria o elemento SVG principal
+        svg = d3.select("#" + SVG_CONTAINER_ID)
+            .append("svg")
+            .attr("width", width)
+            .attr("height", height);
+
+        // --- Definição do Gradiente ---
+        const defs = svg.append("defs");
+        const gradient = defs.append("linearGradient")
+            .attr("id", "cardGradient")
+            .attr("x1", "0%").attr("y1", "0%")
+            .attr("x2", "100%").attr("y2", "100%");
+        gradient.append("stop").attr("offset", "0%").attr("stop-color", "#afca0b");
+        gradient.append("stop").attr("offset", "100%").attr("stop-color", "#009640");
+
+        // --- Fundo do Card ---
+        svg.append("rect")
+            .attr("width", width)
+            .attr("height", height)
+            .attr("rx", 8) // Bordas arredondadas
+            .attr("fill", "url(#cardGradient)");
+
+        // Agrupador principal para facilitar o posicionamento
+        mainGroup = svg.append("g");
+        
+        // --- Cálculo de Posições e Tamanhos Responsivos ---
+        const padding = width * 0.06; // 6% da largura como preenchimento
+        const contentWidth = width - (padding * 2);
+        
+        const titleFontSize = Math.min(height * 0.12, width * 0.075);
+        const mainValueFontSize = Math.min(height * 0.22, width * 0.13);
+        const labelFontSize = Math.min(height * 0.08, width * 0.045);
+        const secondaryValueFontSize = Math.min(height * 0.09, width * 0.05);
+
+        // --- Título Principal ---
+        mainGroup.append("text")
+            .attr("class", "title-text")
+            .attr("x", width / 2)
+            .attr("y", padding + titleFontSize * 0.7)
+            .attr("font-size", titleFontSize + "px")
+            .text(processedData.titulo);
+
+        // --- Rótulo do Valor Principal ---
+        mainGroup.append("text")
+            .attr("class", "main-label-text")
+            .attr("x", padding)
+            .attr("y", height * 0.35)
+            .attr("font-size", labelFontSize + "px")
+            .text(processedData.valorPrincipal.label);
+
+        // --- Valor Principal ---
+        mainGroup.append("text")
+            .attr("class", "main-value-text")
+            .attr("x", padding)
+            .attr("y", height * 0.55)
+            .attr("font-size", mainValueFontSize + "px")
+            .text(processedData.valorPrincipal.format(processedData.valorPrincipal.value) + " p.p.");
+
+        // --- Ícone de Gráfico (simples) ---
+        const chartGroup = mainGroup.append("g")
+            .attr("transform", "translate(" + (width - contentWidth * 0.3 - padding) + ", " + (height * 0.3) + ")");
+        
+        const lineData = [
+            {x: 0, y: height * 0.2},
+            {x: contentWidth * 0.05, y: height * 0.15},
+            {x: contentWidth * 0.1, y: height * 0.12},
+            {x: contentWidth * 0.15, y: height * 0.08},
+            {x: contentWidth * 0.2, y: height * 0.05},
+            {x: contentWidth * 0.25, y: height * 0.02}
+        ];
+        
+        const line = d3.line().x(function(d) { return d.x; }).y(function(d) { return d.y; }).curve(d3.curveMonotoneX);
+        
+        chartGroup.append("path")
+            .datum(lineData)
+            .attr("d", line)
+            .attr("stroke", "rgba(0,0,0,0.3)")
+            .attr("stroke-width", 3)
+            .attr("fill", "none")
+            .attr("stroke-linecap", "round");
+
+        // --- Linha Separadora ---
+        const separatorY = height * 0.7;
+        mainGroup.append("line")
+            .attr("x1", padding)
+            .attr("y1", separatorY)
+            .attr("x2", width - padding)
+            .attr("y2", separatorY)
+            .attr("stroke", "rgba(255,255,255,0.3)")
+            .attr("stroke-width", 1);
+
+        // --- Seção Inferior ---
+        const bottomSectionY = separatorY + height * 0.1;
+        const bottomSectionSpacing = height * 0.1;
+        
+        // Rótulo Valor Secundário 1
+        mainGroup.append("text")
+            .attr("class", "secondary-label-text")
+            .attr("x", padding)
+            .attr("y", bottomSectionY)
+            .attr("font-size", labelFontSize + "px")
+            .text(processedData.valorSecundario1.label);
+        
+        // Valor Secundário 1
+        mainGroup.append("text")
+            .attr("class", "secondary-value-text")
+            .attr("x", width - padding)
+            .attr("y", bottomSectionY)
+            .attr("font-size", secondaryValueFontSize + "px")
+            .text(processedData.valorSecundario1.format(processedData.valorSecundario1.value) + " p.p.");
+            
+        // Rótulo Valor Secundário 2
+        mainGroup.append("text")
+            .attr("class", "secondary-label-text")
+            .attr("x", padding)
+            .attr("y", bottomSectionY + bottomSectionSpacing)
+            .attr("font-size", labelFontSize + "px")
+            .text(processedData.valorSecundario2.label);
+
+        // Valor Secundário 2
+        mainGroup.append("text")
+            .attr("class", "secondary-value-text")
+            .attr("x", width - padding)
+            .attr("y", bottomSectionY + bottomSectionSpacing)
+            .attr("font-size", secondaryValueFontSize + "px")
+            .text(processedData.valorSecundario2.format(processedData.valorSecundario2.value) + " p.p.");
+    }
+}
+</script>
+</body>
+</html>
