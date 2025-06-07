@@ -3,6 +3,7 @@
 Adaptado para SAS Visual Analytics.
 Estrutura baseada no exemplo D3 Radar Chart fornecido pela SAS.
 Lógica do card KPI e design fornecidos pelo usuário.
+VERSÃO ADAPTADA: Trabalha com múltiplas linhas ao invés de arrays
 -->
 <html>
 <head>
@@ -112,19 +113,24 @@ function initializeKPICard() {
      * CONFIGURAÇÃO PARA DEBUG FORA DO SAS VA      *
      *******************************************************/
     // Mensagem de dados de exemplo para renderizar o gráfico fora do VA para depuração
+    // Simula múltiplas linhas como virão do SAS VA
     const SAMPLE_MESSAGE = {
         resultName: "kpiCardSample",
-        rowCount: 1,
+        rowCount: 6,
         data: [
-            ["Vendas Anuais", 12.5, 8.3, 11.2, [5.2, 6.8, 7.1, 8.3, 9.7, 11.2], ["2019", "2020", "2021", "2022", "2023", "2024"]]
+            ["Vendas Anuais", 2019, 5.2, 8.3, 11.2],
+            ["Vendas Anuais", 2020, 6.8, 8.3, 11.2],
+            ["Vendas Anuais", 2021, 7.1, 8.3, 11.2],
+            ["Vendas Anuais", 2022, 8.3, 8.3, 11.2],
+            ["Vendas Anuais", 2023, 9.7, 8.3, 11.2],
+            ["Vendas Anuais", 2024, 11.2, 8.3, 11.2]
         ],
         columns: [
             { label: "Título", type: "string" },
-            { label: "Variação no período", type: "number", format: { name: "BEST", precision: 1 } },
-            { label: "Média anual", type: "number", format: { name: "BEST", precision: 1 } },
-            { label: "Último ano", type: "number", format: { name: "BEST", precision: 1 } },
-            { label: "Série Temporal", type: "array" },
-            { label: "Períodos", type: "array" }
+            { label: "Ano", type: "number" },
+            { label: "Valor Temporal", type: "number", format: { name: "BEST", precision: 1 } },
+            { label: "Média Histórica", type: "number", format: { name: "BEST", precision: 1 } },
+            { label: "Meta Anual", type: "number", format: { name: "BEST", precision: 1 } }
         ]
     };
 
@@ -191,21 +197,21 @@ function initializeKPICard() {
         vaMessage = messageFromVA;
         VA_RESULT_NAME = messageFromVA.resultName;
 
-        // Validação de papéis (roles): espera dados temporais obrigatórios
+        // Validação de papéis (roles): espera dados temporais com múltiplas linhas
         if (isInSASVA() && typeof va !== 'undefined' && va.contentUtil) {
-            const expectedRoles = ["string", "number", "number", "number", "array", "array"];
+            const expectedRoles = ["string", "number", "number", "number", "number"];
                 
             if (!va.contentUtil.validateRoles(messageFromVA, expectedRoles, false)) {
                 if (va.messagingUtil) {
                     va.messagingUtil.postInstructionalMessage(
                         VA_RESULT_NAME,
                         "O Card KPI com Tendência Temporal espera que as colunas sejam atribuídas nesta ordem:\n" +
-                        " 1. Título (string)\n" +
-                        " 2. Valor Principal (número)\n" +
-                        " 3. Valor Secundário 1 (número)\n" +
-                        " 4. Valor Secundário 2 (número)\n" +
-                        " 5. Série Temporal - Valores (array de números)\n" +
-                        " 6. Períodos - Labels (array de strings - anos/meses)"
+                        " 1. Título (string) - Nome do KPI\n" +
+                        " 2. Período (número) - Ano ou período temporal\n" +
+                        " 3. Valor Temporal (número) - Valor para cada período\n" +
+                        " 4. Valor de Referência 1 (número) - Ex: Média histórica\n" +
+                        " 5. Valor de Referência 2 (número) - Ex: Meta ou objetivo\n\n" +
+                        "IMPORTANTE: Cada linha representa um período temporal diferente."
                     );
                 }
                 return;
@@ -219,32 +225,74 @@ function initializeKPICard() {
             return;
         }
 
-        // Processa os dados para um formato mais fácil de usar
-        const dataRow = messageFromVA.data[0];
+        // Processa os dados das múltiplas linhas
         const columns = messageFromVA.columns;
-
+        const allData = messageFromVA.data;
+        
+        // Agrupa os dados temporais
+        const timeSeriesData = [];
+        let titulo = "";
+        let valorReferencia1 = null;
+        let valorReferencia2 = null;
+        
+        // Processa cada linha de dados
+        allData.forEach(function(row, index) {
+            if (index === 0) {
+                // Pega informações da primeira linha
+                titulo = row[0];
+                valorReferencia1 = row[3];
+                valorReferencia2 = row[4];
+            }
+            
+            // Adiciona ponto temporal
+            timeSeriesData.push({
+                periodo: row[1], // Ano ou período
+                valor: row[2],   // Valor temporal
+                ref1: row[3],    // Valor de referência 1
+                ref2: row[4]     // Valor de referência 2
+            });
+        });
+        
+        // Ordena por período para garantir ordem cronológica
+        timeSeriesData.sort(function(a, b) { 
+            return a.periodo - b.periodo; 
+        });
+        
+        // Calcula valores derivados
+        const valores = timeSeriesData.map(function(d) { return d.valor; });
+        const ultimoValor = valores[valores.length - 1];
+        const primeiroValor = valores[0];
+        const variacao = ultimoValor - primeiroValor;
+        
         processedData = {
-            titulo: dataRow[0],
+            titulo: titulo,
             valorPrincipal: {
-                label: columns[1].label,
-                value: dataRow[1],
-                format: dataRow[1] !== null ? d3.format(".1f") : function() { return "N/A"; }
+                label: "Variação no Período",
+                value: variacao,
+                format: function(val) { 
+                    return val !== null ? d3.format("+.1f")(val) : "N/A"; 
+                }
             },
             valorSecundario1: {
-                label: columns[2].label,
-                value: dataRow[2],
-                format: dataRow[2] !== null ? d3.format(".1f") : function() { return "N/A"; }
+                label: columns[3].label,
+                value: valorReferencia1,
+                format: function(val) { 
+                    return val !== null ? d3.format(".1f")(val) : "N/A"; 
+                }
             },
             valorSecundario2: {
-                label: columns[3].label,
-                value: dataRow[3],
-                format: dataRow[3] !== null ? d3.format(".1f") : function() { return "N/A"; }
+                label: columns[4].label,
+                value: valorReferencia2,
+                format: function(val) { 
+                    return val !== null ? d3.format(".1f")(val) : "N/A"; 
+                }
             },
             // Dados temporais para linha de tendência
             serieTemporal: {
-                valores: dataRow[4] || [],
-                periodos: dataRow[5] || [],
-                label: columns[4] ? columns[4].label : "Série Temporal"
+                dados: timeSeriesData,
+                valores: valores,
+                periodos: timeSeriesData.map(function(d) { return d.periodo.toString(); }),
+                label: columns[2].label
             }
         };
 
@@ -363,7 +411,7 @@ function initializeKPICard() {
             const innerHeight = chartHeight - (chartPadding * 2);
             
             // Prepara os dados para a linha
-            const lineData = valores.map((valor, i) => {
+            const lineData = valores.map(function(valor, i) {
                 const x = chartPadding + (innerWidth / Math.max(valores.length - 1, 1)) * i;
                 const normalizedY = range > 0 ? (valor - minVal) / range : 0.5;
                 const y = chartPadding + innerHeight * (1 - normalizedY);
@@ -372,7 +420,7 @@ function initializeKPICard() {
                     x: x,
                     y: y,
                     value: valor,
-                    period: periodos[i] || `P${i + 1}`
+                    period: periodos[i] || ("P" + (i + 1))
                 };
             });
             
