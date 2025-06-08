@@ -3,623 +3,536 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tree Selector Filter</title>
-    <script type="text/javascript" src="../util/messagingUtil.js"></script>
-    <script type="text/javascript" src="../util/contentUtil.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <title>Filtro Hierárquico - Região, UF, Município</title>
     <style>
-        html {
-            overflow: hidden;
-        }
-
-        html, body {
-            width: 100%;
-            height: 100%;
+        * {
             margin: 0;
             padding: 0;
-            font-family: "Albany AMT", arial;
-            font-size: 10pt;
-            overflow-y: auto;
+            box-sizing: border-box;
         }
 
-        div {
-            position: relative;
+        body {
+            font-family: 'Avenir Next', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
         }
 
-        #container {
-            position: relative;
-            width: 100%;
-            height: 100%;
-        }
-
-        .tree-container {
+        .filter-container {
             background: white;
-            border-radius: 4px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            max-width: 400px;
+            margin: 0 auto;
         }
 
-        .tree-header {
-            padding: 12px;
-            background: #f8f9fa;
-            border-bottom: 1px solid #e9ecef;
-            font-weight: 600;
-            color: #333;
-            cursor: pointer;
+        .filter-header {
+            padding: 0;
+            background-color: transparent;
+            border-radius: 8px 8px 0 0;
+        }
+
+        .filter-wrapper {
+            position: relative;
+        }
+
+        .current-selection {
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            flex-shrink: 0;
+            justify-content: space-between;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 12px 16px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: 'Avenir Next', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            font-size: 14px;
+            font-weight: 400;
+            color: #6c757d;
+            min-height: 44px;
         }
 
-        .tree-header:hover {
-            background: #e9ecef;
+        .current-selection:hover {
+            border-color: #adb5bd;
+            background: #f1f3f4;
+        }
+
+        .current-selection:focus {
+            outline: none;
+            border-color: #007acc;
+            box-shadow: 0 0 0 2px rgba(0,122,204,0.1);
+        }
+
+        .current-selection span {
+            color: #6c757d;
+            font-size: 14px;
+            font-weight: 400;
+            font-family: 'Avenir Next', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
         }
 
         .chevron {
             transition: transform 0.2s ease;
+            color: #6c757d;
             font-size: 12px;
-            color: #666;
+            font-weight: normal;
+            width: 16px;
+            height: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .chevron.expanded {
             transform: rotate(180deg);
         }
 
-        .tree-content {
-            overflow: hidden;
-            transition: max-height 0.3s ease;
-            display: flex;
-            flex-direction: column;
-            flex: 1;
-        }
-
-        .tree-content.collapsed {
-            max-height: 0;
-        }
-
-        .tree-content.expanded {
-            max-height: 100%;
-        }
-
         .search-box {
-            padding: 8px 12px;
-            border-bottom: 1px solid #e9ecef;
-            flex-shrink: 0;
+            padding: 12px 20px;
+            border-bottom: 1px solid #e0e0e0;
         }
 
         .search-input {
             width: 100%;
-            padding: 6px 10px;
-            border: 1px solid #ddd;
-            border-radius: 3px;
-            font-size: 10pt;
+            padding: 8px 12px;
+            border: 1px solid #d0d0d0;
+            border-radius: 4px;
+            font-size: 14px;
+            font-family: 'Avenir Next', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
             outline: none;
-            box-sizing: border-box;
+            transition: border-color 0.2s;
         }
 
         .search-input:focus {
-            border-color: #4285f4;
-            box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.2);
+            border-color: #007acc;
+            box-shadow: 0 0 0 2px rgba(0,122,204,0.1);
         }
 
-        .tree-nodes {
+        .tree-view {
+            max-height: 300px;
             overflow-y: auto;
-            flex: 1;
+            padding: 8px 0;
         }
 
         .tree-node {
-            display: block;
-            padding: 6px 12px;
-            border-bottom: 1px solid #f0f0f0;
-            cursor: pointer;
-            transition: background-color 0.2s ease;
-            font-size: 10pt;
-        }
-
-        .tree-node:hover {
-            background-color: #f8f9fa;
-        }
-
-        .tree-node:last-child {
-            border-bottom: none;
+            position: relative;
         }
 
         .node-content {
             display: flex;
             align-items: center;
-            gap: 6px;
+            padding: 6px 20px;
+            cursor: pointer;
+            font-size: 14px;
+            font-family: 'Avenir Next', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            transition: background-color 0.15s;
+        }
+
+        .node-content:hover {
+            background-color: #f0f8ff;
+        }
+
+        .node-content.selected {
+            background-color: #e3f2fd;
+            color: #1976d2;
         }
 
         .expand-icon {
-            width: 14px;
-            height: 14px;
+            width: 16px;
+            height: 16px;
+            margin-right: 8px;
+            cursor: pointer;
+            color: #666;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 9px;
-            color: #666;
-            transition: transform 0.2s ease;
+            font-size: 12px;
+            font-family: 'Avenir Next', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
         }
 
-        .expand-icon.expanded {
-            transform: rotate(90deg);
-        }
-
-        .expand-icon.leaf {
+        .expand-icon.empty {
             visibility: hidden;
         }
 
         .checkbox {
-            width: 14px;
-            height: 14px;
-            border: 1px solid #ddd;
-            border-radius: 2px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: white;
-            transition: all 0.2s ease;
-            font-size: 9px;
-        }
-
-        .checkbox.checked {
-            background: #4285f4;
-            border-color: #4285f4;
-            color: white;
-        }
-
-        .checkbox.indeterminate {
-            background: #4285f4;
-            border-color: #4285f4;
-            color: white;
-        }
-
-        .node-label {
-            flex: 1;
-            color: #333;
-            font-size: 10pt;
-        }
-
-        .tree-node.parent {
-            font-weight: 500;
-        }
-
-        .tree-node.child {
-            font-weight: normal;
-            color: #555;
-        }
-
-        .tree-node.hidden {
-            display: none;
-        }
-
-        .selected-count {
-            padding: 8px 12px;
-            background: #f8f9fa;
-            border-top: 1px solid #e9ecef;
-            font-size: 9pt;
-            color: #666;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #666;
+            border-radius: 50%;
+            margin-right: 8px;
+            position: relative;
             flex-shrink: 0;
         }
 
-        /* Scrollbar styling */
-        ::-webkit-scrollbar {
-            width: 8px;
-            background-color: #f5f5f5;
+        .checkbox.checked {
+            background-color: #333;
+            border-color: #333;
         }
 
-        ::-webkit-scrollbar-thumb {
-            border-radius: 3px;
-            background-color: #888888;
+        .checkbox.checked::after {
+            content: '';
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            background-color: white;
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
         }
 
-        ::-webkit-scrollbar-track {
+        .node-text {
+            flex: 1;
+            user-select: none;
+            font-family: 'Avenir Next', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+        }
+
+        .children {
+            display: none;
+            padding-left: 24px;
+        }
+
+        .children.expanded {
+            display: block;
+        }
+
+        .tree-view::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .tree-view::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        .tree-view::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
             border-radius: 3px;
-            background-color: #f5f5f5;
+        }
+
+        .tree-view::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+
+        .dropdown-panel {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 1000;
+        }
+
+        .dropdown-panel.show {
+            display: block;
         }
     </style>
 </head>
 <body>
-    <div id="container"></div>
+    <div class="filter-container">
+        <div class="filter-header">
+            <div class="filter-wrapper">
+                <div class="current-selection" onclick="toggleDropdown()" tabindex="0">
+                    <span id="selectedText">Região, UF e município</span>
+                    <div class="chevron" id="chevron">▼</div>
+                </div>
+                <div class="dropdown-panel" id="dropdownPanel">
+                    <div class="search-box">
+                        <input type="text" class="search-input" placeholder="Pesquisar" oninput="filterNodes(this.value)">
+                    </div>
+                    <div class="tree-view" id="treeView"></div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script>
-        "use strict";
-
-        let treeSelector = null;
-        let isVAEnvironment = typeof va !== 'undefined';
-
-        function onDataReceived(resultData) {
-            if (!resultData) return;
-
-            let resultName = resultData.resultName;
-            
-            // Only call VA utilities if in VA environment
-            let selections = isVAEnvironment ? va.contentUtil.initializeSelections(resultData) : null;
-
-            const treeData = createTreeData(resultData);
-
-            // Initialize or update tree selector
-            if (treeSelector) {
-                treeSelector.updateData(treeData, resultName);
-            } else {
-                treeSelector = new TreeSelector('#container', treeData, resultName);
-            }
-        }
-
-        // Mock data for testing when not in VA environment
-        function loadMockData() {
-            const mockData = {
-                "version": "1",
-                "resultName": "mock_data",
-                "rowCount": 14,
-                "availableRowCount": 14,
-                "data": [
-                    ["Brasil", "Centro-Oeste", "Distrito Federal"],
-                    ["Brasil", "Centro-Oeste", "Goiás"],
-                    ["Brasil", "Centro-Oeste", "Mato Grosso"],
-                    ["Brasil", "Centro-Oeste", "Mato Grosso do Sul"],
-                    ["Brasil", "Nordeste", "Alagoas"],
-                    ["Brasil", "Nordeste", "Bahia"],
-                    ["Brasil", "Nordeste", "Ceará"],
-                    ["Brasil", "Norte", "Acre"],
-                    ["Brasil", "Norte", "Amapá"],
-                    ["Brasil", "Norte", "Amazonas"],
-                    ["Brasil", "Sudeste", "Espírito Santo"],
-                    ["Brasil", "Sudeste", "Minas Gerais"],
-                    ["Brasil", "Sul", "Paraná"],
-                    ["Brasil", "Sul", "Santa Catarina"]
-                ],
-                "columns": [
-                    {"name": "pais", "label": "País", "type": "string"},
-                    {"name": "regiao", "label": "Região", "type": "string"},
-                    {"name": "estado", "label": "Estado", "type": "string"}
+        // Dados hierárquicos do Brasil
+        const brazilData = [
+            {
+                id: 'brasil',
+                text: 'Brasil',
+                children: [
+                    {
+                        id: 'centro-oeste',
+                        text: 'Centro-Oeste',
+                        children: [
+                            {
+                                id: 'df',
+                                text: 'Distrito Federal',
+                                children: [
+                                    { id: 'brasilia', text: 'Brasília' }
+                                ]
+                            },
+                            {
+                                id: 'go',
+                                text: 'Goiás',
+                                children: [
+                                    { id: 'goiania', text: 'Goiânia' },
+                                    { id: 'anapolis', text: 'Anápolis' }
+                                ]
+                            },
+                            {
+                                id: 'mt',
+                                text: 'Mato Grosso',
+                                children: [
+                                    { id: 'cuiaba', text: 'Cuiabá' },
+                                    { id: 'vg', text: 'Várzea Grande' }
+                                ]
+                            },
+                            {
+                                id: 'ms',
+                                text: 'Mato Grosso do Sul',
+                                children: [
+                                    { id: 'agua-clara', text: 'Água Clara' },
+                                    { id: 'alcinopolis', text: 'Alcinópolis' },
+                                    { id: 'campo-grande', text: 'Campo Grande' }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        id: 'nordeste',
+                        text: 'Nordeste',
+                        children: [
+                            {
+                                id: 'ba',
+                                text: 'Bahia',
+                                children: [
+                                    { id: 'salvador', text: 'Salvador' },
+                                    { id: 'feira-santana', text: 'Feira de Santana' }
+                                ]
+                            },
+                            {
+                                id: 'pe',
+                                text: 'Pernambuco',
+                                children: [
+                                    { id: 'recife', text: 'Recife' },
+                                    { id: 'olinda', text: 'Olinda' }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        id: 'sudeste',
+                        text: 'Sudeste',
+                        children: [
+                            {
+                                id: 'sp',
+                                text: 'São Paulo',
+                                children: [
+                                    { id: 'sao-paulo', text: 'São Paulo' },
+                                    { id: 'campinas', text: 'Campinas' },
+                                    { id: 'santos', text: 'Santos' }
+                                ]
+                            },
+                            {
+                                id: 'rj',
+                                text: 'Rio de Janeiro',
+                                children: [
+                                    { id: 'rio-janeiro', text: 'Rio de Janeiro' },
+                                    { id: 'niteroi', text: 'Niterói' }
+                                ]
+                            }
+                        ]
+                    }
                 ]
-            };
-            onDataReceived(mockData);
+            }
+        ];
+
+        let expandedNodes = new Set(['brasil']);
+        let selectedNodes = new Set();
+        let allNodes = [];
+
+        function flattenNodes(nodes, parent = null) {
+            let result = [];
+            nodes.forEach(node => {
+                const flatNode = { ...node, parent };
+                result.push(flatNode);
+                if (node.children) {
+                    result = result.concat(flattenNodes(node.children, flatNode));
+                }
+            });
+            return result;
         }
 
-        class TreeSelector {
-            constructor(container, data, resultName) {
-                this.container = d3.select(container);
-                this.data = data;
-                this.resultName = resultName;
-                this.selectedItems = new Set();
-                this.expandedNodes = new Set();
-                this.isCollapsed = false;
-                this.searchTerm = '';
-                this.flatNodes = [];
+        function toggleDropdown() {
+            const panel = document.getElementById('dropdownPanel');
+            const chevron = document.getElementById('chevron');
+            
+            if (panel.classList.contains('show')) {
+                panel.classList.remove('show');
+                chevron.classList.remove('expanded');
+            } else {
+                panel.classList.add('show');
+                chevron.classList.add('expanded');
+                renderTree();
+            }
+        }
+
+        function renderTree(filteredNodes = null) {
+            const treeView = document.getElementById('treeView');
+            const nodesToRender = filteredNodes || brazilData;
+            
+            treeView.innerHTML = '';
+            renderNodes(nodesToRender, treeView, 0);
+        }
+
+        function renderNodes(nodes, container, level) {
+            nodes.forEach(node => {
+                const nodeElement = document.createElement('div');
+                nodeElement.className = 'tree-node';
                 
-                this.init();
-            }
-
-            init() {
-                // Clear container
-                this.container.selectAll('*').remove();
+                const nodeContent = document.createElement('div');
+                nodeContent.className = 'node-content';
+                if (selectedNodes.has(node.id)) {
+                    nodeContent.classList.add('selected');
+                }
                 
-                this.createStructure();
-                this.bindEvents();
-                this.render();
-            }
-
-            updateData(data, resultName) {
-                this.data = data;
-                this.resultName = resultName;
-                this.selectedItems.clear();
-                this.expandedNodes.clear();
-                this.searchTerm = '';
-                this.render();
-            }
-
-            createStructure() {
-                const treeContainer = this.container
-                    .append('div')
-                    .attr('class', 'tree-container');
-
-                // Header
-                this.header = treeContainer
-                    .append('div')
-                    .attr('class', 'tree-header')
-                    .html(`
-                        <span>Região, UF, município</span>
-                        <span class="chevron">▼</span>
-                    `);
-
-                // Content container
-                this.content = treeContainer
-                    .append('div')
-                    .attr('class', 'tree-content expanded');
-
-                // Search box
-                this.searchContainer = this.content
-                    .append('div')
-                    .attr('class', 'search-box');
-
-                this.searchInput = this.searchContainer
-                    .append('input')
-                    .attr('class', 'search-input')
-                    .attr('type', 'text')
-                    .attr('placeholder', 'Procurar...');
-
-                // Tree nodes container
-                this.treeNodes = this.content
-                    .append('div')
-                    .attr('class', 'tree-nodes');
-
-                // Selected count
-                this.selectedCount = treeContainer
-                    .append('div')
-                    .attr('class', 'selected-count')
-                    .text('0 itens selecionados');
-            }
-
-            bindEvents() {
-                // Toggle main collapse
-                this.header.on('click', () => {
-                    this.toggleCollapse();
-                });
-
-                // Search functionality
-                this.searchInput.on('input', (event) => {
-                    this.searchTerm = event.target.value.toLowerCase();
-                    this.render();
-                });
-            }
-
-            toggleCollapse() {
-                this.isCollapsed = !this.isCollapsed;
+                // Ícone de expansão
+                const expandIcon = document.createElement('div');
+                expandIcon.className = 'expand-icon';
+                if (node.children && node.children.length > 0) {
+                    expandIcon.textContent = expandedNodes.has(node.id) ? '−' : '+';
+                    expandIcon.onclick = (e) => {
+                        e.stopPropagation();
+                        toggleNode(node.id);
+                    };
+                } else {
+                    expandIcon.classList.add('empty');
+                }
                 
-                this.content
-                    .classed('collapsed', this.isCollapsed)
-                    .classed('expanded', !this.isCollapsed);
-
-                this.header.select('.chevron')
-                    .classed('expanded', this.isCollapsed);
-            }
-
-            flattenTree(node, parent = null, level = 0) {
-                const result = [];
-                const nodeData = {
-                    ...node,
-                    parent,
-                    level,
-                    hasChildren: !!(node.children && node.children.length > 0)
-                };
+                // Checkbox
+                const checkbox = document.createElement('div');
+                checkbox.className = 'checkbox';
+                if (selectedNodes.has(node.id)) {
+                    checkbox.classList.add('checked');
+                }
                 
-                result.push(nodeData);
+                // Texto do nó
+                const nodeText = document.createElement('div');
+                nodeText.className = 'node-text';
+                nodeText.textContent = node.text;
+                
+                nodeContent.appendChild(expandIcon);
+                nodeContent.appendChild(checkbox);
+                nodeContent.appendChild(nodeText);
+                
+                nodeContent.onclick = () => selectNode(node.id);
+                
+                nodeElement.appendChild(nodeContent);
+                
+                // Filhos
+                if (node.children && node.children.length > 0) {
+                    const childrenContainer = document.createElement('div');
+                    childrenContainer.className = 'children';
+                    if (expandedNodes.has(node.id)) {
+                        childrenContainer.classList.add('expanded');
+                    }
+                    
+                    renderNodes(node.children, childrenContainer, level + 1);
+                    nodeElement.appendChild(childrenContainer);
+                }
+                
+                container.appendChild(nodeElement);
+            });
+        }
+
+        function toggleNode(nodeId) {
+            if (expandedNodes.has(nodeId)) {
+                expandedNodes.delete(nodeId);
+            } else {
+                expandedNodes.add(nodeId);
+            }
+            renderTree();
+        }
+
+        function selectNode(nodeId) {
+            selectedNodes.clear();
+            selectedNodes.add(nodeId);
+            
+            // Encontrar o nó selecionado para atualizar o texto
+            const selectedNode = findNodeById(brazilData, nodeId);
+            if (selectedNode) {
+                document.getElementById('selectedText').textContent = selectedNode.text;
+            }
+            
+            renderTree();
+            toggleDropdown();
+        }
+
+        function findNodeById(nodes, id) {
+            for (let node of nodes) {
+                if (node.id === id) {
+                    return node;
+                }
+                if (node.children) {
+                    const found = findNodeById(node.children, id);
+                    if (found) return found;
+                }
+            }
+            return null;
+        }
+
+        function filterNodes(searchTerm) {
+            if (!searchTerm.trim()) {
+                renderTree();
+                return;
+            }
+            
+            const filtered = filterTreeNodes(brazilData, searchTerm.toLowerCase());
+            renderTree(filtered);
+        }
+
+        function filterTreeNodes(nodes, searchTerm) {
+            return nodes.reduce((acc, node) => {
+                const matchesSearch = node.text.toLowerCase().includes(searchTerm);
+                let filteredChildren = [];
                 
                 if (node.children) {
-                    node.children.forEach(child => {
-                        result.push(...this.flattenTree(child, node.id, level + 1));
+                    filteredChildren = filterTreeNodes(node.children, searchTerm);
+                }
+                
+                if (matchesSearch || filteredChildren.length > 0) {
+                    acc.push({
+                        ...node,
+                        children: filteredChildren.length > 0 ? filteredChildren : node.children
                     });
-                }
-                
-                return result;
-            }
-
-            filterNodes(nodes) {
-                if (!this.searchTerm) return nodes;
-                
-                return nodes.filter(node => {
-                    return node.text.toLowerCase().includes(this.searchTerm);
-                });
-            }
-
-            isNodeVisible(node, allNodes) {
-                if (!node.parent) return true;
-                
-                const parentNode = allNodes.find(n => n.id === node.parent);
-                return this.expandedNodes.has(node.parent) && this.isNodeVisible(parentNode, allNodes);
-            }
-
-            getSelectionState(node, allNodes) {
-                if (!node.hasChildren) {
-                    return this.selectedItems.has(node.id) ? 'checked' : 'unchecked';
-                }
-                
-                const children = allNodes.filter(n => n.parent === node.id);
-                const selectedChildren = children.filter(child => {
-                    if (child.hasChildren) {
-                        return this.getSelectionState(child, allNodes) !== 'unchecked';
-                    }
-                    return this.selectedItems.has(child.id);
-                });
-                
-                if (selectedChildren.length === 0) return 'unchecked';
-                if (selectedChildren.length === children.length) {
-                    const allFullySelected = children.every(child => {
-                        if (child.hasChildren) {
-                            return this.getSelectionState(child, allNodes) === 'checked';
-                        }
-                        return this.selectedItems.has(child.id);
-                    });
-                    return allFullySelected ? 'checked' : 'indeterminate';
-                }
-                return 'indeterminate';
-            }
-
-            toggleSelection(node, allNodes) {
-                if (node.hasChildren) {
-                    const currentState = this.getSelectionState(node, allNodes);
-                    const newState = currentState === 'checked' ? false : true;
-                    this.setChildrenSelection(node, allNodes, newState);
-                } else {
-                    if (this.selectedItems.has(node.id)) {
-                        this.selectedItems.delete(node.id);
-                    } else {
-                        this.selectedItems.add(node.id);
+                    
+                    // Auto-expandir nós que contêm resultados
+                    if (filteredChildren.length > 0) {
+                        expandedNodes.add(node.id);
                     }
                 }
-                this.render();
-                this.sendSelectionToVA();
-            }
-
-            setChildrenSelection(parentNode, allNodes, selected) {
-                const children = allNodes.filter(n => n.parent === parentNode.id);
                 
-                children.forEach(child => {
-                    if (child.hasChildren) {
-                        this.setChildrenSelection(child, allNodes, selected);
-                    } else {
-                        if (selected) {
-                            this.selectedItems.add(child.id);
-                        } else {
-                            this.selectedItems.delete(child.id);
-                        }
-                    }
-                });
-            }
-
-            sendSelectionToVA() {
-                // Get selected rows (only leaf nodes have row property)
-                const selectedRows = this.flatNodes
-                    .filter(node => this.selectedItems.has(node.id) && node.hasOwnProperty('row'))
-                    .map(node => node.row);
-                
-                // Send to VA only if in VA environment
-                if (isVAEnvironment && va.messagingUtil) {
-                    va.messagingUtil.postSelectionMessage(this.resultName, selectedRows);
-                } else {
-                    // Console log for testing
-                    console.log('Selected rows:', selectedRows);
-                    console.log('Selected items:', Array.from(this.selectedItems));
-                }
-            }
-
-            render() {
-                this.flatNodes = this.flattenTree(this.data[0] || {});
-                const filteredNodes = this.filterNodes(this.flatNodes);
-                
-                const nodeSelection = this.treeNodes
-                    .selectAll('.tree-node')
-                    .data(filteredNodes, d => d.id);
-
-                // Remove old nodes
-                nodeSelection.exit().remove();
-
-                // Add new nodes
-                const nodeEnter = nodeSelection.enter()
-                    .append('div')
-                    .attr('class', d => `tree-node ${d.hasChildren ? 'parent' : 'child'}`)
-                    .style('padding-left', d => `${12 + (d.level * 20)}px`);
-
-                nodeEnter.append('div')
-                    .attr('class', 'node-content');
-
-                // Update all nodes
-                const nodeUpdate = nodeEnter.merge(nodeSelection);
-
-                nodeUpdate
-                    .classed('hidden', d => {
-                        if (d.level === 0) return false;
-                        return !this.isNodeVisible(d, this.flatNodes);
-                    });
-
-                const nodeContent = nodeUpdate.select('.node-content');
-                nodeContent.selectAll('*').remove();
-
-                // Expand icon
-                nodeContent.append('div')
-                    .attr('class', d => `expand-icon ${d.hasChildren ? '' : 'leaf'} ${this.expandedNodes.has(d.id) ? 'expanded' : ''}`)
-                    .text(d => d.hasChildren ? '▶' : '')
-                    .on('click', (event, d) => {
-                        event.stopPropagation();
-                        if (d.hasChildren) {
-                            if (this.expandedNodes.has(d.id)) {
-                                this.expandedNodes.delete(d.id);
-                            } else {
-                                this.expandedNodes.add(d.id);
-                            }
-                            this.render();
-                        }
-                    });
-
-                // Checkbox
-                const checkbox = nodeContent.append('div')
-                    .attr('class', d => {
-                        const state = this.getSelectionState(d, this.flatNodes);
-                        return `checkbox ${state}`;
-                    })
-                    .on('click', (event, d) => {
-                        event.stopPropagation();
-                        this.toggleSelection(d, this.flatNodes);
-                    });
-
-                checkbox.text(d => {
-                    const state = this.getSelectionState(d, this.flatNodes);
-                    if (state === 'checked') return '✓';
-                    if (state === 'indeterminate') return '−';
-                    return '';
-                });
-
-                // Label
-                nodeContent.append('div')
-                    .attr('class', 'node-label')
-                    .text(d => d.text)
-                    .on('click', (event, d) => {
-                        this.toggleSelection(d, this.flatNodes);
-                    });
-
-                // Update selected count
-                const selectedCount = this.flatNodes
-                    .filter(node => this.selectedItems.has(node.id) && node.hasOwnProperty('row'))
-                    .length;
-                this.selectedCount.text(`${selectedCount} itens selecionados`);
-            }
+                return acc;
+            }, []);
         }
 
-        // Function to create tree data from VA result data
-        function createTreeData(resultData) {
-            // Only use columns that are categories in the tree selector
-            const columns = resultData.columns
-                .map((e, i) => ({ type: e.type, index: i }))
-                .filter(e => e.type !== "number")
-                .map(e => e.index);
-            
-            // Create copy of the original data with only the columns to be used
-            const data = [];
-            resultData.data.forEach((elem, i) => {
-                const row = elem.filter((e, col) => columns.includes(col));
-                data.push(row);
-            });
-
-            // Eliminate leaf hierarchy levels with missing value
-            data.forEach((row) => {
-                let index = row.findLastIndex((element) => element !== "(missing)");
-                if (index >= 0) row.splice(index + 1);
-            });
-
-            // Create the tree data structure
-            let treeData = [];
-            let id = 0;
-            data.forEach(function (row, rowNumber) {
-                row.reduce(function (tree, key, currIndex, rowArray) {
-                    let temp = tree.find(({ text }) => key === text);
-                    if (!temp) {
-                        temp = { id: ++id, text: key, children: [] };
-                        // Add row information only for last level of hierarchy
-                        if (currIndex === rowArray.length - 1) temp.row = rowNumber;
-                        tree.push(temp);
-                    }
-                    return temp.children;
-                }, treeData);
-            });
-
-            return treeData;
-        }
-
-        document.addEventListener("DOMContentLoaded", function (event) {
-            if (isVAEnvironment && va.messagingUtil) {
-                va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
-            } else {
-                // Load mock data for testing
-                loadMockData();
+        // Fechar dropdown ao clicar fora
+        document.addEventListener('click', function(event) {
+            const filterWrapper = document.querySelector('.filter-wrapper');
+            if (!filterWrapper.contains(event.target)) {
+                const panel = document.getElementById('dropdownPanel');
+                const chevron = document.getElementById('chevron');
+                panel.classList.remove('show');
+                chevron.classList.remove('expanded');
             }
         });
+
+        // Suporte ao teclado
+        document.querySelector('.current-selection').addEventListener('keydown', function(event) {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                toggleDropdown();
+            }
+        });
+
+        // Inicializar
+        allNodes = flattenNodes(brazilData);
     </script>
 </body>
 </html>
