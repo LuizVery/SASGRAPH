@@ -7,6 +7,7 @@ VERSÃO ADAPTADA: Trabalha com múltiplas linhas ao invés de arrays
 MODIFICAÇÃO: Linha de tendência posicionada ao lado do valor principal
 ATUALIZAÇÃO: Fundo do gráfico removido, gradiente branco-verde, variação apenas ano anterior
 CORREÇÃO: Removida duplicação da "Variação vs Ano Anterior"
+MELHORIAS: Texto com mais destaque, linha mais grossa, gradiente mais branco, fonte Avenir Next
 -->
 <html>
 <head>
@@ -38,36 +39,39 @@ CORREÇÃO: Removida duplicação da "Variação vs Ano Anterior"
         width: 100%;
         height: 100%;
         overflow: hidden; /* Evita barras de rolagem indesejadas */
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        font-family: 'Avenir Next', 'Avenir', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
         background-color: #f5f5f5; /* Cor de fundo para modo de depuração */
     }
 
-    /* Estilos para os textos dentro do card */
+    /* Estilos para os textos dentro do card - COM MAIS DESTAQUE */
     .title-text {
-        fill: #2d5016;
-        font-weight: 600;
+        fill: #1a4f0e;
+        font-weight: 700;
         text-anchor: middle;
+        text-shadow: 0px 1px 2px rgba(0,0,0,0.1);
     }
 
     .main-label-text {
-        fill: rgba(45,80,22,0.8);
-        font-weight: 400;
+        fill: #2d5016;
+        font-weight: 600;
     }
 
     .main-value-text {
-        fill: #2d5016;
-        font-weight: 300;
+        fill: #1a4f0e;
+        font-weight: 700;
+        text-shadow: 0px 2px 4px rgba(0,0,0,0.15);
     }
 
     .secondary-label-text {
-        fill: rgba(45,80,22,0.8);
-        font-weight: 400;
+        fill: #2d5016;
+        font-weight: 600;
     }
 
     .secondary-value-text {
-        fill: #2d5016;
-        font-weight: 400;
+        fill: #1a4f0e;
+        font-weight: 700;
         text-anchor: end;
+        text-shadow: 0px 1px 2px rgba(0,0,0,0.1);
     }
 </style>
 
@@ -121,19 +125,17 @@ function initializeKPICard() {
         resultName: "kpiCardSample",
         rowCount: 6,
         data: [
-            ["Vendas Anuais", 2019, 1250000, 1500000, 2000000],
-            ["Vendas Anuais", 2020, 1380000, 1500000, 2000000],
-            ["Vendas Anuais", 2021, 1420000, 1500000, 2000000],
-            ["Vendas Anuais", 2022, 1650000, 1500000, 2000000],
-            ["Vendas Anuais", 2023, 1850000, 1500000, 2000000],
-            ["Vendas Anuais", 2024, 1920000, 1500000, 2000000]
+            ["Vendas Anuais", 2019, 1250000],
+            ["Vendas Anuais", 2020, 1380000],
+            ["Vendas Anuais", 2021, 1420000],
+            ["Vendas Anuais", 2022, 1650000],
+            ["Vendas Anuais", 2023, 1850000],
+            ["Vendas Anuais", 2024, 1920000]
         ],
         columns: [
             { label: "Título", type: "string" },
             { label: "Ano", type: "number" },
-            { label: "Valor Temporal", type: "number", format: { name: "BEST", precision: 0 } },
-            { label: "Média Histórica", type: "number", format: { name: "BEST", precision: 0 } },
-            { label: "Meta Anual", type: "number", format: { name: "BEST", precision: 0 } }
+            { label: "Valor Temporal", type: "number", format: { name: "BEST", precision: 0 } }
         ]
     };
 
@@ -202,7 +204,7 @@ function initializeKPICard() {
 
         // Validação de papéis (roles): espera dados temporais com múltiplas linhas
         if (isInSASVA() && typeof va !== 'undefined' && va.contentUtil) {
-            const expectedRoles = ["string", "number", "number", "number", "number"];
+            const expectedRoles = ["string", "number", "number"];
                 
             if (!va.contentUtil.validateRoles(messageFromVA, expectedRoles, false)) {
                 if (va.messagingUtil) {
@@ -211,9 +213,7 @@ function initializeKPICard() {
                         "O Card KPI com Tendência Temporal espera que as colunas sejam atribuídas nesta ordem:\n" +
                         " 1. Título (string) - Nome do KPI\n" +
                         " 2. Período (número) - Ano ou período temporal\n" +
-                        " 3. Valor Temporal (número) - Valor para cada período\n" +
-                        " 4. Valor de Referência 1 (número) - Ex: Média histórica\n" +
-                        " 5. Valor de Referência 2 (número) - Ex: Meta ou objetivo\n\n" +
+                        " 3. Valor Temporal (número) - Valor para cada período\n\n" +
                         "IMPORTANTE: Cada linha representa um período temporal diferente."
                     );
                 }
@@ -246,9 +246,7 @@ function initializeKPICard() {
             // Adiciona ponto temporal
             timeSeriesData.push({
                 periodo: row[1], // Ano ou período
-                valor: row[2],   // Valor temporal
-                ref1: row[3],    // Valor de referência 1
-                ref2: row[4]     // Valor de referência 2
+                valor: row[2]    // Valor temporal
             });
         });
         
@@ -330,21 +328,23 @@ function initializeKPICard() {
             .attr("width", width)
             .attr("height", height);
 
-        // --- Definição do Gradiente MODIFICADO: Branco para Verde ---
+        // --- Definição do Gradiente CORRIGIDO: Branco predominante com verde suave ---
         const defs = svg.append("defs");
         const gradient = defs.append("linearGradient")
             .attr("id", "cardGradient")
             .attr("x1", "0%").attr("y1", "0%")
             .attr("x2", "100%").attr("y2", "100%");
         gradient.append("stop").attr("offset", "0%").attr("stop-color", "#ffffff");
-        gradient.append("stop").attr("offset", "100%").attr("stop-color", "#4a7c59");
+        gradient.append("stop").attr("offset", "100%").attr("stop-color", "#4CAF50");
 
-        // --- Fundo do Card ---
+        // --- Fundo do Card com Borda ---
         svg.append("rect")
             .attr("width", width)
             .attr("height", height)
             .attr("rx", 8) // Bordas arredondadas
-            .attr("fill", "url(#cardGradient)");
+            .attr("fill", "url(#cardGradient)")
+            .attr("stroke", "#d0d0d0")
+            .attr("stroke-width", 1);
 
         // Agrupador principal para facilitar o posicionamento
         mainGroup = svg.append("g");
@@ -391,7 +391,7 @@ function initializeKPICard() {
             .attr("font-size", mainValueFontSize + "px")
             .text(processedData.valorPrincipal.format(processedData.valorPrincipal.value));
 
-        // --- Gráfico de Tendência Temporal (ao lado do valor) - MODIFICADO: Sem fundo ---
+        // --- Gráfico de Tendência Temporal (ao lado do valor) - LINHA MAIS GROSSA ---
         const chartHeight = Math.min(mainSectionHeight * 0.8, chartWidth * 0.6);
         const chartY = mainSectionY - (chartHeight * 0.1);
         
@@ -426,20 +426,7 @@ function initializeKPICard() {
                 };
             });
             
-            // Desenha área sob a curva (preenchimento) - mantido mas mais sutil
-            const area = d3.area()
-                .x(function(d) { return d.x; })
-                .y0(chartHeight - chartPadding)
-                .y1(function(d) { return d.y; })
-                .curve(d3.curveMonotoneX);
-            
-            chartGroup.append("path")
-                .datum(lineData)
-                .attr("d", area)
-                .attr("fill", "rgba(74, 124, 89, 0.1)")
-                .attr("opacity", 0.4);
-            
-            // Desenha a linha principal - cor ajustada para o novo tema
+            // Desenha a linha principal - MAIS GROSSA, SEM FUNDO
             const line = d3.line()
                 .x(function(d) { return d.x; })
                 .y(function(d) { return d.y; })
@@ -448,69 +435,11 @@ function initializeKPICard() {
             chartGroup.append("path")
                 .datum(lineData)
                 .attr("d", line)
-                .attr("stroke", "#4a7c59")
-                .attr("stroke-width", Math.max(2.5, width * 0.005))
+                .attr("stroke", "#1A9850")
+                .attr("stroke-width", Math.max(6, width * 0.012)) // Linha mais grossa
                 .attr("fill", "none")
                 .attr("stroke-linecap", "round")
-                .attr("opacity", 0.9);
-                
-            // Adiciona pontos interativos - cores ajustadas
-            const points = chartGroup.selectAll(".trend-point")
-                .data(lineData)
-                .enter()
-                .append("g")
-                .attr("class", "trend-point");
-                
-            // Círculo principal
-            points.append("circle")
-                .attr("cx", function(d) { return d.x; })
-                .attr("cy", function(d) { return d.y; })
-                .attr("r", Math.max(3, width * 0.004))
-                .attr("fill", "#4a7c59")
-                .attr("stroke", "rgba(255,255,255,0.8)")
-                .attr("stroke-width", 1);
-                
-            // Círculo interno para destaque
-            points.append("circle")
-                .attr("cx", function(d) { return d.x; })
-                .attr("cy", function(d) { return d.y; })
-                .attr("r", Math.max(1.5, width * 0.002))
-                .attr("fill", "#ffffff");
-            
-            // Adiciona tooltips invisíveis para interação
-            points.append("circle")
-                .attr("cx", function(d) { return d.x; })
-                .attr("cy", function(d) { return d.y; })
-                .attr("r", Math.max(8, width * 0.008))
-                .attr("fill", "transparent")
-                .attr("cursor", "pointer")
-                .append("title")
-                .text(function(d) { 
-                    return d.period + ": " + d3.format(",.0f")(d.value); 
-                });
-                
-            // Adiciona labels dos anos nos extremos (se há espaço) - cor ajustada
-            if (chartWidth > 80 && periodos.length > 1) {
-                const labelFontSize = Math.min(9, width * 0.018);
-                
-                // Primeiro período
-                chartGroup.append("text")
-                    .attr("x", chartPadding)
-                    .attr("y", chartHeight + 12)
-                    .attr("font-size", labelFontSize + "px")
-                    .attr("fill", "rgba(45,80,22,0.6)")
-                    .attr("text-anchor", "start")
-                    .text(periodos[0]);
-                    
-                // Último período
-                chartGroup.append("text")
-                    .attr("x", chartWidth - chartPadding)
-                    .attr("y", chartHeight + 12)
-                    .attr("font-size", labelFontSize + "px")
-                    .attr("fill", "rgba(45,80,22,0.6)")
-                    .attr("text-anchor", "end")
-                    .text(periodos[periodos.length - 1]);
-            }
+                .attr("opacity", 1);
             
         } else {
             // Exibe mensagem quando não há dados temporais
