@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<!--
+Copyright 2018 SAS Institute Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<html>
+<head>
+  <!-- Import D3.js -->
+  <script type="text/javascript" src="https://d3js.org/d3.v5.min.js"></script>
+
+  <!-- Import d3-tip -->
+  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/d3-tip/0.9.1/d3-tip.min.js"></script>
+
+  <!-- Import utilities (placeholders for local dev) -->
+  <script>
+    // Mocking VA utilities for local development if they are not available.
+    var va = {
+      messagingUtil: {
+        setOnDataReceivedCallback: function(callback) {
+          this.callback = callback;
+        },
+        postInstructionalMessage: function(resultName, message) {
+          console.warn("Instructional Message:", message);
+        },
+        _trigger: function(data) {
+          if (this.callback) {
+            this.callback(data);
+          }
+        }
+      },
+      contentUtil: {
+        setupResizeListener: function(callback) {
+          window.addEventListener("resize", callback);
+        },
+        validateRoles: function(message, types, numbers) {
+          // Basic validation mock
+          return message.columns.length >= 3;
+        }
+      }
+    };
+  </script>
+</head>
+<body>
+<style type="text/css">
+  html, body, svg {
+    overflow: hidden;
+    margin: 0px;
+    width: 100%;
+    height: 100%;
+  }
+  /* Define a fonte padrão e o tamanho para todos os textos */
+  text {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 12px;
+  }
+
+  /* Define um tamanho menor para o título da legenda */
+  .legend-title {
+    font-weight: bold;
+    text-anchor: middle;
+    dominant-baseline: hanging;
+    font-size: 0.7em;
+  }
+
+  /* Define um tamanho menor para o texto da legenda */
+  .legend-text {
+    dominant-baseline: central;
+    font-size: 0.7em;
+  }
+
+  .legend-rect {
+    stroke-width: 1;
+  }
+
+  .g-legend-entry {
+    cursor: pointer;
+  }
+
+  .g-legend-entry.selected .legend-text {
+    font-weight: bold;
+  }
+
+  .g-legend-entry.selected .legend-rect {
+    stroke-width: 2px;
+  }
+
+  .data-path {
+    pointer-events: none;
+    fill: none; /* Garante que não há preenchimento */
+  }
+
+  .measure-label {
+    dominant-baseline: hanging;
+  }
+
+  /* Ajusta o tamanho da fonte do container do tooltip */
+  .d3-tip {
+    pointer-events: none !important;
+    background: white;
+    position: relative;
+    border: 1px solid #C4C4C4;
+    border-radius: 2px;
+    padding: 6px;
+    font-size: .7em;
+  }
+
+  /* Create arrow on tooltip */
+  .d3-tip.n:before, .d3-tip.ne:before, .d3-tip.nw:before, .d3-tip.s:before, .d3-tip.se:before, .d3-tip.sw:before {
+    content: "";
+    position: absolute;
+    border-style: solid;
+    border-width: 5px 10px 5px 0;
+    border-color: transparent #C4C4C4;
+    transform-origin: 0% 0%;
+  }
+
+  .d3-tip.n:after, .d3-tip.ne:after, .d3-tip.nw:after, .d3-tip.s:after, .d3-tip.se:after, .d3-tip.sw:after {
+    content: "";
+    position: absolute;
+    border-style: solid;
+    border-width: 4px 8px 4px 0;
+    border-color: transparent #fff;
+    transform-origin: 0% 0%;
+  }
+
+  /* Move the arrow depending on direction */
+  /* North */
+  .d3-tip.n:before, .d3-tip.n:after {
+    top: 100%;
+    left: 50%;
+    transform: rotate(-90deg) translate(-10px, -5px);
+  }
+
+  .d3-tip.n:after {
+    transform: rotate(-90deg) translate(-7px, -4px);
+  }
+
+  /* North east */
+  .d3-tip.ne:before, .d3-tip.ne:after {
+    top: 100%;
+    left: 0%;
+    transform: rotate(-45deg) translate(-6px, -5px);
+  }
+
+  .d3-tip.ne:after {
+    transform: rotate(-45deg) translate(-3px, -4px);
+  }
+
+  /* North west */
+  .d3-tip.nw:before, .d3-tip.nw:after {
+    top: 100%;
+    left: 100%;
+    transform: rotate(-135deg) translate(-6px, -5px);
+  }
+
+  .d3-tip.nw:after {
+    transform: rotate(-135deg) translate(-3px, -4px);
+  }
+
+  /* South */
+  .d3-tip.s:before, .d3-tip.s:after {
+    top: 0%;
+    left: 50%;
+    transform: rotate(90deg) translate(-10px, -5px);
+  }
+
+  .d3-tip.s:after {
+    transform: rotate(90deg) translate(-7px, -4px);
+  }
+
+  /* South east */
+  .d3-tip.se:before, .d3-tip.se:after {
+    top: 0%;
+    left: 0%;
+    transform: rotate(45deg) translate(-6px, -5px);
+  }
+
+  .d3-tip.se:after {
+    transform: rotate(45deg) translate(-3px, -4px);
+  }
+
+  /* South west */
+  .d3-tip.sw:before, .d3-tip.sw:after {
+    top: 0%;
+    left: 100%;
+    transform: rotate(135deg) translate(-6px, -5px);
+  }
+
+  .d3-tip.sw:after {
+    transform: rotate(135deg) translate(-3px, -4px);
+  }
+
+  /* Style tip content */
+  .d3-tip-content {
+    white-space: nowrap;
+    text-align: left;
+  }
+</style>
+
+<script>
+"use strict";
+
+document.addEventListener("DOMContentLoaded", function() {
+  /******************************************************* Declare variables *******************************************************/
+
+  // Static data variables
+  const SVG_ID = "radar"; // ID of SVG element
+  const SAMPLE_MESSAGE = {
+    version: "1",
+    resultName: "dd55",
+    rowCount: 18,
+    availableRowCount: 18,
+    data: [
+      ["Hybrid", "Cylinders", 3.66],
+      ["Hybrid", "MPG (City)", 55],
+      ["Hybrid", "MSRP", 19920],
+      ["Sedan", "Cylinders", 5.58],
+      ["Sedan", "MPG (City)", 21.08],
+      ["Sedan", "MSRP", 29773.61],
+      ["Sports", "Cylinders", 6.34],
+      ["Sports", "MPG (City)", 18.40],
+      ["Sports", "MSRP", 53387.06],
+      ["SUV", "Cylinders", 6.56],
+      ["SUV", "MPG (City)", 16.1],
+      ["SUV", "MSRP", 34790.25],
+      ["Truck", "Cylinders", 6.25],
+      ["Truck", "MPG (City)", 16.5],
+      ["Truck", "MSRP", 24941.37],
+      ["Wagon", "Cylinders", 5.3],
+      ["Wagon", "MPG (City)", 21.1],
+      ["Wagon", "MSRP", 28840.53]
+    ],
+    columns: [
+      { name: "bi173", label: "Type", type: "string" },
+      { name: "bi174", label: "Metric", type: "string" },
+      { name: "bi175", label: "Measure", type: "number", usage: "quantitative" }
+    ]
+  }; // Sample data for local debugging
+
+  // Dynamic data variables
+  let VA_MESSAGE; // Data message to be received from VA
+  let VA_RESULT_NAME; // Result name required to send messages back to VA
+  let DATA; // Data to be parsed from VA data message
+  let OLD_DATA; // Data from previous render to track duplicate point
+  let METADATA = []; // Metadata to be parsed from VA data message
+  let OLD_METADATA; // Metadata from previous render to track duplicate point
+  let SELECTED_CATEGORY; // Currently selected category
+  let LAST_TRANSITION_END = Date.now(); // Time of last transition used to time transition callbacks
+
+  // Static dimension variables
+  const TRANS_TIME = 500; // Duration of major transitions
+  const TRANS_DELAY = 20; // Small buffer to ensure all callbacks have finished before allowing new transition
+  const HOVER_TRANS_TIME = 100; // Duration of focus transitions
+  const ENTER_REMOVE_TRANS_TIME = 200; // Duration of enter and exit transitions for data points and grid lines
+  const MEASURE_LABEL_PADDING = 5; // Padding between edge of radar chart and measure labels
+
+  // Dynamic dimension variables
+  let WIDTH; // Width of SVG element
+  let HEIGHT; // Height of SVG element
+  let RADIUS; // Radius of radar chart
+  let OLD_RADIUS; // Previous radius of chart used for tweening height changes
+  let DELTA_ANGLE; // Angle in radians between each measure on circle
+  let TOP_PAD; // Vertical padding for measure labels
+  let SIDE_PAD; // Horizontal padding for measure labels
+
+  // Selection and d3 variables
+  const SCALED_FORMAT = d3.format("3.0f"); // Format for scaled version of measure displayed in tooltip
+  d3.selection.prototype.moveToFront = function() {
+    return this.each(function() {
+      this.parentNode.appendChild(this);
+    });
+  }; // Bring element to front of SVG (from https://github.com/wbkd/d3-extended)
+  let SVG; // SVG selection
+  let G_CHART_AREA; // Chart area group selection
+  let G_GRID; // Grid lines group selection
+  let GRID_LINES; // Grid lines data-join
+  let GRID_CIRCLES; // Grid circles data-join
+  let MEASURE_LABELS; // Measure labels data-join
+  let DATA_PATHS; // Data paths data-join
+  let DATA_POINTS; // Data points data-join
+
+  // Legend variables
+  const LEG = {
+    topPad: 5, rowPad: 3, rectWidth: 12, rectPad: 5, textPad: 5,
+    title: undefined, data: undefined, elPos: undefined,
+    height: undefined, groupSelection: undefined, titleDataJoin: undefined, groupDataJoin: undefined
+  };
+
+  // Tooltip variables
+  const TIP = { self: undefined, dir: "n" };
+
+  // Color variables
+  const COLORS = {
+    categories: {
+      Hybrid: "#4CAF50", Sedan: "#8BC34A", Sports: "#2E7D32",
+      SUV: "#00695C", Truck: "#689F38", Wagon: "#9CCC65"
+    },
+    scale: d3.scaleOrdinal([
+        "#4CAF50", "#8BC34A", "#2E7D32", "#00695C", "#689F38", "#9CCC65",
+        "#33691E", "#7CB342", "#1B5E20", "#004D40", "#558B2F", "#76FF03"
+    ])
+  };
+
+  /*************************************************** Setup Callback Functions ***************************************************/
+  va.messagingUtil.setOnDataReceivedCallback(handleCallback);
+
+  if (!inIframe()) {
+    handleCallback(SAMPLE_MESSAGE);
+  }
+
+  va.contentUtil.setupResizeListener(drawElements);
+
+  /****************************************************** Callback Functions ******************************************************/
+  function handleCallback(messageFromVA) {
+    if (LAST_TRANSITION_END > Date.now()) {
+      setTimeout(() => onDataReceived(messageFromVA), LAST_TRANSITION_END - Date.now());
+      LAST_TRANSITION_END += TRANS_TIME + TRANS_DELAY;
+    } else {
+      onDataReceived(messageFromVA);
+      LAST_TRANSITION_END = Date.now() + TRANS_TIME + TRANS_DELAY;
+    }
+  }
+
+  function onDataReceived(messageFromVA) {
+    VA_MESSAGE = messageFromVA;
+    VA_RESULT_NAME = messageFromVA.resultName;
+
+    if (!va.contentUtil.validateRoles(messageFromVA, ["string", "string", "number"], ["number"])) {
+      va.messagingUtil.postInstructionalMessage(VA_RESULT_NAME, "D3 Radar Chart expects columns to be assigned in this order:\n 1. Category (string)\n 2. Metric Name (string)\n 3. Metric Value (number)");
+      return;
+    }
+
+    const nestedData = d3.nest().key(d => d[1]).entries(VA_MESSAGE.data);
+    const numMeasures = nestedData.length;
+
+    // *** CHANGED: Calculate a single global maximum value for scaling ***
+    const globalMaximum = d3.max(VA_MESSAGE.data, d => d[2]);
+
+    OLD_METADATA = METADATA;
+    DELTA_ANGLE = (2 * Math.PI) / numMeasures;
+    METADATA = { category: VA_MESSAGE.columns[0].label, metrics: {} };
+
+    for (let i = 0; i < numMeasures; i++) {
+      METADATA.metrics[nestedData[i].key] = {
+        metric: nestedData[i].key,
+        angle: i * DELTA_ANGLE,
+        format: d3.format(",.2f") // Using a generic format, can be customized if needed
+      };
+    }
+
+    OLD_DATA = DATA;
+    const dataGroupedByCategory = d3.nest().key(d => d[0]).entries(VA_MESSAGE.data);
+
+    DATA = dataGroupedByCategory.map(categoryGroup => ({
+      category: categoryGroup.key,
+      id: "id-" + categoryGroup.key.replace(/[\W]/g, "_"),
+      metrics: categoryGroup.values.map(d => ({
+        metric: d[1],
+        measure: d[2],
+        // *** CHANGED: Scale measure against the global maximum ***
+        scaledMeasure: globalMaximum > 0 ? d[2] / globalMaximum : 0
+      }))
+    }));
+
+    LEG.title = "";
+    LEG.data = DATA.map(d => ({ key: d.category, id: d.id }));
+
+    if (d3.select("#" + SVG_ID).empty()) {
+      drawElements();
+    } else {
+      updateElements();
+    }
+  }
+
+  function drawElements() {
+    if (!DATA) return;
+
+    WIDTH = document.body.clientWidth;
+    HEIGHT = document.body.clientHeight;
+
+    d3.select("body").selectAll("#" + SVG_ID).data([DATA]).enter()
+      .append("svg").attr("id", SVG_ID)
+      .on("click", legendDeselectAll)
+      .each(function() {
+        TIP.self = d3.tip().attr("class", "d3-tip").offset([-8, 0])
+          .html(d =>
+            `<table class='d3-tip-content'>
+              <tr><td>${METADATA.category}:</td><td>${d.category}</td></tr>
+              <tr><td>${d.metric}:</td><td>${METADATA.metrics[d.metric].format(d.measure)}</td></tr>
+              <tr><td>${d.metric} Scaled:</td><td>${SCALED_FORMAT(d.scaledMeasure * 100)}</td></tr>
+            </table>`
+          );
+        d3.select(this).call(TIP.self);
+      });
+
+    SVG = d3.select("#" + SVG_ID);
+    calculatePadding();
+    calculateLegendDimensions();
+    drawLegend();
+
+    OLD_RADIUS = RADIUS;
+    RADIUS = Math.min(WIDTH - 2 * SIDE_PAD, HEIGHT - LEG.height - 2 * TOP_PAD) / 2 * 0.9;
+
+    G_CHART_AREA = SVG.selectAll(".g-chart-area").data([DATA]).enter()
+      .append("g").classed("g-chart-area", true)
+      .merge(SVG.select(".g-chart-area"))
+      .attr("transform", `translate(${WIDTH / 2}, ${TOP_PAD + RADIUS})`);
+
+    G_GRID = G_CHART_AREA.selectAll(".g-grid").data([DATA]).enter()
+      .append("g").classed("g-grid", true)
+      .merge(G_CHART_AREA.select(".g-grid"));
+
+    GRID_LINES = G_GRID.selectAll(".grid-line").data(Object.values(METADATA.metrics), d => d.metric);
+    GRID_LINES.enter().append("line").classed("grid-line", true)
+      .attr("stroke", "#C4C4C4").attr("x1", 0).attr("y1", 0)
+      .merge(GRID_LINES)
+      .attr("x2", d => RADIUS * Math.sin(d.angle))
+      .attr("y2", d => -RADIUS * Math.cos(d.angle));
+
+    GRID_CIRCLES = G_GRID.selectAll(".grid-circle").data([0.2, 0.4, 0.6, 0.8, 1]);
+    GRID_CIRCLES.enter().append("circle").classed("grid-circle", true)
+      .attr("fill", "none").attr("stroke", "#E4E4E4").attr("cx", 0).attr("cy", 0)
+      .merge(GRID_CIRCLES)
+      .attr("r", d => d * RADIUS);
+
+    MEASURE_LABELS = G_CHART_AREA.selectAll(".measure-label").data(Object.values(METADATA.metrics), d => d.metric);
+    MEASURE_LABELS.enter().append("text").classed("measure-label", true)
+      .text(d => d.metric)
+      .merge(MEASURE_LABELS)
+      .attr("x", d => (RADIUS + MEASURE_LABEL_PADDING) * Math.sin(d.angle))
+      .attr("y", d => -(RADIUS + MEASURE_LABEL_PADDING) * Math.cos(d.angle))
+      .attr("dx", function(d) {
+        return d.angle == 0 || d.angle == Math.PI ? -this.getBBox().width / 2 + "px"
+          : d.angle > 0 && d.angle < Math.PI ? "0px" : -this.getBBox().width + "px";
+      }).attr("dy", function(d) {
+        return d.angle == Math.PI / 2 || d.angle == (3 * Math.PI) / 2 ? -this.getBBox().height / 2 + "px"
+          : d.angle > Math.PI / 2 && d.angle < (3 * Math.PI) / 2 ? "0px" : -this.getBBox().height + "px";
+      });
+
+    DATA_PATHS = G_CHART_AREA.selectAll(".data-path").data(DATA, d => d.category);
+    DATA_PATHS.enter().append("path").classed("data-path", true)
+      .attr("id", d => `${d.category}-path`)
+      .merge(DATA_PATHS)
+      // *** CHANGED: No fill, full opacity stroke ***
+      .attr("stroke", d => COLORS.categories[d.category] || COLORS.scale(d.category))
+      .attr("stroke-width", 2)
+      .attr("d", getPathGenerator());
+
+    d3.selectAll(".tip").style("top", `${RADIUS + TOP_PAD - this.height / 2}px`)
+      .style("left", `${WIDTH / 2 - this.width / 2}px`);
+  }
+
+  function getPathGenerator() {
+    return function(d) {
+      const dPath = d;
+      const points = [];
+      let path = "M ";
+      let x, y;
+      for (let j = 0; j < dPath.metrics.length; j++) {
+        const angle = METADATA.metrics[dPath.metrics[j].metric].angle;
+        x = RADIUS * dPath.metrics[j].scaledMeasure * Math.sin(angle);
+        y = -RADIUS * dPath.metrics[j].scaledMeasure * Math.cos(angle);
+        points.push({
+          category: dPath.category, metric: dPath.metrics[j].metric,
+          measure: dPath.metrics[j].measure, scaledMeasure: dPath.metrics[j].scaledMeasure,
+          x: x, y: y
+        });
+        path += `${x},${y}${j === dPath.metrics.length - 1 ? " Z" : " L "}`;
+      }
+
+      DATA_POINTS = G_CHART_AREA.selectAll(`.data-point-${dPath.id}`).data(points, p => p.metric);
+
+      DATA_POINTS.enter().append("circle").classed(`data-point-${dPath.id}`, true)
+        .attr("r", 4)
+        .on("mouseover", function(p) {
+          TIP.self.direction("n").offset([-8, 0]).show(p, this)
+            .direction(getTipDirection()).offset(getTipOffset()).show(p, this);
+        }).on("mouseout", TIP.self.hide)
+        .merge(DATA_POINTS)
+        .attr("fill", COLORS.categories[dPath.category] || COLORS.scale(dPath.category))
+        .attr("cx", p => p.x)
+        .attr("cy", p => p.y);
+      
+      DATA_POINTS.exit().remove();
+      
+      return path;
+    };
+  }
+
+
+  function updateElements() {
+    calculatePadding();
+    calculateLegendDimensions();
+    updateLegend();
+
+    OLD_RADIUS = RADIUS;
+    RADIUS = Math.min(WIDTH - 2 * SIDE_PAD, HEIGHT - LEG.height - 2 * TOP_PAD) / 2 * 0.9;
+
+    G_CHART_AREA.transition().duration(TRANS_TIME)
+      .attr("transform", `translate(${WIDTH / 2}, ${TOP_PAD + RADIUS})`);
+
+    GRID_LINES = G_GRID.selectAll(".grid-line").data(Object.values(METADATA.metrics), d => d.metric);
+    GRID_LINES.exit().transition().duration(ENTER_REMOVE_TRANS_TIME).style("opacity", 0).remove();
+    GRID_LINES.enter().append("line").classed("grid-line", true).attr("stroke", "#C4C4C4").attr("x1", 0).attr("y1", 0)
+      .style("opacity", 0).transition().delay(TRANS_TIME - ENTER_REMOVE_TRANS_TIME).duration(ENTER_REMOVE_TRANS_TIME).style("opacity", 1)
+      .merge(GRID_LINES).transition().duration(TRANS_TIME)
+      .attr("x2", d => RADIUS * Math.sin(d.angle))
+      .attr("y2", d => -RADIUS * Math.cos(d.angle));
+
+    GRID_CIRCLES = G_GRID.selectAll(".grid-circle").data([0.2, 0.4, 0.6, 0.8, 1]);
+    GRID_CIRCLES.transition().duration(TRANS_TIME).attr("r", d => d * RADIUS);
+
+    MEASURE_LABELS = G_CHART_AREA.selectAll(".measure-label").data(Object.values(METADATA.metrics), d => d.metric);
+    MEASURE_LABELS.exit().transition().duration(ENTER_REMOVE_TRANS_TIME).style("opacity", 0).remove();
+    MEASURE_LABELS.enter().append("text").classed("measure-label", true)
+      .text(d => d.metric)
+      .style("opacity", 0).transition().delay(TRANS_TIME - ENTER_REMOVE_TRANS_TIME).duration(ENTER_REMOVE_TRANS_TIME).style("opacity", 1)
+      .merge(MEASURE_LABELS).transition().duration(TRANS_TIME)
+      .attr("x", d => (RADIUS + MEASURE_LABEL_PADDING) * Math.sin(d.angle))
+      .attr("y", d => -(RADIUS + MEASURE_LABEL_PADDING) * Math.cos(d.angle))
+      .attr("dx", function(d) {
+        return d.angle == 0 || d.angle == Math.PI ? -this.getBBox().width / 2 + "px"
+          : d.angle > 0 && d.angle < Math.PI ? "0px" : -this.getBBox().width + "px";
+      }).attr("dy", function(d) {
+        return d.angle == Math.PI / 2 || d.angle == (3 * Math.PI) / 2 ? -this.getBBox().height / 2 + "px"
+          : d.angle > Math.PI / 2 && d.angle < (3 * Math.PI) / 2 ? "0px" : -this.getBBox().height + "px";
+      });
+
+    DATA_PATHS = G_CHART_AREA.selectAll(".data-path").data(DATA, d => d.category);
+    DATA_PATHS.exit().transition().duration(TRANS_TIME).attr("d", getPathGenerator(0)).style("opacity", 0).remove();
+    
+    const enteredPaths = DATA_PATHS.enter().append("path").classed("data-path", true)
+      .attr("id", d => `${d.category}-path`)
+      .attr("stroke", d => COLORS.categories[d.category] || COLORS.scale(d.category))
+      .attr("stroke-width", 2)
+      .attr("d", getPathGenerator(0))
+      .style("opacity", 0);
+      
+    enteredPaths.merge(DATA_PATHS).transition().duration(TRANS_TIME)
+        .style("opacity", 1)
+        .attr("d", getPathGenerator());
+  }
+
+  /******************************************************* Helper Functions *******************************************************/
+  function inIframe() { try { return window.self !== window.top; } catch (e) { return true; } }
+
+  function calculateLegendDimensions() {
+    let titleHeight = 0;
+    SVG.append("text").classed("legend-text", true).text("TEST").each(function() {
+      titleHeight = this.getBBox().height; this.remove();
+    });
+    const textWidths = []; let textHeight;
+    SVG.selectAll(".dummyText").data(LEG.data).enter().append("text").classed("legend-text", true)
+      .text(d => d.key).style("font-weight", "bold")
+      .each(function() {
+        textHeight = this.getBBox().height;
+        textWidths.push(this.getComputedTextLength());
+        this.remove();
+      });
+
+    const rows = []; const rowSums = []; let rowSum; let row = 0;
+    for (let i = 0; i < textWidths.length; i++) {
+      rowSum = textWidths[i] + LEG.rectWidth + LEG.rectPad + LEG.textPad; rows.push(row);
+      while (rowSum + textWidths[i + 1] + LEG.rectWidth + LEG.rectPad + LEG.textPad <= WIDTH && i + 1 < textWidths.length) {
+        i++; rowSum += textWidths[i] + LEG.rectWidth + LEG.rectPad + LEG.textPad; rows.push(row);
+      }
+      rowSums.push(rowSum); row++;
+    }
+    LEG.elPos = [];
+    for (let i = 0; i < textWidths.length; i++) {
+      LEG.elPos.push({
+        x: i === 0 || rows[i - 1] !== rows[i] ? WIDTH / 2 - rowSums[rows[i]] / 2
+          : LEG.elPos[i - 1].x + textWidths[i - 1] + LEG.rectWidth + LEG.rectPad + LEG.textPad,
+        y: titleHeight + rows[i] * (textHeight + LEG.rowPad)
+      });
+    }
+    LEG.height = LEG.elPos.length > 0 ? LEG.elPos[LEG.elPos.length - 1].y + textHeight + LEG.rowPad : 0;
+  }
+
+  function drawLegend() {
+    LEG.groupSelection = SVG.selectAll(".g-legend").data([LEG.title]).enter()
+      .append("g").classed("g-legend", true).merge(SVG.select(".g-legend"));
+
+    LEG.titleDataJoin = LEG.groupSelection.selectAll(".legend-title").data([LEG.title]);
+    LEG.titleDataJoin.enter().append("text").classed("legend-title", true).text(d => d)
+      .merge(LEG.titleDataJoin).attr("transform", `translate(${WIDTH / 2}, 0)`);
+
+    LEG.groupDataJoin = LEG.groupSelection.selectAll(".g-legend-entry").data(LEG.data, d => d.id);
+    const enterGroups = LEG.groupDataJoin.enter().append("g").classed("g-legend-entry", true)
+      .attr("id", d => `${d.id}-legend-entry`).on("click", (d, i, nodes) => legendSelect(d, i, nodes[i]));
+
+    enterGroups.append("rect").classed("legend-rect", true).attr("width", LEG.rectWidth).attr("height", LEG.rectWidth);
+    enterGroups.append("text").classed("legend-text", true).attr("x", LEG.rectWidth + LEG.rectPad).attr("y", LEG.rectWidth / 2);
+
+    const allGroups = enterGroups.merge(LEG.groupDataJoin);
+    allGroups.attr("transform", (d, i) => `translate(${LEG.elPos[i].x}, ${LEG.elPos[i].y})`);
+    allGroups.select(".legend-rect").attr("fill", d => COLORS.categories[d.key] || COLORS.scale(d.key))
+      .attr("stroke", d => COLORS.categories[d.key] || COLORS.scale(d.key));
+    allGroups.select(".legend-text").text(d => d.key);
+
+    LEG.groupDataJoin.exit().remove();
+    LEG.groupSelection.attr("transform", `translate(0, ${HEIGHT - LEG.height})`);
+  }
+  
+  function updateLegend() {
+    drawLegend(); // simpler to just redraw on update
+  }
+
+  function getTipDirection() {
+    const tip = d3.select(".d3-tip").node(); const w = tip.clientWidth, left = tip.offsetLeft, top = tip.offsetTop;
+    let dir = top < 0 ? "s" : "n";
+    if (left < 0) dir += "e"; else if (left + w > WIDTH) dir += "w";
+    TIP.dir = dir; return dir;
+  }
+
+  function getTipOffset() {
+    switch (TIP.dir) {
+      case "n": return [-8, 0]; case "ne": return [-5, 0]; case "nw": return [-5, 0];
+      case "s": return [8, 0]; case "se": return [5, 0]; case "sw": return [5, 0];
+      default: return [-8, 0];
+    }
+  }
+
+  function calculatePadding() {
+    let height = 0, width = 0;
+    SVG.selectAll(".dummyText").data(Object.values(METADATA.metrics)).enter().append("text").classed("measure-label", true)
+      .text(d => d.metric).each(function() {
+        height = this.getBBox().height; width = Math.max(this.getComputedTextLength(), width); this.remove();
+      });
+    SIDE_PAD = width + 2 * MEASURE_LABEL_PADDING;
+    TOP_PAD = height + 2 * MEASURE_LABEL_PADDING;
+  }
+
+  function legendDeselectAll() {
+    SELECTED_CATEGORY = null;
+    LEG.groupSelection.selectAll(".g-legend-entry").classed("selected", false);
+    // *** CHANGED: Use stroke-width for interaction ***
+    d3.selectAll(".data-path").transition("select").duration(HOVER_TRANS_TIME).attr("stroke-width", 2);
+  }
+
+  function legendSelect(datum, index, el) {
+    SELECTED_CATEGORY = datum.key;
+    d3.event.stopPropagation();
+    LEG.groupSelection.selectAll(".g-legend-entry").classed("selected", false);
+    d3.select(el).classed("selected", true);
+    // *** CHANGED: Use stroke-width for interaction ***
+    d3.selectAll(".data-path").transition("select").duration(HOVER_TRANS_TIME)
+      .attr("stroke-width", d => (datum.key === d.category ? 4 : 1));
+    d3.select("#" + datum.key + "-path").moveToFront();
+  }
+});
+</script>
+</body>
+</html>
