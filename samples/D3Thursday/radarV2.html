@@ -71,7 +71,7 @@ limitations under the License.
 
   .data-path {
     pointer-events: none;
-    stroke-width: 4;
+    stroke-width: 6; /* Alteração 3: Era 4, mudei para 6 */
   }
 
   .measure-label {
@@ -274,7 +274,7 @@ document.addEventListener("DOMContentLoaded", function() {
   const TRANS_DELAY = 20; // Small buffer to ensure all callbacks have finished before allowing new transition
   const HOVER_TRANS_TIME = 100; // Duration of focus transitions
   const ENTER_REMOVE_TRANS_TIME = 200; // Duration of enter and exit transitions for data points and grid lines
-  const MEASURE_LABEL_PADDING = 10; // Padding between edge of radar chart and measure labels
+  const MEASURE_LABEL_PADDING = 25; // Alteração 2: Padding entre a borda do gráfico e os labels das medidas
 
   // Dynamic dimension variables
   let WIDTH; // Width of SVG element
@@ -562,8 +562,9 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Determine radius now that legend height has been determined
     OLD_RADIUS = RADIUS;
+    // Alteração 1: Ajustar o raio do gráfico
     RADIUS =
-      Math.min(WIDTH - 2 * SIDE_PAD, HEIGHT - LEG.height - 2 * TOP_PAD) / 2;
+      Math.min(WIDTH - 2 * SIDE_PAD, HEIGHT - LEG.height - 2 * TOP_PAD) / 2.2;
 
     // Append/update chart-area group and save reference
     SVG.selectAll(".g-chart-area")
@@ -761,7 +762,7 @@ document.addEventListener("DOMContentLoaded", function() {
           .attr("cy", function(d) {
             return d.y;
           })
-          .attr("r", 4);
+          .attr("r", 6); // Alteração 4: Aumentar o tamanho dos pontos de dados
 
         return path;
       });
@@ -792,8 +793,9 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Update dimensions
     OLD_RADIUS = RADIUS;
+    // Alteração 1: Ajustar o raio do gráfico
     RADIUS =
-      Math.min(WIDTH - 2 * SIDE_PAD, HEIGHT - LEG.height - 2 * TOP_PAD) / 2;
+      Math.min(WIDTH - 2 * SIDE_PAD, HEIGHT - LEG.height - 2 * TOP_PAD) / 2.2;
 
     // Update chart-area group position
     G_CHART_AREA.transition()
@@ -1089,7 +1091,7 @@ document.addEventListener("DOMContentLoaded", function() {
           .attr("cy", function(d) {
             return d.y;
           })
-          .attr("r", 4)
+          .attr("r", 6) // Alteração 4: Aumentar o tamanho dos pontos de dados
           .attr("fill-opacity", getOpacity(dPath.category, OPACITY.stroke))
           .on("mouseover", function(d) {
             // Assign direction and show tooltip
@@ -1220,7 +1222,7 @@ document.addEventListener("DOMContentLoaded", function() {
           .on("mouseout", TIP.self.hide)
           .attr("cx", 0)
           .attr("cy", 0)
-          .attr("r", 4)
+          .attr("r", 6) // Alteração 4: Aumentar o tamanho dos pontos de dados
           .style("opacity", 0);
 
         return path;
@@ -1385,7 +1387,8 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     // Set legend height
-    LEG.height = LEG.elPos[LEG.elPos.length - 1].y + textHeight + LEG.rowPad;
+    // Alteração 5: Ajustar o posicionamento da legenda
+    LEG.height = LEG.elPos[LEG.elPos.length - 1].y + textHeight + LEG.rowPad + 15;
   }
 
   // Draw legend elements using provided data
