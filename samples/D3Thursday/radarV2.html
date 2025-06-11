@@ -496,14 +496,11 @@ function onDataReceived(messageFromVA) {
       updateElements();
     }
   }
-  function drawElements() {
+function drawElements() {
     if (!DATA) return;
 
     WIDTH = document.body.clientWidth;
     HEIGHT = document.body.clientHeight;
-    // WIDTH = 800; // Use para tamanho fixo
-    // HEIGHT = 600; // Use para tamanho fixo
-
 
     d3.select("body").selectAll("#" + SVG_ID).data([DATA]).enter().append("svg").attr("id", SVG_ID).on("click", legendDeselectAll)
       .each(function() {
@@ -526,8 +523,7 @@ function onDataReceived(messageFromVA) {
     drawLegend();
 
     OLD_RADIUS = RADIUS;
-    RADIUS = Math.min(WIDTH - 2 * SIDE_PAD, HEIGHT - (LEG.height - 20) - 2 * TOP_PAD) / 2;
-    RADIUS = RADIUS * 0.8;
+    RADIUS = Math.min(WIDTH - 2 * SIDE_PAD, HEIGHT - LEG.height - 2 * TOP_PAD) / 2;
 
     SVG.selectAll(".g-chart-area").data([DATA]).enter().append("g").classed("g-chart-area", true);
     G_CHART_AREA = SVG.select(".g-chart-area").attr("transform", "translate(" + WIDTH / 2 + ", " + (TOP_PAD + RADIUS) + ")");
@@ -550,25 +546,44 @@ function onDataReceived(messageFromVA) {
 
     DATA_PATHS = G_CHART_AREA.selectAll(".data-path").data(DATA, function(d) { return d.category; });
     DATA_PATHS.enter().append("path").classed("data-path", true).attr("id", function(d) { return d.category + "-path"; })
+      .attr("fill", function(d) { return GRAD.fill[d.category] ? GRAD.fill[d.category] : GRAD.fillScale(d.category); })
+      .attr("fill-opacity", function(d) { return getOpacity(d.category, OPACITY.fill); })
       .attr("stroke", function(d) { return GRAD.stroke[d.category] ? GRAD.stroke[d.category] : GRAD.strokeScale(d.category); })
+      .attr("stroke-opacity", function(d) { return getOpacity(d.category, OPACITY.stroke); })
       .merge(DATA_PATHS).attr("d", function(d) {
         const dPath = d;
         const points = [];
         let path = "M ";
         let x, y;
+
+        // ***** INÍCIO DA CORREÇÃO CRÍTICA *****
         for (let j = 0; j < dPath.metrics.length; j++) {
-          x = RADIUS * dPath.metrics[j].scaledMeasure * Math.sin(j * DELTA_ANGLE);
-          y = -RADIUS * dPath.metrics[j].scaledMeasure * Math.cos(j * DELTA_ANGLE);
-          points.push({ category: dPath.category, metric: dPath.metrics[j].metric, measure: dPath.metrics[j].measure, scaledMeasure: dPath.metrics[j].scaledMeasure, x: x, y: y });
+          const currentMetric = dPath.metrics[j];
+          const angle = METADATA.metrics[currentMetric.metric].angle;
+          
+          x = RADIUS * currentMetric.scaledMeasure * Math.sin(angle);
+          y = -RADIUS * currentMetric.scaledMeasure * Math.cos(angle);
+          
+          points.push({
+            category: dPath.category,
+            metric: currentMetric.metric,
+            measure: currentMetric.measure,
+            scaledMeasure: currentMetric.scaledMeasure,
+            x: x,
+            y: y
+          });
           path += x + "," + y + (j == dPath.metrics.length - 1 ? " Z" : " L ");
         }
+        // ***** FIM DA CORREÇÃO CRÍTICA *****
 
-        DATA_POINTS = G_CHART_AREA.selectAll(".data-point").filter(function(d) { return dPath.category == d.category; }).data(points, function(d) { return d.metric; });
+        DATA_POINTS = G_CHART_AREA.selectAll(".data-point").filter(function(p) { return dPath.category == p.category; }).data(points, function(p) { return p.metric; });
         DATA_POINTS.enter().append("circle").classed("data-point", true)
-          .attr("fill", GRAD.fill[dPath.category] ? GRAD.fill[dPath.category] : GRAD.fillScale(dPath.category))
-          .on("mouseover", function(d) { TIP.self.direction("n").offset([-8, 0]).show(d, this).direction(getTipDirection()).offset(getTipOffset()).show(d, this); })
+          .attr("fill", function() { return GRAD.fill[dPath.category] ? GRAD.fill[dPath.category] : GRAD.fillScale(dPath.category); })
+          .attr("fill-opacity", getOpacity(dPath.category, OPACITY.stroke))
+          .on("mouseover", function(p) { TIP.self.direction("n").offset([-8, 0]).show(p, this).direction(getTipDirection()).offset(getTipOffset()).show(p, this); })
           .on("mouseout", TIP.self.hide)
-          .merge(DATA_POINTS).attr("cx", function(d) { return d.x; }).attr("cy", function(d) { return d.y; }).attr("r", 4);
+          .merge(DATA_POINTS).attr("cx", function(p) { return p.x; }).attr("cy", function(p) { return p.y; }).attr("r", 4);
+        
         return path;
       });
   }
