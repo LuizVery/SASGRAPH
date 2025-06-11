@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="UTF-8">
+  <title>Radar Chart</title>
   <script type="text/javascript" src="https://d3js.org/d3.v5.min.js"></script>
 
   <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/d3-tip/0.9.1/d3-tip.min.js"></script>
@@ -21,26 +23,14 @@
     font-size: 12px;
   }
   .legend-title {
+    font-size: .9em;
     font-weight: bold;
     text-anchor: middle;
     dominant-baseline: hanging;
-    font-size: 0.9em;
   }
   .legend-text {
-    font-size: 0.8em;
+    font-size: .8em;
     dominant-baseline: central;
-  }
-  .legend-rect {
-    stroke-width: 1;
-  }
-  .g-legend-entry {
-    cursor: pointer;
-  }
-  .g-legend-entry.selected .legend-text {
-    font-weight: bold;
-  }
-  .g-legend-entry.selected .legend-rect {
-    stroke-width: 2px;
   }
   .data-path {
     pointer-events: none;
@@ -50,7 +40,12 @@
   }
   .measure-label {
     font-size: .8em;
-    dominant-baseline: hanging;
+  }
+  .g-legend-entry {
+    cursor: pointer;
+  }
+  .g-legend-entry.selected .legend-text {
+    font-weight: bold;
   }
   .d3-tip {
     pointer-events: none !important;
@@ -70,118 +65,88 @@
 "use strict";
 
 document.addEventListener("DOMContentLoaded", function() {
-  /******************************************************* Declare variables *******************************************************/
+  /*******************************************************
+   * VARIÁVEIS E CONFIGURAÇÕES GLOBAIS           *
+   *******************************************************/
 
   const SVG_ID = "radar";
   const SAMPLE_MESSAGE = {
     version: "1", resultName: "dd55", rowCount: 18, availableRowCount: 18,
     data: [
-      ["Hybrid", "Cylinders", 3.66, "BEST12.2"], ["Hybrid", "MPG (City)", 55, "BEST12.2"], ["Hybrid", "MSRP", 19920, "DOLLAR12.2"],
-      ["Sedan", "Cylinders", 5.58, "BEST12.2"], ["Sedan", "MPG (City)", 21.08, "BEST12.2"], ["Sedan", "MSRP", 29773, "DOLLAR12.2"],
-      ["Sports", "Cylinders", 6.34, "BEST12.2"], ["Sports", "MPG (City)", 18.40, "BEST12.2"], ["Sports", "MSRP", 53387, "DOLLAR12.2"],
-      ["SUV", "Cylinders", 6.56, "BEST12.2"], ["SUV", "MPG (City)", 16.1, "BEST12.2"], ["SUV", "MSRP", 34790, "DOLLAR12.2"],
-      ["Truck", "Cylinders", 6.25, "BEST12.2"], ["Truck", "MPG (City)", 16.5, "BEST12.2"], ["Truck", "MSRP", 24941, "DOLLAR12.2"],
-      ["Wagon", "Cylinders", 5.3, "BEST12.2"], ["Wagon", "MPG (City)", 21.1, "BEST12.2"], ["Wagon", "MSRP", 28840, "DOLLAR12.2"]
+        ["Anos finais", "IN_AREA_VERDE_F", 0.3, "BEST12.2"], ["Anos finais", "IN_AUDITORIO_F", 0.1, "BEST12.2"], ["Anos finais", "IN_BIBLIOTECA_SALA_LEITURA_F", 0.7, "BEST12.2"], ["Anos finais", "IN_LABORATORIO_CIENCIAS_F", 0.4, "BEST12.2"], ["Anos finais", "IN_LABORATORIO_INFORMATICA_F", 0.6, "BEST12.2"], ["Anos finais", "IN_PARQUE_INFANTIL_F", 0.5, "BEST12.2"], ["Anos finais", "IN_QUADRA_ESPORTES_F", 0.8, "BEST12.2"], ["Anos finais", "IN_SALA_ATELIE_ARTES_F", 0.2, "BEST12.2"], ["Anos finais", "IN_SALA_PROFESSOR_F", 0.9, "BEST12.2"], ["Anos finais", "IN_SALA_MULTIUSO_F", 0.6, "BEST12.2"],
+        ["Anos iniciais", "IN_AREA_VERDE_F", 0.4, "BEST12.2"], ["Anos iniciais", "IN_AUDITORIO_F", 0.2, "BEST12.2"], ["Anos iniciais", "IN_BIBLIOTECA_SALA_LEITURA_F", 0.8, "BEST12.2"], ["Anos iniciais", "IN_LABORATORIO_CIENCIAS_F", 0.3, "BEST12.2"], ["Anos iniciais", "IN_LABORATORIO_INFORMATICA_F", 0.7, "BEST12.2"], ["Anos iniciais", "IN_PARQUE_INFANTIL_F", 0.9, "BEST12.2"], ["Anos iniciais", "IN_QUADRA_ESPORTES_F", 0.7, "BEST12.2"], ["Anos iniciais", "IN_SALA_ATELIE_ARTES_F", 0.1, "BEST12.2"], ["Anos iniciais", "IN_SALA_PROFESSOR_F", 0.8, "BEST12.2"], ["Anos iniciais", "IN_SALA_MULTIUSO_F", 0.5, "BEST12.2"],
+        ["Ensino médio", "IN_AREA_VERDE_F", 0.2, "BEST12.2"], ["Ensino médio", "IN_AUDITORIO_F", 0.4, "BEST12.2"], ["Ensino médio", "IN_BIBLIOTECA_SALA_LEITURA_F", 0.9, "BEST12.2"], ["Ensino médio", "IN_LABORATORIO_CIENCIAS_F", 0.8, "BEST12.2"], ["Ensino médio", "IN_LABORATORIO_INFORMATICA_F", 0.9, "BEST12.2"], ["Ensino médio", "IN_PARQUE_INFANTIL_F", 0.2, "BEST12.2"], ["Ensino médio", "IN_QUADRA_ESPORTES_F", 0.9, "BEST12.2"], ["Ensino médio", "IN_SALA_ATELIE_ARTES_F", 0.3, "BEST12.2"], ["Ensino médio", "IN_SALA_PROFESSOR_F", 1.0, "BEST12.2"], ["Ensino médio", "IN_SALA_MULTIUSO_F", 0.7, "BEST12.2"]
     ],
     columns: [
-      { name: "bi173", label: "Type", type: "string" }, { name: "bi174", label: "Metric", type: "string" },
-      { name: "bi175", label: "Measure", type: "number", usage: "quantitative", aggregation: "sum", format: { name: "BEST", width: 12, precision: 0, formatString: "BEST12." } },
-      { name: "bi176", label: "Format", type: "string" }
+      { name: "cat", label: "Etapa de Ensino", type: "string" }, { name: "met", label: "Indicador", type: "string" },
+      { name: "val", label: "Valor", type: "number", usage: "quantitative" }, { name: "fmt", label: "Formato", type: "string" }
     ]
   };
-  
+
   let VA_MESSAGE, VA_RESULT_NAME, DATA, OLD_DATA, SELECTED_CATEGORY;
   let METADATA = [], OLD_METADATA;
-  let LAST_TRANSITION_END = Date.now();
-  const TRANS_TIME = 500, TRANS_DELAY = 20, HOVER_TRANS_TIME = 100, ENTER_REMOVE_TRANS_TIME = 200, MEASURE_LABEL_PADDING = 10;
-  let WIDTH, HEIGHT, RADIUS, OLD_RADIUS, DELTA_ANGLE, TOP_PAD, SIDE_PAD;
-  const SCALED_FORMAT = d3.format("3.0f");
-  let SVG, G_CHART_AREA, G_GRID, GRID_LINES, GRID_CIRCLES, MEASURE_LABELS, DATA_PATHS, DATA_POINTS;
-  
+  const TRANS_TIME = 500, MEASURE_LABEL_PADDING = 15;
+  let WIDTH, HEIGHT, RADIUS, DELTA_ANGLE, TOP_PAD, SIDE_PAD;
+  const SCALED_FORMAT = d3.format(".0%");
+  let SVG, G_CHART_AREA, G_GRID, DATA_PATHS, DATA_POINTS;
+
   d3.selection.prototype.moveToFront = function() { return this.each(function() { this.parentNode.appendChild(this); }); };
-  
-  const LEG = {
-    topPad: 20, titlePad: 5, rowPad: 3, rectWidth: 12, rectPad: 5, textPad: 5,
-    title: undefined, data: undefined, elPos: undefined, height: undefined,
-    groupSelection: undefined, titleDataJoin: undefined, groupDataJoin: undefined
-  };
-  
+
+  const LEG = { title: undefined, data: undefined, elPos: undefined, height: undefined, groupSelection: undefined, titleDataJoin: undefined, groupDataJoin: undefined, rectWidth: 12, rectPad: 5, textPad: 10, titlePad: 5, rowPad: 3 };
   const TIP = { self: undefined, dir: "n" };
-
   const GRAD = {
-    fill: { "Anos finais": "#2E7D32", "Anos iniciais": "#8BC34A", "Ensino médio": "#4CAF50", Hybrid: "#4CAF50", Sedan: "#8BC34A", Sports: "#2E7D32", SUV: "#00695C", Truck: "#689F38", Wagon: "#9CCC65" },
-    stroke: { "Anos finais": "#2E7D32", "Anos iniciais": "#8BC34A", "Ensino médio": "#4CAF50", Hybrid: "#4CAF50", Sedan: "#8BC34A", Sports: "#2E7D32", SUV: "#00695C", Truck: "#689F38", Wagon: "#9CCC65" },
-    fillScale: d3.scaleOrdinal(["#4CAF50", "#8BC34A", "#2E7D32", "#00695C", "#689F38", "#9CCC65"]),
-    strokeScale: d3.scaleOrdinal(["#4CAF50", "#8BC34A", "#2E7D32", "#00695C", "#689F38", "#9CCC65"]),
-    data: undefined, defsSelection: undefined, gradsDataJoin: undefined
+    fill: { "Anos finais": "#1E8449", "Anos iniciais": "#58D68D", "Ensino médio": "#2ECC71" },
+    stroke: { "Anos finais": "#1E8449", "Anos iniciais": "#58D68D", "Ensino médio": "#2ECC71" },
+    fillScale: d3.scaleOrdinal(["#1E8449", "#58D68D", "#2ECC71"]),
+    strokeScale: d3.scaleOrdinal(["#1E8449", "#58D68D", "#2ECC71"])
   };
 
-  /*************************************************** Setup Callback Functions ***************************************************/
-  va.messagingUtil.setOnDataReceivedCallback(handleCallback);
-
-  if (!inIframe()) {
-    onDataReceived(SAMPLE_MESSAGE);
-  }
-
+  /*************************************************** Setup and Callbacks ***************************************************/
+  va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
+  if (!inIframe()) { onDataReceived(SAMPLE_MESSAGE); }
   va.contentUtil.setupResizeListener(drawElements);
 
-  /****************************************************** Callback Functions ******************************************************/
-  function handleCallback(messageFromVA) {
-    if (LAST_TRANSITION_END > Date.now()) {
-      setTimeout(() => onDataReceived(messageFromVA), LAST_TRANSITION_END - Date.now());
-      LAST_TRANSITION_END = LAST_TRANSITION_END + TRANS_TIME + TRANS_DELAY;
-    } else {
-      onDataReceived(messageFromVA);
-      LAST_TRANSITION_END = Date.now() + TRANS_TIME + TRANS_DELAY;
-    }
-  }
-
+  /****************************************************** Main Functions ******************************************************/
   function onDataReceived(messageFromVA) {
     VA_MESSAGE = messageFromVA;
     VA_RESULT_NAME = messageFromVA.resultName;
 
     if (!va.contentUtil.validateRoles(messageFromVA, ["string", "string", "number", "string"], ["number"])) {
-      va.messagingUtil.postInstructionalMessage(VA_RESULT_NAME, "D3 Radar Chart expects columns in order: Category, Metric Name, Metric Value, Metric Format");
+      va.messagingUtil.postInstructionalMessage(VA_RESULT_NAME, "Expecting: Category, Metric Name, Metric Value, Metric Format");
       return;
     }
 
     const nestedMetrics = d3.nest().key(d => d[1]).entries(VA_MESSAGE.data);
     const numMeasures = nestedMetrics.length;
 
-    OLD_METADATA = METADATA;
     DELTA_ANGLE = (2 * Math.PI) / numMeasures;
     METADATA = { category: VA_MESSAGE.columns[0].label, metrics: {} };
     
-    const globalMax = d3.max(VA_MESSAGE.data, d => d[2]);
+    // A escala será de 0 a 1 (ou 0% a 100%), já que os dados de exemplo já estão nessa faixa.
+    const globalMax = 1.0; 
 
     nestedMetrics.forEach((metric, i) => {
-      const formatRow = VA_MESSAGE.data.find(d => d[1] === metric.key);
       METADATA.metrics[metric.key] = {
         metric: metric.key,
         angle: i * DELTA_ANGLE,
-        format: translateFormat(formatRow ? formatRow[3] : "BEST12."),
+        format: d3.format(".0%"), // Formato de porcentagem para tooltip
         maximum: globalMax
       };
     });
     
-    OLD_DATA = DATA;
     const dataGroupedByCategory = d3.nest().key(d => d[0]).entries(VA_MESSAGE.data);
-
-    DATA = dataGroupedByCategory.map(categoryGroup => {
-      return {
-        category: categoryGroup.key,
-        id: "id-" + categoryGroup.key.replace(/[\W]/g, "_"),
-        metrics: categoryGroup.values.map(d => ({
-          metric: d[1],
-          measure: d[2],
-          scaledMeasure: d[2] / METADATA.metrics[d[1]].maximum
-        })).sort((a, b) => METADATA.metrics[a.metric].angle - METADATA.metrics[b.metric].angle)
-      };
-    });
+    DATA = dataGroupedByCategory.map(categoryGroup => ({
+      category: categoryGroup.key,
+      id: "id-" + categoryGroup.key.replace(/[\W]/g, "_"),
+      metrics: categoryGroup.values.map(d => ({
+        metric: d[1],
+        measure: d[2],
+        scaledMeasure: d[2] / METADATA.metrics[d[1]].maximum
+      })).sort((a, b) => METADATA.metrics[a.metric].angle - METADATA.metrics[b.metric].angle)
+    }));
 
     LEG.title = METADATA.category;
     LEG.data = DATA.map(d => ({ key: d.category, id: d.id }));
-    GRAD.data = LEG.data;
 
     if (d3.select("#" + SVG_ID).empty()) {
       drawElements();
@@ -196,110 +161,183 @@ document.addEventListener("DOMContentLoaded", function() {
     WIDTH = document.body.clientWidth;
     HEIGHT = document.body.clientHeight;
 
-    d3.select("body").selectAll("#" + SVG_ID).data([DATA]).enter().append("svg").attr("id", SVG_ID).on("click", legendDeselectAll)
-      .each(function() {
-        TIP.self = d3.tip().attr("class", "d3-tip").offset([-8, 0]).html(function(d) {
-          return `<table class='d3-tip-content'>
-                    <tr><td><span class="math-inline">\{METADATA\.category\}\:</td\><td\></span>{d.category}</td></tr>
-                    <tr><td><span class="math-inline">\{d\.metric\}\:</td\><td\></span>{METADATA.metrics[d.metric].format(d.measure)}</td></tr>
-                    <tr><td><span class="math-inline">\{d\.metric\} Scaled\:</td\><td\></span>{SCALED_FORMAT(d.scaledMeasure * 100)}</td></tr>
-                  </table>`;
-        });
-        d3.select(this).call(TIP.self);
-      });
-
+    d3.select("body").selectAll("#" + SVG_ID).data([1]).enter().append("svg").attr("id", SVG_ID).on("click", () => legendSelect(null));
     SVG = d3.select("#" + SVG_ID);
-    SVG.html(""); // Clear SVG on redraw to avoid duplication
-    
-    GRAD.defsSelection = SVG.append("defs").classed("gradient-defs", true);
-    defineGradients();
+    SVG.html(""); // Limpa o SVG para redesenho
+
+    TIP.self = d3.tip().attr("class", "d3-tip").offset([-8, 0]).html(function(d) {
+      return `<table class='d3-tip-content'>
+                <tr><td><span class="math-inline">\{METADATA\.category\}\:</td\><td\><b\></span>{d.category}</b></td></tr>
+                <tr><td><span class="math-inline">\{d\.metric\}\:</td\><td\><b\></span>{METADATA.metrics[d.metric].format(d.measure)}</b></td></tr>
+              </table>`;
+    });
+    SVG.call(TIP.self);
+
     calculatePadding();
     calculateLegendDimensions();
-    drawLegend();
-
-    OLD_RADIUS = RADIUS;
+    
     RADIUS = Math.min(WIDTH - 2 * SIDE_PAD, HEIGHT - LEG.height - 2 * TOP_PAD) / 2;
-
+    
     G_CHART_AREA = SVG.append("g").attr("class", "g-chart-area").attr("transform", `translate(${WIDTH / 2}, ${TOP_PAD + RADIUS})`);
     G_GRID = G_CHART_AREA.append("g").classed("g-grid", true);
 
-    GRID_LINES = G_GRID.selectAll(".grid-line").data(Object.values(METADATA.metrics), d => d.metric);
-    GRID_LINES.enter().append("line").classed("grid-line", true).attr("stroke", "#C4C4C4")
-      .attr("x1", 0).attr("y1", 0).attr("x2", d => RADIUS * Math.sin(d.angle)).attr("y2", d => -RADIUS * Math.cos(d.angle));
+    G_GRID.selectAll(".grid-line").data(Object.values(METADATA.metrics)).enter().append("line")
+      .attr("class", "grid-line").attr("stroke", "#CDCDCD").attr("x1", 0).attr("y1", 0)
+      .attr("x2", d => RADIUS * Math.sin(d.angle)).attr("y2", d => -RADIUS * Math.cos(d.angle));
 
-    GRID_CIRCLES = G_GRID.selectAll(".grid-circle").data([0.2, 0.4, 0.6, 0.8, 1]);
-    GRID_CIRCLES.enter().append("circle").classed("grid-circle", true).attr("fill", "none").attr("stroke", "#E4E4E4")
-      .attr("cx", 0).attr("cy", 0).attr("r", d => d * RADIUS);
+    G_GRID.selectAll(".grid-circle").data([0.25, 0.5, 0.75, 1]).enter().append("circle")
+      .attr("class", "grid-circle").attr("fill", "none").attr("stroke", "#CDCDCD").attr("cx", 0).attr("cy", 0).attr("r", d => d * RADIUS);
 
-    MEASURE_LABELS = G_CHART_AREA.selectAll(".measure-label").data(Object.values(METADATA.metrics), d => d.metric);
-    MEASURE_LABELS.enter().append("text").classed("measure-label", true)
-      .text(d => d.metric)
-      .attr("text-anchor", d => {
-        if (d.angle === 0 || d.angle === Math.PI) return "middle";
-        return d.angle > Math.PI ? "end" : "start";
-      })
-      .attr("dx", d => (d.angle > Math.PI ? -5 : 5))
-      .attr("dy", d => {
-          if (d.angle === Math.PI/2 || d.angle === 3*Math.PI/2) return "0.35em";
-          return d.angle > 0 && d.angle < Math.PI ? "1.2em" : "-0.5em"
-      })
+    G_CHART_AREA.selectAll(".measure-label").data(Object.values(METADATA.metrics)).enter().append("text")
+      .attr("class", "measure-label")
+      .attr("text-anchor", d => d.angle === 0 || d.angle === Math.PI ? "middle" : (d.angle > Math.PI ? "end" : "start"))
       .attr("x", d => (RADIUS + MEASURE_LABEL_PADDING) * Math.sin(d.angle))
-      .attr("y", d => -(RADIUS + MEASURE_LABEL_PADDING) * Math.cos(d.angle));
+      .attr("y", d => -(RADIUS + MEASURE_LABEL_PADDING) * Math.cos(d.angle))
+      .text(d => d.metric);
+    
+    const pathGenerator = d3.lineRadial()
+      .angle(d => METADATA.metrics[d.metric].angle)
+      .radius(d => RADIUS * d.scaledMeasure)
+      .curve(d3.curveLinearClosed);
 
     DATA_PATHS = G_CHART_AREA.selectAll(".data-path").data(DATA, d => d.category);
-    DATA_PATHS.enter().append("path").classed("data-path", true)
-      .attr("id", d => d.category + "-path")
+    DATA_PATHS.enter().append("path").attr("class", "data-path")
+      .attr("id", d => d.id + "-path")
       .style("stroke", d => GRAD.stroke[d.category] || GRAD.strokeScale(d.category))
-      .each(function(dPath) {
-        const pathGenerator = d3.lineRadial()
-          .angle(d => METADATA.metrics[d.metric].angle)
-          .radius(d => RADIUS * d.scaledMeasure)
-          .curve(d3.curveLinearClosed);
+      .attr("d", d => pathGenerator(d.metrics));
 
-        d3.select(this).attr("d", pathGenerator(dPath.metrics));
+    DATA.forEach(dPath => {
+      const pointsData = dPath.metrics.map(metric => ({ ...metric, category: dPath.category, id: dPath.id }));
+      const points = G_CHART_AREA.selectAll(`.data-point-${dPath.id}`).data(pointsData, p => p.metric);
+      points.enter().append("circle").attr("class", `data-point data-point-${dPath.id}`)
+        .merge(points)
+        .attr("fill", GRAD.fill[dPath.category] || GRAD.fillScale(dPath.category))
+        .attr("r", 4)
+        .on("mouseover", function(p) { TIP.self.show(p, this); })
+        .on("mouseout", TIP.self.hide)
+        .attr("cx", d => RADIUS * d.scaledMeasure * Math.sin(METADATA.metrics[d.metric].angle))
+        .attr("cy", d => -RADIUS * d.scaledMeasure * Math.cos(METADATA.metrics[d.metric].angle));
+      points.exit().remove();
+    });
 
-        const pointsData = dPath.metrics.map(metric => ({
-          ...metric,
-          category: dPath.category,
-          id: dPath.id
-        }));
-
-        const points = G_CHART_AREA.selectAll(`.data-point-${dPath.id}`).data(pointsData, p => p.metric);
-        
-        points.enter().append("circle")
-          .attr("class", `data-point data-point-${dPath.id}`)
-          .merge(points)
-          .attr("fill", GRAD.fill[dPath.category] || GRAD.fillScale(dPath.category))
-          .attr("r", 4)
-          .on("mouseover", function(p) { TIP.self.direction("n").offset([-8, 0]).show(p, this).direction(getTipDirection()).offset(getTipOffset()).show(p, this); })
-          .on("mouseout", TIP.self.hide)
-          .attr("cx", d => RADIUS * d.scaledMeasure * Math.sin(METADATA.metrics[d.metric].angle))
-          .attr("cy", d => -RADIUS * d.scaledMeasure * Math.cos(METADATA.metrics[d.metric].angle));
-          
-        points.exit().remove();
-      });
-      
-    DATA_PATHS.exit().remove();
+    drawLegend();
   }
 
   function updateElements() {
+    // A true update would use transitions. For now, just redraw.
     drawElements();
   }
 
-  // --- Helper Functions ---
-  function inIframe(){try{return window.self!==window.top}catch(e){return true}}
-  function calculateLegendDimensions(){let titleHeight;SVG.append("text").classed("legend-text",true).text("TEST").each(function(){titleHeight=this.getBBox().height;this.remove()});const textWidths=[],rowSums=[];let textHeight;SVG.selectAll(".dummyText").data(LEG.data).enter().append("text").classed("legend-text",true).text(d=>d.key).style("font-weight","bold").each(function(){textHeight=this.getBBox().height;textWidths.push(this.getComputedTextLength());this.remove()});const rows=[];let rowSum,row=0;for(let i=0;i<textWidths.length;i++){rowSum=textWidths[i]+LEG.rectWidth+LEG.rectPad+LEG.textPad;rows.push(row);while(rowSum+textWidths[i+1]+LEG.rectWidth+LEG.rectPad+LEG.textPad<=WIDTH&&i+1<textWidths.length){i++;rowSum+=textWidths[i]+LEG.rectWidth+LEG.rectPad+LEG.textPad;rows.push(row)}rowSums.push(rowSum);row++}LEG.elPos=[];for(let i=0;i<textWidths.length;i++)LEG.elPos.push({x:0==i||rows[i-1]!=rows[i]?WIDTH/2-rowSums[rows[i]]/2:LEG.elPos[i-1].x+textWidths[i-1]+LEG.rectWidth+LEG.rectPad+LEG.textPad,y:titleHeight+LEG.titlePad+rows[i]*(textHeight+LEG.rowPad)});LEG.height=LEG.elPos.length > 0 ? LEG.elPos[LEG.elPos.length-1].y+textHeight+LEG.rowPad : 0}
-  function drawLegend(){SVG.selectAll(".g-legend").remove();LEG.groupSelection=SVG.append("g").classed("g-legend",true).attr("transform",`translate(0,${HEIGHT-LEG.height})`);LEG.titleDataJoin=LEG.groupSelection.selectAll(".legend-title").data([LEG.title]);LEG.titleDataJoin.enter().append("text").classed("legend-title",true).text(d=>d).merge(LEG.titleDataJoin).attr("transform",`translate(${WIDTH/2},0)`);const legendEntries=LEG.groupSelection.selectAll(".g-legend-entry").data(LEG.data,d=>d.id);const enterSelection=legendEntries.enter().append("g").classed("g-legend-entry",true).on("click",(d,i)=>legendSelect(d,i,this));enterSelection.append("rect").classed("legend-rect",true).attr("width",LEG.rectWidth).attr("height",LEG.rectWidth).attr("stroke",d=>GRAD.stroke[d.key]||GRAD.strokeScale(d.key));enterSelection.append("text").classed("legend-text",true).attr("x",LEG.rectWidth+LEG.rectPad).attr("y",LEG.rectWidth/2);legendEntries.merge(enterSelection).attr("transform",(d,i)=>`translate(<span class="math-inline">\{LEG\.elPos\[i\]\.x\},</span>{LEG.elPos[i].y})`).select(".legend-rect").attr("fill",d=>GRAD.fill[d.key]||GRAD.fillScale(d.key));legendEntries.merge(enterSelection).select(".legend-text").text(d=>d.key)}
-  function updateLegend(){drawLegend()}
-  function getTipDirection(){const t=d3.select(".d3-tip").node(),e=t.clientWidth,a=t.offsetLeft,n=t.offsetTop;let r;return r=n<0?"s":"n",a<0?r+="e":a+e>WIDTH&&(r+="w"),TIP.dir=r,r}
-  function getTipOffset(){let t;switch(TIP.dir){case"n":t=[-8,0];break;case"ne":t=[-5,0];break;case"nw":t=[-5,0];break;case"s":t=[8,0];break;case"se":t=[5,0];break;case"sw":t=[5,0]}return t}
-  function defineGradients(){GRAD.gradsDataJoin=GRAD.defsSelection.selectAll(".gradient").data(GRAD.data,d=>d.id);GRAD.gradsDataJoin.enter().append("linearGradient").classed("gradient",true).attr("id",d=>d.id+"-gradient").attr("x1","0%").attr("x2","100%").attr("y1","50%").attr("y2","50%").each(function(t){d3.select(this).append("stop").attr("class","start").attr("offset","0%").attr("stop-color",GRAD.fill[t.key]||GRAD.fillScale(t.key)).attr("stop-opacity",1);d3.select(this).append("stop").attr("class","end").attr("offset","100%").attr("stop-color",GRAD.fill[t.key]||GRAD.fillScale(t.key)).attr("stop-opacity",.7)})}
-  function calculatePadding(){let t,e=0;SVG.selectAll(".dummyText").data(Object.values(METADATA.metrics)).enter().append("text").classed("measure-label",true).text(d=>d.metric).each(function(){t=this.getBBox().height,e=Math.max(this.getComputedTextLength(),e),this.remove()});SIDE_PAD=e+2*MEASURE_LABEL_PADDING;TOP_PAD=t+2*MEASURE_LABEL_PADDING}
-  function translateFormat(t){if(!t)return d3.format(",.0f");return t.indexOf(".")==t.length-1&&(t+=0),t.includes("DOLLAR")?d3.format(t.replace("DOLLAR","$").replace(".",",.")+"f"):t.includes("COMMA")?d3.format(t.replace("COMMA","").replace(".",",.")+"f"):t.includes("F")?d3.format(t.replace("F","")+"f"):t.includes("BEST")?d3.format(t.replace("BEST","")+"f"):t.includes("PERCENT")?d3.format(t.replace("PERCENT","").replace(".",",.")+"%"):d3.format(",.0f")}
-  function legendDeselectAll(){SELECTED_CATEGORY=null;LEG.groupSelection.selectAll(".g-legend-entry").classed("selected",false);d3.selectAll(".data-path, .data-point").transition("select").duration(HOVER_TRANS_TIME).style("opacity",1)}
-  function legendSelect(t,e,a){SELECTED_CATEGORY=t.key;d3.event.stopPropagation();LEG.groupSelection.selectAll(".g-legend-entry").classed("selected",!1);d3.selectAll(".data-path, .data-point").transition("select").duration(HOVER_TRANS_TIME).style("opacity",.2);d3.select(a).classed("selected",!0);d3.selectAll(".data-path, .data-point").filter(d=>t.key===d.category).moveToFront().transition("select").duration(HOVER_TRANS_TIME).style("opacity",1)}
+  /******************************************************* Helper Functions *******************************************************/
+  function inIframe() { try { return window.self !== window.top; } catch (e) { return true; } }
+  
+  function calculatePadding() {
+    let maxHeight = 0, maxWidth = 0;
+    const dummyText = SVG.append("text").attr("class", "measure-label");
+    Object.values(METADATA.metrics).forEach(metric => {
+      const bbox = dummyText.text(metric.metric).node().getBBox();
+      if (bbox.width > maxWidth) maxWidth = bbox.width;
+      if (bbox.height > maxHeight) maxHeight = bbox.height;
+    });
+    dummyText.remove();
+    SIDE_PAD = maxWidth + MEASURE_LABEL_PADDING;
+    TOP_PAD = maxHeight + MEASURE_LABEL_PADDING;
+  }
+  
+  function calculateLegendDimensions() {
+    if (!DATA) return;
+    let titleHeight = 0;
+    const dummyTitle = SVG.append("text").attr("class", "legend-title").text(LEG.title);
+    titleHeight = LEG.title ? dummyTitle.node().getBBox().height : 0;
+    dummyTitle.remove();
 
-});
+    let textHeight = 0;
+    const textWidths = [];
+    const dummyText = SVG.append("text").attr("class", "legend-text");
+    LEG.data.forEach(d => {
+      const bbox = dummyText.text(d.key).node().getBBox();
+      textWidths.push(bbox.width);
+      if (bbox.height > textHeight) textHeight = bbox.height;
+    });
+    dummyText.remove();
+
+    const rows = []; let row = 0;
+    const rowSums = [];
+    const availableWidth = WIDTH * 0.9;
+    
+    if(textWidths.length > 0){
+      let rowSum = 0;
+      for(let i=0; i < textWidths.length; i++){
+        if(rowSum + textWidths[i] > availableWidth && rowSum > 0){
+            rowSums.push(rowSum - LEG.textPad);
+            row++;
+            rowSum = 0;
+        }
+        rowSum += textWidths[i] + LEG.rectWidth + LEG.rectPad + LEG.textPad;
+        rows.push(row);
+      }
+      rowSums.push(rowSum - LEG.textPad);
+    }
+
+    LEG.elPos = [];
+    let currentX = 0;
+    for (let i = 0; i < LEG.data.length; i++) {
+        if (i > 0 && rows[i] > rows[i-1]) {
+            currentX = 0;
+        }
+        const xPos = (WIDTH / 2) - (rowSums[rows[i]] / 2) + currentX;
+        const yPos = titleHeight + LEG.titlePad + rows[i] * (textHeight + LEG.rowPad);
+        LEG.elPos.push({ x: xPos, y: yPos });
+        currentX += textWidths[i] + LEG.rectWidth + LEG.rectPad + LEG.textPad;
+    }
+    LEG.height = LEG.elPos.length > 0 ? LEG.elPos[LEG.elPos.length - 1].y + textHeight + LEG.rowPad : 0;
+  }
+
+  function drawLegend() {
+    SVG.selectAll(".g-legend").remove();
+    LEG.groupSelection = SVG.append("g").attr("class", "g-legend").attr("transform", `translate(0, ${HEIGHT - LEG.height})`);
+    if(LEG.title){
+        LEG.groupSelection.append("text").attr("class", "legend-title").attr("x", WIDTH / 2).attr("y", 0).text(LEG.title);
+    }
+    const legendEntries = LEG.groupSelection.selectAll(".g-legend-entry").data(LEG.data, d => d.id);
+    const enterSelection = legendEntries.enter().append("g").classed("g-legend-entry", true).on("click", (d, i, nodes) => legendSelect(d, nodes[i]));
+    enterSelection.append("rect").attr("class", "legend-rect").attr("width", LEG.rectWidth).attr("height", LEG.rectWidth);
+    enterSelection.append("text").attr("class", "legend-text").attr("x", LEG.rectWidth + LEG.rectPad).attr("y", LEG.rectWidth / 2);
+    
+    const allEntries = enterSelection.merge(legendEntries);
+    allEntries.attr("transform", (d, i) => `translate(${LEG.elPos[i].x}, <span class="math-inline">\{LEG\.elPos\[i\]\.y\}\)\`\);
+      allEntries\.select\("\.legend\-rect"\)\.attr\("fill", d \=\> GRAD\.fill\[d\.key\] \|\| GRAD\.fillScale\(d\.key\)\)\.attr\("stroke", d \=\> GRAD\.stroke\[d\.key\] \|\| GRAD\.strokeScale\(d\.key\)\);
+      allEntries\.select\("\.legend\-text"\)\.text\(d \=\> d\.key\);
+      if \(SELECTED\_CATEGORY\) \{
+      allEntries\.style\("opacity", d \=\> d\.key \=\=\= SELECTED\_CATEGORY ? 1 \: 0\.5\);
+      allEntries\.filter\(d \=\> d\.key \=\=\= SELECTED\_CATEGORY\)\.classed\("selected", true\);
+      \} else \{
+      allEntries\.style\("opacity", 1\)\.classed\("selected", false\);
+      \}
+      legendEntries\.exit\(\)\.remove\(\);
+      \}
+      function legendSelect\(datum, element\) \{
+      if \(datum && SELECTED\_CATEGORY \=\=\= datum\.key\) \{
+      SELECTED\_CATEGORY \= null; // Deselect if clicking the same one again
+      \} else \{
+      SELECTED\_CATEGORY \= datum ? datum\.key \: null;
+      \}
+      d3\.selectAll\("\.data\-path"\)\.transition\(\)\.duration\(TRANS\_TIME/2\)\.style\("opacity", d \=\> \!SELECTED\_CATEGORY \|\| d\.category \=\=\= SELECTED\_CATEGORY ? 1 \: 0\.1\);
+      G\_CHART\_AREA\.selectAll\("\[class\*\='data\-point\-'\]"\)\.transition\(\)\.duration\(TRANS\_TIME/2\)\.style\("opacity", d \=\> \!SELECTED\_CATEGORY \|\| d\.category \=\=\= SELECTED\_CATEGORY ? 1 \: 0\.1\);
+      drawLegend\(\); // Redraw legend to update styles
+      \}
+      function translateFormat\(t\) \{
+      if \(\!t\) return d3\.format\(",\.0f"\);
+      if \(t\.indexOf\("\."\) \=\=\= t\.length \- 1\) t \+\= 0;
+      if \(t\.includes\("DOLLAR"\)\) return d3\.format\(t\.replace\("DOLLAR", "</span>").replace(".", ",") + "f");
+          if (t.includes("COMMA")) return d3.format(t.replace("COMMA", "").replace(".", ",") + "f");
+          if (t.includes("F")) return d3.format(t.replace("F", "") + "f");
+          if (t.includes("BEST")) return d3.format(t.replace("BEST", "") + "f");
+          if (t.includes("PERCENT")) return d3.format(t.replace("PERCENT", "").replace(".", ",") + "%");
+          return d3.format(",.0f");
+        }
+      
+      });
 </script>
 
 </body>
