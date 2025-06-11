@@ -4,9 +4,7 @@
   <meta charset="UTF-8">
   <title>Radar Chart</title>
   <script type="text/javascript" src="https://d3js.org/d3.v5.min.js"></script>
-
   <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/d3-tip/0.9.1/d3-tip.min.js"></script>
-
   <script type="text/javascript" src="../../util/messagingUtil.js"></script>
   <script type="text/javascript" src="../../util/contentUtil.js"></script>
 </head>
@@ -17,9 +15,9 @@
     margin: 0px;
     width: 100%;
     height: 100%;
+    font-family: Arial, Helvetica, sans-serif;
   }
   text {
-    font-family: Arial, Helvetica, sans-serif;
     font-size: 12px;
   }
   .legend-title {
@@ -34,9 +32,8 @@
   }
   .data-path {
     pointer-events: none;
-    stroke-width: 2px;
+    stroke-width: 2.5px;
     fill: none;
-    opacity: 1;
   }
   .measure-label {
     font-size: .8em;
@@ -49,11 +46,13 @@
   }
   .d3-tip {
     pointer-events: none !important;
-    background: white;
+    background: rgba(255, 255, 255, 0.95);
     position: relative;
     border: 1px solid #C4C4C4;
-    border-radius: 2px;
+    border-radius: 4px;
+    padding: 8px;
     font-size: .9em;
+    box-shadow: 0 0 5px rgba(0,0,0,0.2);
   }
   .d3-tip-content {
     white-space: nowrap;
@@ -66,40 +65,37 @@
 
 document.addEventListener("DOMContentLoaded", function() {
   /*******************************************************
-   * VARIÁVEIS E CONFIGURAÇÕES GLOBAIS           *
+   * VARIÁVEIS E CONFIGURAÇÕES GLOBAIS
    *******************************************************/
 
   const SVG_ID = "radar";
   const SAMPLE_MESSAGE = {
-    version: "1", resultName: "dd55", rowCount: 18, availableRowCount: 18,
+    version: "1", resultName: "dd55", rowCount: 30, availableRowCount: 30,
     data: [
-        ["Anos finais", "IN_AREA_VERDE_F", 0.3, "BEST12.2"], ["Anos finais", "IN_AUDITORIO_F", 0.1, "BEST12.2"], ["Anos finais", "IN_BIBLIOTECA_SALA_LEITURA_F", 0.7, "BEST12.2"], ["Anos finais", "IN_LABORATORIO_CIENCIAS_F", 0.4, "BEST12.2"], ["Anos finais", "IN_LABORATORIO_INFORMATICA_F", 0.6, "BEST12.2"], ["Anos finais", "IN_PARQUE_INFANTIL_F", 0.5, "BEST12.2"], ["Anos finais", "IN_QUADRA_ESPORTES_F", 0.8, "BEST12.2"], ["Anos finais", "IN_SALA_ATELIE_ARTES_F", 0.2, "BEST12.2"], ["Anos finais", "IN_SALA_PROFESSOR_F", 0.9, "BEST12.2"], ["Anos finais", "IN_SALA_MULTIUSO_F", 0.6, "BEST12.2"],
-        ["Anos iniciais", "IN_AREA_VERDE_F", 0.4, "BEST12.2"], ["Anos iniciais", "IN_AUDITORIO_F", 0.2, "BEST12.2"], ["Anos iniciais", "IN_BIBLIOTECA_SALA_LEITURA_F", 0.8, "BEST12.2"], ["Anos iniciais", "IN_LABORATORIO_CIENCIAS_F", 0.3, "BEST12.2"], ["Anos iniciais", "IN_LABORATORIO_INFORMATICA_F", 0.7, "BEST12.2"], ["Anos iniciais", "IN_PARQUE_INFANTIL_F", 0.9, "BEST12.2"], ["Anos iniciais", "IN_QUADRA_ESPORTES_F", 0.7, "BEST12.2"], ["Anos iniciais", "IN_SALA_ATELIE_ARTES_F", 0.1, "BEST12.2"], ["Anos iniciais", "IN_SALA_PROFESSOR_F", 0.8, "BEST12.2"], ["Anos iniciais", "IN_SALA_MULTIUSO_F", 0.5, "BEST12.2"],
-        ["Ensino médio", "IN_AREA_VERDE_F", 0.2, "BEST12.2"], ["Ensino médio", "IN_AUDITORIO_F", 0.4, "BEST12.2"], ["Ensino médio", "IN_BIBLIOTECA_SALA_LEITURA_F", 0.9, "BEST12.2"], ["Ensino médio", "IN_LABORATORIO_CIENCIAS_F", 0.8, "BEST12.2"], ["Ensino médio", "IN_LABORATORIO_INFORMATICA_F", 0.9, "BEST12.2"], ["Ensino médio", "IN_PARQUE_INFANTIL_F", 0.2, "BEST12.2"], ["Ensino médio", "IN_QUADRA_ESPORTES_F", 0.9, "BEST12.2"], ["Ensino médio", "IN_SALA_ATELIE_ARTES_F", 0.3, "BEST12.2"], ["Ensino médio", "IN_SALA_PROFESSOR_F", 1.0, "BEST12.2"], ["Ensino médio", "IN_SALA_MULTIUSO_F", 0.7, "BEST12.2"]
+      ["Anos finais", "IN_AREA_VERDE_F", 0.3, "BEST12.2"], ["Anos finais", "IN_AUDITORIO_F", 0.1, "BEST12.2"], ["Anos finais", "IN_BIBLIOTECA_SALA_LEITURA_F", 0.7, "BEST12.2"], ["Anos finais", "IN_LABORATORIO_CIENCIAS_F", 0.4, "BEST12.2"], ["Anos finais", "IN_LABORATORIO_INFORMATICA_F", 0.6, "BEST12.2"], ["Anos finais", "IN_PARQUE_INFANTIL_F", 0.5, "BEST12.2"], ["Anos finais", "IN_QUADRA_ESPORTES_F", 0.8, "BEST12.2"], ["Anos finais", "IN_SALA_ATELIE_ARTES_F", 0.2, "BEST12.2"], ["Anos finais", "IN_SALA_PROFESSOR_F", 0.9, "BEST12.2"], ["Anos finais", "IN_SALA_MULTIUSO_F", 0.6, "BEST12.2"],
+      ["Anos iniciais", "IN_AREA_VERDE_F", 0.4, "BEST12.2"], ["Anos iniciais", "IN_AUDITORIO_F", 0.2, "BEST12.2"], ["Anos iniciais", "IN_BIBLIOTECA_SALA_LEITURA_F", 0.8, "BEST12.2"], ["Anos iniciais", "IN_LABORATORIO_CIENCIAS_F", 0.3, "BEST12.2"], ["Anos iniciais", "IN_LABORATORIO_INFORMATICA_F", 0.7, "BEST12.2"], ["Anos iniciais", "IN_PARQUE_INFANTIL_F", 0.9, "BEST12.2"], ["Anos iniciais", "IN_QUADRA_ESPORTES_F", 0.7, "BEST12.2"], ["Anos iniciais", "IN_SALA_ATELIE_ARTES_F", 0.1, "BEST12.2"], ["Anos iniciais", "IN_SALA_PROFESSOR_F", 0.8, "BEST12.2"], ["Anos iniciais", "IN_SALA_MULTIUSO_F", 0.5, "BEST12.2"],
+      ["Ensino médio", "IN_AREA_VERDE_F", 0.2, "BEST12.2"], ["Ensino médio", "IN_AUDITORIO_F", 0.4, "BEST12.2"], ["Ensino médio", "IN_BIBLIOTECA_SALA_LEITURA_F", 0.9, "BEST12.2"], ["Ensino médio", "IN_LABORATORIO_CIENCIAS_F", 0.8, "BEST12.2"], ["Ensino médio", "IN_LABORATORIO_INFORMATICA_F", 0.9, "BEST12.2"], ["Ensino médio", "IN_PARQUE_INFANTIL_F", 0.2, "BEST12.2"], ["Ensino médio", "IN_QUADRA_ESPORTES_F", 0.9, "BEST12.2"], ["Ensino médio", "IN_SALA_ATELIE_ARTES_F", 0.3, "BEST12.2"], ["Ensino médio", "IN_SALA_PROFESSOR_F", 1.0, "BEST12.2"], ["Ensino médio", "IN_SALA_MULTIUSO_F", 0.7, "BEST12.2"]
     ],
     columns: [
       { name: "cat", label: "Etapa de Ensino", type: "string" }, { name: "met", label: "Indicador", type: "string" },
-      { name: "val", label: "Valor", type: "number", usage: "quantitative" }, { name: "fmt", label: "Formato", type: "string" }
+      { name: "val", label: "Valor", type: "number" }, { name: "fmt", label: "Formato", type: "string" }
     ]
   };
 
-  let VA_MESSAGE, VA_RESULT_NAME, DATA, OLD_DATA, SELECTED_CATEGORY;
-  let METADATA = [], OLD_METADATA;
-  const TRANS_TIME = 500, MEASURE_LABEL_PADDING = 15;
+  let VA_MESSAGE, VA_RESULT_NAME, DATA, SELECTED_CATEGORY;
+  let METADATA = { metrics: {} };
+  const MEASURE_LABEL_PADDING = 15;
   let WIDTH, HEIGHT, RADIUS, DELTA_ANGLE, TOP_PAD, SIDE_PAD;
-  const SCALED_FORMAT = d3.format(".0%");
-  let SVG, G_CHART_AREA, G_GRID, DATA_PATHS, DATA_POINTS;
-
-  d3.selection.prototype.moveToFront = function() { return this.each(function() { this.parentNode.appendChild(this); }); };
-
-  const LEG = { title: undefined, data: undefined, elPos: undefined, height: undefined, groupSelection: undefined, titleDataJoin: undefined, groupDataJoin: undefined, rectWidth: 12, rectPad: 5, textPad: 10, titlePad: 5, rowPad: 3 };
-  const TIP = { self: undefined, dir: "n" };
+  let SVG, G_CHART_AREA, G_GRID;
+  
+  const LEG = { title: undefined, data: undefined, elPos: undefined, height: 0, groupSelection: undefined, rectWidth: 12, rectPad: 5, textPad: 10, titlePad: 5, rowPad: 3 };
+  const TIP = { self: undefined };
   const GRAD = {
     fill: { "Anos finais": "#1E8449", "Anos iniciais": "#58D68D", "Ensino médio": "#2ECC71" },
     stroke: { "Anos finais": "#1E8449", "Anos iniciais": "#58D68D", "Ensino médio": "#2ECC71" },
-    fillScale: d3.scaleOrdinal(["#1E8449", "#58D68D", "#2ECC71"]),
-    strokeScale: d3.scaleOrdinal(["#1E8449", "#58D68D", "#2ECC71"])
   };
+  GRAD.fillScale = d3.scaleOrdinal(Object.values(GRAD.fill));
+  GRAD.strokeScale = d3.scaleOrdinal(Object.values(GRAD.stroke));
 
   /*************************************************** Setup and Callbacks ***************************************************/
   va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
@@ -111,9 +107,10 @@ document.addEventListener("DOMContentLoaded", function() {
     VA_MESSAGE = messageFromVA;
     VA_RESULT_NAME = messageFromVA.resultName;
 
-    if (!va.contentUtil.validateRoles(messageFromVA, ["string", "string", "number", "string"], ["number"])) {
-      va.messagingUtil.postInstructionalMessage(VA_RESULT_NAME, "Expecting: Category, Metric Name, Metric Value, Metric Format");
-      return;
+    // Simplificando a validação para os 3 campos essenciais
+    if (!va.contentUtil.validateRoles(messageFromVA, ["string", "string", "number"])) {
+        va.messagingUtil.postInstructionalMessage(VA_RESULT_NAME, "Expecting: Category, Metric Name, Metric Value");
+        return;
     }
 
     const nestedMetrics = d3.nest().key(d => d[1]).entries(VA_MESSAGE.data);
@@ -122,14 +119,13 @@ document.addEventListener("DOMContentLoaded", function() {
     DELTA_ANGLE = (2 * Math.PI) / numMeasures;
     METADATA = { category: VA_MESSAGE.columns[0].label, metrics: {} };
     
-    // A escala será de 0 a 1 (ou 0% a 100%), já que os dados de exemplo já estão nessa faixa.
-    const globalMax = 1.0; 
+    const globalMax = d3.max(VA_MESSAGE.data, d => d[2]);
 
     nestedMetrics.forEach((metric, i) => {
       METADATA.metrics[metric.key] = {
         metric: metric.key,
         angle: i * DELTA_ANGLE,
-        format: d3.format(".0%"), // Formato de porcentagem para tooltip
+        format: d3.format(globalMax > 1 ? ",.0f" : ".0%"),
         maximum: globalMax
       };
     });
@@ -148,23 +144,18 @@ document.addEventListener("DOMContentLoaded", function() {
     LEG.title = METADATA.category;
     LEG.data = DATA.map(d => ({ key: d.category, id: d.id }));
 
-    if (d3.select("#" + SVG_ID).empty()) {
-      drawElements();
-    } else {
-      updateElements();
-    }
+    drawElements();
   }
 
   function drawElements() {
-    if (!DATA) return;
+    if (!DATA || DATA.length === 0) return;
 
     WIDTH = document.body.clientWidth;
     HEIGHT = document.body.clientHeight;
 
-    d3.select("body").selectAll("#" + SVG_ID).data([1]).enter().append("svg").attr("id", SVG_ID).on("click", () => legendSelect(null));
-    SVG = d3.select("#" + SVG_ID);
-    SVG.html(""); // Limpa o SVG para redesenho
-
+    d3.select("body").selectAll("#" + SVG_ID).remove();
+    SVG = d3.select("body").append("svg").attr("id", SVG_ID);
+    
     TIP.self = d3.tip().attr("class", "d3-tip").offset([-8, 0]).html(function(d) {
       return `<table class='d3-tip-content'>
                 <tr><td><span class="math-inline">\{METADATA\.category\}\:</td\><td\><b\></span>{d.category}</b></td></tr>
@@ -176,10 +167,10 @@ document.addEventListener("DOMContentLoaded", function() {
     calculatePadding();
     calculateLegendDimensions();
     
-    RADIUS = Math.min(WIDTH - 2 * SIDE_PAD, HEIGHT - LEG.height - 2 * TOP_PAD) / 2;
+    RADIUS = Math.max(0, Math.min(WIDTH - 2 * SIDE_PAD, HEIGHT - LEG.height - 2 * TOP_PAD) / 2);
     
     G_CHART_AREA = SVG.append("g").attr("class", "g-chart-area").attr("transform", `translate(${WIDTH / 2}, ${TOP_PAD + RADIUS})`);
-    G_GRID = G_CHART_AREA.append("g").classed("g-grid", true);
+    G_GRID = G_CHART_AREA.append("g").attr("class", "g-grid");
 
     G_GRID.selectAll(".grid-line").data(Object.values(METADATA.metrics)).enter().append("line")
       .attr("class", "grid-line").attr("stroke", "#CDCDCD").attr("x1", 0).attr("y1", 0)
@@ -193,6 +184,7 @@ document.addEventListener("DOMContentLoaded", function() {
       .attr("text-anchor", d => d.angle === 0 || d.angle === Math.PI ? "middle" : (d.angle > Math.PI ? "end" : "start"))
       .attr("x", d => (RADIUS + MEASURE_LABEL_PADDING) * Math.sin(d.angle))
       .attr("y", d => -(RADIUS + MEASURE_LABEL_PADDING) * Math.cos(d.angle))
+      .attr("dy", "0.35em")
       .text(d => d.metric);
     
     const pathGenerator = d3.lineRadial()
@@ -200,8 +192,9 @@ document.addEventListener("DOMContentLoaded", function() {
       .radius(d => RADIUS * d.scaledMeasure)
       .curve(d3.curveLinearClosed);
 
-    DATA_PATHS = G_CHART_AREA.selectAll(".data-path").data(DATA, d => d.category);
-    DATA_PATHS.enter().append("path").attr("class", "data-path")
+    G_CHART_AREA.selectAll(".data-path").data(DATA, d => d.category)
+      .enter().append("path")
+      .attr("class", "data-path")
       .attr("id", d => d.id + "-path")
       .style("stroke", d => GRAD.stroke[d.category] || GRAD.strokeScale(d.category))
       .attr("d", d => pathGenerator(d.metrics));
@@ -209,22 +202,24 @@ document.addEventListener("DOMContentLoaded", function() {
     DATA.forEach(dPath => {
       const pointsData = dPath.metrics.map(metric => ({ ...metric, category: dPath.category, id: dPath.id }));
       const points = G_CHART_AREA.selectAll(`.data-point-${dPath.id}`).data(pointsData, p => p.metric);
-      points.enter().append("circle").attr("class", `data-point data-point-${dPath.id}`)
+      
+      points.enter().append("circle")
+        .attr("class", `data-point data-point-${dPath.id}`)
         .merge(points)
         .attr("fill", GRAD.fill[dPath.category] || GRAD.fillScale(dPath.category))
         .attr("r", 4)
         .on("mouseover", function(p) { TIP.self.show(p, this); })
         .on("mouseout", TIP.self.hide)
         .attr("cx", d => RADIUS * d.scaledMeasure * Math.sin(METADATA.metrics[d.metric].angle))
-        .attr("cy", d => -RADIUS * d.scaledMeasure * Math.cos(METADATA.metrics[d.metric].angle));
-      points.exit().remove();
+        .attr("cy", d => -RADIUS * d.scaledMeasure * Math.cos(METADATA.metrics[d.metric].angle))
+        .exit().remove();
     });
 
     drawLegend();
+    legendSelect(null);
   }
 
   function updateElements() {
-    // A true update would use transitions. For now, just redraw.
     drawElements();
   }
 
@@ -248,14 +243,15 @@ document.addEventListener("DOMContentLoaded", function() {
     if (!DATA) return;
     let titleHeight = 0;
     const dummyTitle = SVG.append("text").attr("class", "legend-title").text(LEG.title);
-    titleHeight = LEG.title ? dummyTitle.node().getBBox().height : 0;
+    if(LEG.title) titleHeight = dummyTitle.node().getBBox().height;
     dummyTitle.remove();
 
     let textHeight = 0;
     const textWidths = [];
     const dummyText = SVG.append("text").attr("class", "legend-text");
     LEG.data.forEach(d => {
-      const bbox = dummyText.text(d.key).node().getBBox();
+      dummyText.text(d.key);
+      const bbox = dummyText.node().getBBox();
       textWidths.push(bbox.width);
       if (bbox.height > textHeight) textHeight = bbox.height;
     });
@@ -268,12 +264,13 @@ document.addEventListener("DOMContentLoaded", function() {
     if(textWidths.length > 0){
       let rowSum = 0;
       for(let i=0; i < textWidths.length; i++){
-        if(rowSum + textWidths[i] > availableWidth && rowSum > 0){
+        let itemWidth = textWidths[i] + LEG.rectWidth + LEG.rectPad + LEG.textPad;
+        if(rowSum + itemWidth > availableWidth && rowSum > 0){
             rowSums.push(rowSum - LEG.textPad);
             row++;
             rowSum = 0;
         }
-        rowSum += textWidths[i] + LEG.rectWidth + LEG.rectPad + LEG.textPad;
+        rowSum += itemWidth;
         rows.push(row);
       }
       rowSums.push(rowSum - LEG.textPad);
@@ -290,41 +287,52 @@ document.addEventListener("DOMContentLoaded", function() {
         LEG.elPos.push({ x: xPos, y: yPos });
         currentX += textWidths[i] + LEG.rectWidth + LEG.rectPad + LEG.textPad;
     }
-    LEG.height = LEG.elPos.length > 0 ? LEG.elPos[LEG.elPos.length - 1].y + textHeight + LEG.rowPad : 0;
+    LEG.height = LEG.elPos.length > 0 ? LEG.elPos[LEG.elPos.length-1].y + textHeight + LEG.rowPad : 0;
   }
 
   function drawLegend() {
     SVG.selectAll(".g-legend").remove();
     LEG.groupSelection = SVG.append("g").attr("class", "g-legend").attr("transform", `translate(0, ${HEIGHT - LEG.height})`);
+    
     if(LEG.title){
         LEG.groupSelection.append("text").attr("class", "legend-title").attr("x", WIDTH / 2).attr("y", 0).text(LEG.title);
     }
+
     const legendEntries = LEG.groupSelection.selectAll(".g-legend-entry").data(LEG.data, d => d.id);
-    const enterSelection = legendEntries.enter().append("g").classed("g-legend-entry", true).on("click", (d, i, nodes) => legendSelect(d, nodes[i]));
+    const enterSelection = legendEntries.enter().append("g").attr("class", "g-legend-entry").on("click", (d, i, nodes) => legendSelect(d, nodes[i]));
+    
     enterSelection.append("rect").attr("class", "legend-rect").attr("width", LEG.rectWidth).attr("height", LEG.rectWidth);
     enterSelection.append("text").attr("class", "legend-text").attr("x", LEG.rectWidth + LEG.rectPad).attr("y", LEG.rectWidth / 2);
     
     const allEntries = enterSelection.merge(legendEntries);
-    allEntries.attr("transform", (d, i) => `translate(${LEG.elPos[i].x}, <span class="math-inline">\{LEG\.elPos\[i\]\.y\}\)\`\);
-allEntries\.select\("\.legend\-rect"\)\.attr\("fill", d \=\> GRAD\.fill\[d\.key\] \|\| GRAD\.fillScale\(d\.key\)\)\.attr\("stroke", d \=\> GRAD\.stroke\[d\.key\] \|\| GRAD\.strokeScale\(d\.key\)\);
-allEntries\.select\("\.legend\-text"\)\.text\(d \=\> d\.key\);
-if \(SELECTED\_CATEGORY\) \{
-allEntries\.style\("opacity", d \=\> d\.key \=\=\= SELECTED\_CATEGORY ? 1 \: 0\.5\);
-allEntries\.filter\(d \=\> d\.key \=\=\= SELECTED\_CATEGORY\)\.classed\("selected", true\);
-\} else \{
-allEntries\.style\("opacity", 1\)\.classed\("selected", false\);
+    allEntries.attr("transform", (d, i) => `translate(${LEG.elPos[i].x}, ${LEG.elPos[i].y})`);
+    allEntries.select(".legend-rect").attr("fill", d => GRAD.fill[d.key] || GRAD.fillScale(d.key));
+    allEntries.select(".legend-text").text(d => d.key);
+
+    legendEntries.exit().remove();
+  }
+  
+  function legendSelect(datum) {
+    d3.event.stopPropagation();
+    if (datum && SELECTED_CATEGORY === datum.key) {
+      SELECTED_CATEGORY = null; // Deseleciona
+    } else {
+      SELECTED_CATEGORY = datum ? datum.key : null;
+    }
+    
+    d3.selectAll(".g-legend-entry")
+        .classed("selected", d => d.key === SELECTED_CATEGORY)
+        .transition().duration(200)
+        .style("opacity", d => !SELECTED_CATEGORY || d.key === SELECTED_CATEGORY ? 1 : 0.5);
+
+    d3.selectAll(".data-path, [class*='data-point-']")
+        .transition().duration(200)
+        .style("opacity", d => !SELECTED_CATEGORY || d.category === SELECTED_CATEGORY ? 1 : 0.1);
+    
+    if (SELECTED_CATEGORY) {
+        d3.selectAll(".data-path").filter(d => d.category === SELECTED_CATEGORY).moveToFront();
+        d3.selectAll(`[class*='data-point-<span class="math-inline">\{SELECTED\_CATEGORY\}'\]\`\)\.moveToFront\(\);
 \}
-legendEntries\.exit\(\)\.remove\(\);
-\}
-function legendSelect\(datum, element\) \{
-if \(datum && SELECTED\_CATEGORY \=\=\= datum\.key\) \{
-SELECTED\_CATEGORY \= null; // Deselect if clicking the same one again
-\} else \{
-SELECTED\_CATEGORY \= datum ? datum\.key \: null;
-\}
-d3\.selectAll\("\.data\-path"\)\.transition\(\)\.duration\(TRANS\_TIME/2\)\.style\("opacity", d \=\> \!SELECTED\_CATEGORY \|\| d\.category \=\=\= SELECTED\_CATEGORY ? 1 \: 0\.1\);
-G\_CHART\_AREA\.selectAll\("\[class\*\='data\-point\-'\]"\)\.transition\(\)\.duration\(TRANS\_TIME/2\)\.style\("opacity", d \=\> \!SELECTED\_CATEGORY \|\| d\.category \=\=\= SELECTED\_CATEGORY ? 1 \: 0\.1\);
-drawLegend\(\); // Redraw legend to update styles
 \}
 function translateFormat\(t\) \{
 if \(\!t\) return d3\.format\(",\.0f"\);
@@ -337,6 +345,7 @@ if \(t\.includes\("DOLLAR"\)\) return d3\.format\(t\.replace\("DOLLAR", "</span>
     return d3.format(",.0f");
   }
 
+// FECHAMENTO DA FUNÇÃO DOMContentLoaded
 });
 </script>
 
