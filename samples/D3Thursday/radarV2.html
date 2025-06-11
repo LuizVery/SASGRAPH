@@ -1,28 +1,10 @@
 <!DOCTYPE html>
-<!--
-Copyright 2018 SAS Institute Inc.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-https://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
--->
 <html>
 <head>
-  <!-- Import D3.js -->
   <script type="text/javascript" src="https://d3js.org/d3.v5.min.js"></script>
 
-  <!-- Import d3-tip -->
   <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/d3-tip/0.9.1/d3-tip.min.js"></script>
 
-  <!-- Import utilities  -->
   <script type="text/javascript" src="../../util/messagingUtil.js"></script>
   <script type="text/javascript" src="../../util/contentUtil.js"></script>
 </head>
@@ -34,154 +16,53 @@ limitations under the License.
     width: 100%;
     height: 100%;
   }
-    /* Define a fonte padrão e o tamanho para todos os textos */
-    text {
-      font-family: Arial, Helvetica, sans-serif; /* ALTERADO */
-      font-size: 12px; /* ALTERADO */
-    }
-  
-    /* Define um tamanho menor para o título da legenda */
-    .legend-title {
-      font-weight: bold;
-      text-anchor: middle;
-      dominant-baseline: hanging;
-      font-size: 0.7em; /* ALTERADO */
-    }
-
-  /* Define um tamanho menor para o texto da legenda */
-  .legend-text {
-    dominant-baseline: central;
-    font-size: 0.7em; /* ALTERADO */
+  text {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 12px;
   }
-
+  .legend-title {
+    font-weight: bold;
+    text-anchor: middle;
+    dominant-baseline: hanging;
+    font-size: 0.9em;
+  }
+  .legend-text {
+    font-size: 0.8em;
+    dominant-baseline: central;
+  }
   .legend-rect {
     stroke-width: 1;
   }
-
   .g-legend-entry {
     cursor: pointer;
   }
-
   .g-legend-entry.selected .legend-text {
     font-weight: bold;
   }
-
   .g-legend-entry.selected .legend-rect {
     stroke-width: 2px;
   }
-
   .data-path {
-     pointer-events: none;
-     stroke-width: 2px; /* Mantém a espessura da linha */
-     fill: none;        /* Remove o preenchimento da área */
-     opacity: 1;        /* Garante que não haja transparência */
-   }
-
+    pointer-events: none;
+    stroke-width: 2px;
+    fill: none;
+    opacity: 1;
+  }
   .measure-label {
+    font-size: .8em;
     dominant-baseline: hanging;
   }
-
-  /* Ajusta o tamanho da fonte do container do tooltip */
   .d3-tip {
     pointer-events: none !important;
     background: white;
     position: relative;
     border: 1px solid #C4C4C4;
     border-radius: 2px;
-    font-size: .6em; /* ALTERADO */
+    font-size: .9em;
   }
-
-  /* Create arrow on tooltip */
-  .d3-tip.n:before, .d3-tip.ne:before, .d3-tip.nw:before, .d3-tip.s:before, .d3-tip.se:before, .d3-tip.sw:before {
-    content: "";
-    position: absolute;
-    border-style: solid;
-    border-width: 5px 10px 5px 0;
-    border-color: transparent #C4C4C4;
-    transform-origin: 0% 0%;
-  }
-
-  .d3-tip.n:after, .d3-tip.ne:after, .d3-tip.nw:after, .d3-tip.s:after, .d3-tip.se:after, .d3-tip.sw:after {
-    content: "";
-    position: absolute;
-    border-style: solid;
-    border-width: 4px 8px 4px 0;
-    border-color: transparent #fff;
-    transform-origin: 0% 0%;
-  }
-
-  /* Move the arrow depending on direction */
-  /* North */
-  .d3-tip.n:before, .d3-tip.n:after {
-    top: 100%;
-    left: 50%;
-    transform: rotate(-90deg) translate(-10px, -5px);
-  }
-
-  .d3-tip.n:after {
-    transform: rotate(-90deg) translate(-7px, -4px);
-  }
-
-  /* North east */
-  .d3-tip.ne:before, .d3-tip.ne:after {
-    top: 100%;
-    left: 0%;
-    transform: rotate(-45deg) translate(-6px, -5px);
-  }
-
-  .d3-tip.ne:after {
-    transform: rotate(-45deg) translate(-3px, -4px);
-  }
-
-  /* North west */
-  .d3-tip.nw:before, .d3-tip.nw:after {
-    top: 100%;
-    left: 100%;
-    transform: rotate(-135deg) translate(-6px, -5px);
-  }
-
-  .d3-tip.nw:after {
-    transform: rotate(-135deg) translate(-3px, -4px);
-  }
-
-  /* South */
-  .d3-tip.s:before, .d3-tip.s:after {
-    top: 0%;
-    left: 50%;
-    transform: rotate(90deg) translate(-10px, -5px);
-  }
-
-  .d3-tip.s:after {
-    transform: rotate(90deg) translate(-7px, -4px);
-  }
-
-  /* South east */
-  .d3-tip.se:before, .d3-tip.se:after {
-    top: 0%;
-    left: 0%;
-    transform: rotate(45deg) translate(-6px, -5px);
-  }
-
-  .d3-tip.se:after {
-    transform: rotate(45deg) translate(-3px, -4px);
-  }
-
-  /* South west */
-  .d3-tip.sw:before, .d3-tip.sw:after {
-    top: 0%;
-    left: 100%;
-    transform: rotate(135deg) translate(-6px, -5px);
-  }
-
-  .d3-tip.sw:after {
-    transform: rotate(135deg) translate(-3px, -4px);
-  }
-
-  /* Style tip content */
   .d3-tip-content {
     white-space: nowrap;
     text-align: left;
-    /* Linha de font-family removida para herdar o padrão 'Avenir Next' */
   }
 </style>
 
@@ -195,28 +76,15 @@ document.addEventListener("DOMContentLoaded", function() {
   const SAMPLE_MESSAGE = {
     version: "1", resultName: "dd55", rowCount: 18, availableRowCount: 18,
     data: [
-      ["Hybrid", "Cylinders", 3.6666666666666665, "BEST12.2"],
-      ["Hybrid", "MPG (City)", 55, "BEST12.2"],
-      ["Hybrid", "MSRP", 19920, "DOLLAR12.2"],
-      ["Sedan", "Cylinders", 5.580152671755725, "BEST12.2"],
-      ["Sedan", "MPG (City)", 21.083969465648856, "BEST12.2"],
-      ["Sedan", "MSRP", 29773.618320610687, "DOLLAR12.2"],
-      ["Sports", "Cylinders", 6.340425531914893, "BEST12.2"],
-      ["Sports", "MPG (City)", 18.408163265306122, "BEST12.2"],
-      ["Sports", "MSRP", 53387.06122448979, "DOLLAR12.2"],
-      ["SUV", "Cylinders", 6.566666666666666, "BEST12.2"],
-      ["SUV", "MPG (City)", 16.1, "BEST12.2"],
-      ["SUV", "MSRP", 34790.25, "DOLLAR12.2"],
-      ["Truck", "Cylinders", 6.25, "BEST12.2"],
-      ["Truck", "MPG (City)", 16.5, "BEST12.2"],
-      ["Truck", "MSRP", 24941.375, "DOLLAR12.2"],
-      ["Wagon", "Cylinders", 5.3, "BEST12.2"],
-      ["Wagon", "MPG (City)", 21.1, "BEST12.2"],
-      ["Wagon", "MSRP", 28840.533333333333, "DOLLAR12.2"]
+      ["Hybrid", "Cylinders", 3.66, "BEST12.2"], ["Hybrid", "MPG (City)", 55, "BEST12.2"], ["Hybrid", "MSRP", 19920, "DOLLAR12.2"],
+      ["Sedan", "Cylinders", 5.58, "BEST12.2"], ["Sedan", "MPG (City)", 21.08, "BEST12.2"], ["Sedan", "MSRP", 29773, "DOLLAR12.2"],
+      ["Sports", "Cylinders", 6.34, "BEST12.2"], ["Sports", "MPG (City)", 18.40, "BEST12.2"], ["Sports", "MSRP", 53387, "DOLLAR12.2"],
+      ["SUV", "Cylinders", 6.56, "BEST12.2"], ["SUV", "MPG (City)", 16.1, "BEST12.2"], ["SUV", "MSRP", 34790, "DOLLAR12.2"],
+      ["Truck", "Cylinders", 6.25, "BEST12.2"], ["Truck", "MPG (City)", 16.5, "BEST12.2"], ["Truck", "MSRP", 24941, "DOLLAR12.2"],
+      ["Wagon", "Cylinders", 5.3, "BEST12.2"], ["Wagon", "MPG (City)", 21.1, "BEST12.2"], ["Wagon", "MSRP", 28840, "DOLLAR12.2"]
     ],
     columns: [
-      { name: "bi173", label: "Type", type: "string" },
-      { name: "bi174", label: "Metric", type: "string" },
+      { name: "bi173", label: "Type", type: "string" }, { name: "bi174", label: "Metric", type: "string" },
       { name: "bi175", label: "Measure", type: "number", usage: "quantitative", aggregation: "sum", format: { name: "BEST", width: 12, precision: 0, formatString: "BEST12." } },
       { name: "bi176", label: "Format", type: "string" }
     ]
@@ -230,9 +98,7 @@ document.addEventListener("DOMContentLoaded", function() {
   const SCALED_FORMAT = d3.format("3.0f");
   let SVG, G_CHART_AREA, G_GRID, GRID_LINES, GRID_CIRCLES, MEASURE_LABELS, DATA_PATHS, DATA_POINTS;
   
-  d3.selection.prototype.moveToFront = function() {
-    return this.each(function() { this.parentNode.appendChild(this); });
-  };
+  d3.selection.prototype.moveToFront = function() { return this.each(function() { this.parentNode.appendChild(this); }); };
   
   const LEG = {
     topPad: 20, titlePad: 5, rowPad: 3, rectWidth: 12, rectPad: 5, textPad: 5,
@@ -243,8 +109,8 @@ document.addEventListener("DOMContentLoaded", function() {
   const TIP = { self: undefined, dir: "n" };
 
   const GRAD = {
-    fill: { "Anos finais": "#2E7D32", "Anos iniciais": "#8BC34A", "Ensino médio": "#4CAF50" },
-    stroke: { "Anos finais": "#2E7D32", "Anos iniciais": "#8BC34A", "Ensino médio": "#4CAF50" },
+    fill: { "Anos finais": "#2E7D32", "Anos iniciais": "#8BC34A", "Ensino médio": "#4CAF50", Hybrid: "#4CAF50", Sedan: "#8BC34A", Sports: "#2E7D32", SUV: "#00695C", Truck: "#689F38", Wagon: "#9CCC65" },
+    stroke: { "Anos finais": "#2E7D32", "Anos iniciais": "#8BC34A", "Ensino médio": "#4CAF50", Hybrid: "#4CAF50", Sedan: "#8BC34A", Sports: "#2E7D32", SUV: "#00695C", Truck: "#689F38", Wagon: "#9CCC65" },
     fillScale: d3.scaleOrdinal(["#4CAF50", "#8BC34A", "#2E7D32", "#00695C", "#689F38", "#9CCC65"]),
     strokeScale: d3.scaleOrdinal(["#4CAF50", "#8BC34A", "#2E7D32", "#00695C", "#689F38", "#9CCC65"]),
     data: undefined, defsSelection: undefined, gradsDataJoin: undefined
@@ -262,7 +128,7 @@ document.addEventListener("DOMContentLoaded", function() {
   /****************************************************** Callback Functions ******************************************************/
   function handleCallback(messageFromVA) {
     if (LAST_TRANSITION_END > Date.now()) {
-      setTimeout(function() { onDataReceived(messageFromVA); }, LAST_TRANSITION_END - Date.now());
+      setTimeout(() => onDataReceived(messageFromVA), LAST_TRANSITION_END - Date.now());
       LAST_TRANSITION_END = LAST_TRANSITION_END + TRANS_TIME + TRANS_DELAY;
     } else {
       onDataReceived(messageFromVA);
@@ -275,12 +141,12 @@ document.addEventListener("DOMContentLoaded", function() {
     VA_RESULT_NAME = messageFromVA.resultName;
 
     if (!va.contentUtil.validateRoles(messageFromVA, ["string", "string", "number", "string"], ["number"])) {
-      va.messagingUtil.postInstructionalMessage(VA_RESULT_NAME, "D3 Radar Chart expects ... (error message)");
+      va.messagingUtil.postInstructionalMessage(VA_RESULT_NAME, "D3 Radar Chart expects columns in order: Category, Metric Name, Metric Value, Metric Format");
       return;
     }
 
-    const nestedData = d3.nest().key(d => d[1]).entries(VA_MESSAGE.data);
-    const numMeasures = nestedData.length;
+    const nestedMetrics = d3.nest().key(d => d[1]).entries(VA_MESSAGE.data);
+    const numMeasures = nestedMetrics.length;
 
     OLD_METADATA = METADATA;
     DELTA_ANGLE = (2 * Math.PI) / numMeasures;
@@ -288,14 +154,15 @@ document.addEventListener("DOMContentLoaded", function() {
     
     const globalMax = d3.max(VA_MESSAGE.data, d => d[2]);
 
-    for (let i = 0; i < numMeasures; i++) {
-      METADATA.metrics[nestedData[i].key] = {
-        metric: nestedData[i].key,
+    nestedMetrics.forEach((metric, i) => {
+      const formatRow = VA_MESSAGE.data.find(d => d[1] === metric.key);
+      METADATA.metrics[metric.key] = {
+        metric: metric.key,
         angle: i * DELTA_ANGLE,
-        format: translateFormat(VA_MESSAGE.data.find(d => d[1] === nestedData[i].key)[3]),
+        format: translateFormat(formatRow ? formatRow[3] : "BEST12."),
         maximum: globalMax
       };
-    }
+    });
     
     OLD_DATA = DATA;
     const dataGroupedByCategory = d3.nest().key(d => d[0]).entries(VA_MESSAGE.data);
@@ -333,17 +200,18 @@ document.addEventListener("DOMContentLoaded", function() {
       .each(function() {
         TIP.self = d3.tip().attr("class", "d3-tip").offset([-8, 0]).html(function(d) {
           return `<table class='d3-tip-content'>
-                    <tr><td>${METADATA.category}:</td><td>${d.category}</td></tr>
-                    <tr><td>${d.metric}:</td><td>${METADATA.metrics[d.metric].format(d.measure)}</td></tr>
-                    <tr><td>${d.metric} Scaled:</td><td>${SCALED_FORMAT(d.scaledMeasure * 100)}</td></tr>
+                    <tr><td><span class="math-inline">\{METADATA\.category\}\:</td\><td\></span>{d.category}</td></tr>
+                    <tr><td><span class="math-inline">\{d\.metric\}\:</td\><td\></span>{METADATA.metrics[d.metric].format(d.measure)}</td></tr>
+                    <tr><td><span class="math-inline">\{d\.metric\} Scaled\:</td\><td\></span>{SCALED_FORMAT(d.scaledMeasure * 100)}</td></tr>
                   </table>`;
         });
         d3.select(this).call(TIP.self);
       });
 
     SVG = d3.select("#" + SVG_ID);
-    SVG.selectAll(".gradient-defs").data([DATA]).enter().append("defs").classed("gradient-defs", true);
-    GRAD.defsSelection = SVG.select(".gradient-defs");
+    SVG.html(""); // Clear SVG on redraw to avoid duplication
+    
+    GRAD.defsSelection = SVG.append("defs").classed("gradient-defs", true);
     defineGradients();
     calculatePadding();
     calculateLegendDimensions();
@@ -352,79 +220,84 @@ document.addEventListener("DOMContentLoaded", function() {
     OLD_RADIUS = RADIUS;
     RADIUS = Math.min(WIDTH - 2 * SIDE_PAD, HEIGHT - LEG.height - 2 * TOP_PAD) / 2;
 
-    SVG.selectAll(".g-chart-area").data([DATA]).enter().append("g").classed("g-chart-area", true);
-    G_CHART_AREA = SVG.select(".g-chart-area").attr("transform", `translate(${WIDTH / 2}, ${TOP_PAD + RADIUS})`);
-    G_CHART_AREA.selectAll(".g-grid").data([DATA]).enter().append("g").classed("g-grid", true);
-    G_GRID = G_CHART_AREA.select(".g-grid");
+    G_CHART_AREA = SVG.append("g").attr("class", "g-chart-area").attr("transform", `translate(${WIDTH / 2}, ${TOP_PAD + RADIUS})`);
+    G_GRID = G_CHART_AREA.append("g").classed("g-grid", true);
 
     GRID_LINES = G_GRID.selectAll(".grid-line").data(Object.values(METADATA.metrics), d => d.metric);
     GRID_LINES.enter().append("line").classed("grid-line", true).attr("stroke", "#C4C4C4")
-      .merge(GRID_LINES).attr("x1", 0).attr("y1", 0)
-      .attr("x2", d => RADIUS * Math.sin(d.angle)).attr("y2", d => -RADIUS * Math.cos(d.angle));
+      .attr("x1", 0).attr("y1", 0).attr("x2", d => RADIUS * Math.sin(d.angle)).attr("y2", d => -RADIUS * Math.cos(d.angle));
 
     GRID_CIRCLES = G_GRID.selectAll(".grid-circle").data([0.2, 0.4, 0.6, 0.8, 1]);
     GRID_CIRCLES.enter().append("circle").classed("grid-circle", true).attr("fill", "none").attr("stroke", "#E4E4E4")
-      .merge(GRID_CIRCLES).attr("cx", 0).attr("cy", 0).attr("r", d => d * RADIUS);
+      .attr("cx", 0).attr("cy", 0).attr("r", d => d * RADIUS);
 
     MEASURE_LABELS = G_CHART_AREA.selectAll(".measure-label").data(Object.values(METADATA.metrics), d => d.metric);
     MEASURE_LABELS.enter().append("text").classed("measure-label", true)
-      .merge(MEASURE_LABELS).text(d => d.metric)
-      .attr("dx", function(d) { return d.angle === 0 || d.angle === Math.PI ? `${-this.getBBox().width / 2}px` : d.angle > 0 && d.angle < Math.PI ? "0px" : `${-this.getBBox().width}px`; })
-      .attr("dy", function(d) { return d.angle === Math.PI / 2 || d.angle === 3 * Math.PI / 2 ? `${-this.getBBox().height / 2}px` : d.angle > Math.PI / 2 && d.angle < 3 * Math.PI / 2 ? "0px" : `${-this.getBBox().height}px`; })
+      .text(d => d.metric)
+      .attr("text-anchor", d => {
+        if (d.angle === 0 || d.angle === Math.PI) return "middle";
+        return d.angle > Math.PI ? "end" : "start";
+      })
+      .attr("dx", d => (d.angle > Math.PI ? -5 : 5))
+      .attr("dy", d => {
+          if (d.angle === Math.PI/2 || d.angle === 3*Math.PI/2) return "0.35em";
+          return d.angle > 0 && d.angle < Math.PI ? "1.2em" : "-0.5em"
+      })
       .attr("x", d => (RADIUS + MEASURE_LABEL_PADDING) * Math.sin(d.angle))
       .attr("y", d => -(RADIUS + MEASURE_LABEL_PADDING) * Math.cos(d.angle));
 
     DATA_PATHS = G_CHART_AREA.selectAll(".data-path").data(DATA, d => d.category);
     DATA_PATHS.enter().append("path").classed("data-path", true)
-      .merge(DATA_PATHS)
       .attr("id", d => d.category + "-path")
       .style("stroke", d => GRAD.stroke[d.category] || GRAD.strokeScale(d.category))
-      .attr("d", function(dPath) {
-        const points = [];
-        let path = "M ";
-        for (let j = 0; j < dPath.metrics.length; j++) {
-          const currentMetric = dPath.metrics[j];
-          const angle = METADATA.metrics[currentMetric.metric].angle;
-          const x = RADIUS * currentMetric.scaledMeasure * Math.sin(angle);
-          const y = -RADIUS * currentMetric.scaledMeasure * Math.cos(angle);
-          points.push({ ...currentMetric, category: dPath.category, x, y });
-          path += `${x},${y}${j === dPath.metrics.length - 1 ? " Z" : " L "}`;
-        }
+      .each(function(dPath) {
+        const pathGenerator = d3.lineRadial()
+          .angle(d => METADATA.metrics[d.metric].angle)
+          .radius(d => RADIUS * d.scaledMeasure)
+          .curve(d3.curveLinearClosed);
 
-        DATA_POINTS = d3.select(this.parentNode).selectAll(`.data-point-${dPath.id}`).data(points, p => p.metric);
-        DATA_POINTS.enter().append("circle").attr("class", `data-point data-point-${dPath.id}`)
-          .merge(DATA_POINTS)
+        d3.select(this).attr("d", pathGenerator(dPath.metrics));
+
+        const pointsData = dPath.metrics.map(metric => ({
+          ...metric,
+          category: dPath.category,
+          id: dPath.id
+        }));
+
+        const points = G_CHART_AREA.selectAll(`.data-point-${dPath.id}`).data(pointsData, p => p.metric);
+        
+        points.enter().append("circle")
+          .attr("class", `data-point data-point-${dPath.id}`)
+          .merge(points)
           .attr("fill", GRAD.fill[dPath.category] || GRAD.fillScale(dPath.category))
           .attr("r", 4)
           .on("mouseover", function(p) { TIP.self.direction("n").offset([-8, 0]).show(p, this).direction(getTipDirection()).offset(getTipOffset()).show(p, this); })
           .on("mouseout", TIP.self.hide)
-          .attr("cx", p => p.x).attr("cy", p => p.y);
+          .attr("cx", d => RADIUS * d.scaledMeasure * Math.sin(METADATA.metrics[d.metric].angle))
+          .attr("cy", d => -RADIUS * d.scaledMeasure * Math.cos(METADATA.metrics[d.metric].angle));
           
-        DATA_POINTS.exit().remove();
-        
-        return path;
+        points.exit().remove();
       });
       
     DATA_PATHS.exit().remove();
   }
 
   function updateElements() {
-    // For simplicity, just call drawElements. A true update would handle transitions.
     drawElements();
   }
 
-  // --- O resto das funções (helpers) permanece o mesmo ---
-  function inIframe(){try{return window.self!==window.top}catch(e){return!0}}
-  function calculateLegendDimensions(){let t;SVG.append("text").classed("legend-text",!0).text("TEST").each(function(){t=this.getBBox().height,this.remove()});const e=[];let a;SVG.selectAll(".dummyText").data(LEG.data).enter().append("text").classed("legend-text",!0).text(function(t){return t.key}).style("font-weight","bold").each(function(){a=this.getBBox().height,e.push(this.getComputedTextLength()),this.remove()});const n=[],r=[];let o;let l=0;for(let t=0;t<e.length;t++){o=e[t]+LEG.rectWidth+LEG.rectPad+LEG.textPad,n.push(l);for(;o+e[t+1]+LEG.rectWidth+LEG.rectPad+LEG.textPad<=WIDTH&&t+1<e.length;)t++,o+=e[t]+LEG.rectWidth+LEG.rectPad+LEG.textPad,n.push(l);r.push(o),l++}LEG.elPos=[];for(let i=0;i<e.length;i++)LEG.elPos.push({x:0==i||n[i-1]!=n[i]?WIDTH/2-r[n[i]]/2:LEG.elPos[i-1].x+e[i-1]+LEG.rectWidth+LEG.rectPad+LEG.textPad,y:t+LEG.titlePad+n[i]*(a+LEG.rowPad)});LEG.height=LEG.elPos[LEG.elPos.length-1].y+a+LEG.rowPad}
-  function drawLegend(){SVG.selectAll(".g-legend").data([LEG.title]).enter().append("g").classed("g-legend",!0),LEG.groupSelection=SVG.select(".g-legend"),LEG.titleDataJoin=LEG.groupSelection.selectAll(".legend-title").data([LEG.title]),LEG.titleDataJoin.enter().append("text").classed("legend-title",!0).text(function(t){return t}).merge(LEG.titleDataJoin).attr("transform","translate("+WIDTH/2+", 0)"),LEG.groupDataJoin=LEG.groupSelection.selectAll(".g-legend-entry").data(LEG.data,function(t){return t.id}).enter().append("g").classed("g-legend-entry",!0).attr("id",function(t){return t.id+"-legend-entry"}).on("click",function(t,e){legendSelect(t,e,this)}),LEG.groupSelection.selectAll(".g-legend-entry").data(LEG.data,function(t){return t.id}).attr("transform",function(t,e){return"translate("+LEG.elPos[e].x+", "+LEG.elPos[e].y+")"}),LEG.groupDataJoin.append("rect").classed("legend-rect",!0).attr("width",LEG.rectWidth).attr("height",LEG.rectWidth).attr("fill",function(t){return"url(#"+t.id+"-gradient)"}).attr("stroke",function(t){return GRAD.stroke[t.key]?GRAD.stroke[t.key]:GRAD.strokeScale(t.key)}),LEG.groupDataJoin.append("text").classed("legend-text",!0).text(function(t){return t.key}).attr("x",LEG.rectWidth+LEG.rectPad).attr("y",LEG.rectWidth/2),LEG.groupSelection.attr("transform",function(){return"translate(0, "+(HEIGHT-LEG.height)+")"})}
+  // --- Helper Functions ---
+  function inIframe(){try{return window.self!==window.top}catch(e){return true}}
+  function calculateLegendDimensions(){let titleHeight;SVG.append("text").classed("legend-text",true).text("TEST").each(function(){titleHeight=this.getBBox().height;this.remove()});const textWidths=[],rowSums=[];let textHeight;SVG.selectAll(".dummyText").data(LEG.data).enter().append("text").classed("legend-text",true).text(d=>d.key).style("font-weight","bold").each(function(){textHeight=this.getBBox().height;textWidths.push(this.getComputedTextLength());this.remove()});const rows=[];let rowSum,row=0;for(let i=0;i<textWidths.length;i++){rowSum=textWidths[i]+LEG.rectWidth+LEG.rectPad+LEG.textPad;rows.push(row);while(rowSum+textWidths[i+1]+LEG.rectWidth+LEG.rectPad+LEG.textPad<=WIDTH&&i+1<textWidths.length){i++;rowSum+=textWidths[i]+LEG.rectWidth+LEG.rectPad+LEG.textPad;rows.push(row)}rowSums.push(rowSum);row++}LEG.elPos=[];for(let i=0;i<textWidths.length;i++)LEG.elPos.push({x:0==i||rows[i-1]!=rows[i]?WIDTH/2-rowSums[rows[i]]/2:LEG.elPos[i-1].x+textWidths[i-1]+LEG.rectWidth+LEG.rectPad+LEG.textPad,y:titleHeight+LEG.titlePad+rows[i]*(textHeight+LEG.rowPad)});LEG.height=LEG.elPos.length > 0 ? LEG.elPos[LEG.elPos.length-1].y+textHeight+LEG.rowPad : 0}
+  function drawLegend(){SVG.selectAll(".g-legend").remove();LEG.groupSelection=SVG.append("g").classed("g-legend",true).attr("transform",`translate(0,${HEIGHT-LEG.height})`);LEG.titleDataJoin=LEG.groupSelection.selectAll(".legend-title").data([LEG.title]);LEG.titleDataJoin.enter().append("text").classed("legend-title",true).text(d=>d).merge(LEG.titleDataJoin).attr("transform",`translate(${WIDTH/2},0)`);const legendEntries=LEG.groupSelection.selectAll(".g-legend-entry").data(LEG.data,d=>d.id);const enterSelection=legendEntries.enter().append("g").classed("g-legend-entry",true).on("click",(d,i)=>legendSelect(d,i,this));enterSelection.append("rect").classed("legend-rect",true).attr("width",LEG.rectWidth).attr("height",LEG.rectWidth).attr("stroke",d=>GRAD.stroke[d.key]||GRAD.strokeScale(d.key));enterSelection.append("text").classed("legend-text",true).attr("x",LEG.rectWidth+LEG.rectPad).attr("y",LEG.rectWidth/2);legendEntries.merge(enterSelection).attr("transform",(d,i)=>`translate(<span class="math-inline">\{LEG\.elPos\[i\]\.x\},</span>{LEG.elPos[i].y})`).select(".legend-rect").attr("fill",d=>GRAD.fill[d.key]||GRAD.fillScale(d.key));legendEntries.merge(enterSelection).select(".legend-text").text(d=>d.key)}
   function updateLegend(){drawLegend()}
   function getTipDirection(){const t=d3.select(".d3-tip").node(),e=t.clientWidth,a=t.offsetLeft,n=t.offsetTop;let r;return r=n<0?"s":"n",a<0?r+="e":a+e>WIDTH&&(r+="w"),TIP.dir=r,r}
   function getTipOffset(){let t;switch(TIP.dir){case"n":t=[-8,0];break;case"ne":t=[-5,0];break;case"nw":t=[-5,0];break;case"s":t=[8,0];break;case"se":t=[5,0];break;case"sw":t=[5,0]}return t}
-  function defineGradients(){GRAD.gradsDataJoin=GRAD.defsSelection.selectAll(".gradient").data(GRAD.data,function(t){return t.id}),GRAD.gradsDataJoin.enter().append("linearGradient").classed("gradient",!0).attr("id",function(t){return t.id+"-gradient"}).attr("x1","0%").attr("x2","100%").attr("y1","50%").attr("y2","50%").each(function(t){d3.select(this).append("stop").attr("class","start").attr("offset","0%").attr("stop-color",function(){return GRAD.fill[t.key]?GRAD.fill[t.key]:GRAD.fillScale(t.key)}).attr("stop-opacity",1),d3.select(this).append("stop").attr("class","end").attr("offset","100%").attr("stop-color",function(){return GRAD.fill[t.key]?GRAD.fill[t.key]:GRAD.fillScale(t.key)}).attr("stop-opacity",.7)})}
-  function calculatePadding(){let t,e=0;SVG.selectAll(".dummyText").data(Object.values(METADATA.metrics)).enter().append("text").classed("measure-label",!0).text(function(t){return t.metric}).each(function(){t=this.getBBox().height,e=Math.max(this.getComputedTextLength(),e),this.remove()}),SIDE_PAD=e+2*MEASURE_LABEL_PADDING,TOP_PAD=t+2*MEASURE_LABEL_PADDING}
-  function translateFormat(t){return t.indexOf(".")==t.length-1&&(t+=0),t.includes("DOLLAR")?d3.format(t.replace("DOLLAR","$").replace(".",",.")+"f"):t.includes("COMMA")?d3.format(t.replace("COMMA","").replace(".",",.")+"f"):t.includes("F")?d3.format(t.replace("F","")+"f"):t.includes("BEST")?d3.format(t.replace("BEST","")+"f"):t.includes("PERCENT")?d3.format(t.replace("PERCENT","").replace(".",",.")+"%"):void 0}
-  function legendDeselectAll(){SELECTED_CATEGORY=null,LEG.groupSelection.selectAll(".g-legend-entry").classed("selected",!1),d3.selectAll(".data-path, .data-point").transition("select").duration(HOVER_TRANS_TIME).style("opacity",1)}
-  function legendSelect(t,e,a){SELECTED_CATEGORY=t.key,d3.event.stopPropagation(),LEG.groupSelection.selectAll(".g-legend-entry").classed("selected",!1),d3.selectAll(".data-path, .data-point").transition("select").duration(HOVER_TRANS_TIME).style("opacity",.2),d3.select(a).classed("selected",!0),d3.selectAll(".data-path, .data-point").filter(function(e){return t.key==e.category}).moveToFront().transition("select").duration(HOVER_TRANS_TIME).style("opacity",1)}
+  function defineGradients(){GRAD.gradsDataJoin=GRAD.defsSelection.selectAll(".gradient").data(GRAD.data,d=>d.id);GRAD.gradsDataJoin.enter().append("linearGradient").classed("gradient",true).attr("id",d=>d.id+"-gradient").attr("x1","0%").attr("x2","100%").attr("y1","50%").attr("y2","50%").each(function(t){d3.select(this).append("stop").attr("class","start").attr("offset","0%").attr("stop-color",GRAD.fill[t.key]||GRAD.fillScale(t.key)).attr("stop-opacity",1);d3.select(this).append("stop").attr("class","end").attr("offset","100%").attr("stop-color",GRAD.fill[t.key]||GRAD.fillScale(t.key)).attr("stop-opacity",.7)})}
+  function calculatePadding(){let t,e=0;SVG.selectAll(".dummyText").data(Object.values(METADATA.metrics)).enter().append("text").classed("measure-label",true).text(d=>d.metric).each(function(){t=this.getBBox().height,e=Math.max(this.getComputedTextLength(),e),this.remove()});SIDE_PAD=e+2*MEASURE_LABEL_PADDING;TOP_PAD=t+2*MEASURE_LABEL_PADDING}
+  function translateFormat(t){if(!t)return d3.format(",.0f");return t.indexOf(".")==t.length-1&&(t+=0),t.includes("DOLLAR")?d3.format(t.replace("DOLLAR","$").replace(".",",.")+"f"):t.includes("COMMA")?d3.format(t.replace("COMMA","").replace(".",",.")+"f"):t.includes("F")?d3.format(t.replace("F","")+"f"):t.includes("BEST")?d3.format(t.replace("BEST","")+"f"):t.includes("PERCENT")?d3.format(t.replace("PERCENT","").replace(".",",.")+"%"):d3.format(",.0f")}
+  function legendDeselectAll(){SELECTED_CATEGORY=null;LEG.groupSelection.selectAll(".g-legend-entry").classed("selected",false);d3.selectAll(".data-path, .data-point").transition("select").duration(HOVER_TRANS_TIME).style("opacity",1)}
+  function legendSelect(t,e,a){SELECTED_CATEGORY=t.key;d3.event.stopPropagation();LEG.groupSelection.selectAll(".g-legend-entry").classed("selected",!1);d3.selectAll(".data-path, .data-point").transition("select").duration(HOVER_TRANS_TIME).style("opacity",.2);d3.select(a).classed("selected",!0);d3.selectAll(".data-path, .data-point").filter(d=>t.key===d.category).moveToFront().transition("select").duration(HOVER_TRANS_TIME).style("opacity",1)}
 
 });
 </script>
