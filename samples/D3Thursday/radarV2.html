@@ -408,6 +408,9 @@ document.addEventListener("DOMContentLoaded", function() {
       return;
     }
 
+    // Alteração 1: Calcular o valor máximo global para a escala adaptativa
+    const GLOBAL_MAX = d3.max(VA_MESSAGE.data, function(d) { return d[2]; });
+
     // Create nest to help process tall data structure
     const nestedData = d3
       .nest()
@@ -431,18 +434,8 @@ document.addEventListener("DOMContentLoaded", function() {
         metric: nestedData[i].key,
         angle: i * DELTA_ANGLE,
         format: translateFormat(VA_MESSAGE.data[i][3]),
-        // Alteração: Lógica robusta para detectar se a escala é percentual (0-100)
-        maximum: (() => {
-          const maxValue = d3.max(VA_MESSAGE.data, function(d) {
-            if (d[1] == nestedData[i].key) {
-              return d[2];
-            } else {
-              return Number.MIN_VALUE;
-            }
-          });
-          // Se todos os valores forem menores ou iguais a 100, assume que a escala é 100 (útil para percentuais).
-          return maxValue <= 100 ? 100 : maxValue;
-        })()
+        // Alteração 2: Definir maximum como 100 para referência, conforme solicitado
+        maximum: 100
       };
     }
 
@@ -463,9 +456,11 @@ document.addEventListener("DOMContentLoaded", function() {
         metric = {
           metric: VA_MESSAGE.data[i * numMeasures + j][1],
           measure: VA_MESSAGE.data[i * numMeasures + j][2],
-          scaledMeasure:
-            VA_MESSAGE.data[i * numMeasures + j][2] /
-            METADATA.metrics[VA_MESSAGE.data[i * numMeasures + j][1]].maximum
+          // Alteração 3: Usar a nova função de escala adaptativa
+          scaledMeasure: getAdaptiveScale(
+            VA_MESSAGE.data[i * numMeasures + j][2],
+            GLOBAL_MAX
+          )
         };
 
         datum.metrics.push(metric);
@@ -1310,6 +1305,20 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 
   /******************************************************* Helper Functions *******************************************************/
+
+  // Alteração: Função para escala adaptativa que preserva proporções
+  function getAdaptiveScale(value, maxValue) {
+    if (maxValue <= 5) {
+      // Para valores muito baixos, usa escala linear expandida
+      return Math.min(1, (value / maxValue) * 0.8 + 0.1);
+    } else if (maxValue <= 20) {
+      // Para valores baixos, usa escala mista
+      return Math.min(1, (value / maxValue) * 0.6 + 0.15);
+    } else {
+      // Para valores normais, usa escala padrão (assumindo 0-100)
+      return Math.min(1, value / 100);
+    }
+  }
 
   // Determine whether or not page is being rendered in iFrame
   function inIframe() {
