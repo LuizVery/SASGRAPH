@@ -317,60 +317,105 @@ document.addEventListener("DOMContentLoaded", function() {
     }
   }
 
-  function onDataReceived(messageFromVA) {
+function onDataReceived(messageFromVA) {
+    // Initialize data variables
     VA_MESSAGE = messageFromVA;
     VA_RESULT_NAME = messageFromVA.resultName;
 
-    if (!va.contentUtil.validateRoles(messageFromVA, ["string", "string", "number", "string"], ["number"])) {
-      va.messagingUtil.postInstructionalMessage(VA_RESULT_NAME, "D3 Radar Chart expects columns to be assigned in this order:\n 1. Category (string)\n 2. Metric Name (string)\n 3. Metric Value (number)\n 4. Metric Format (string)");
+    // Validate data roles
+    if (
+      !va.contentUtil.validateRoles(
+        messageFromVA,
+        ["string", "string", "number", "string"],
+        ["number"]
+      )
+    ) {
+      va.messagingUtil.postInstructionalMessage(
+        VA_RESULT_NAME,
+        "D3 Radar Chart expects columns to be assigned in this order:\n" +
+          " 1. Category (string)\n" +
+          " 2. Metric Name (string)\n" +
+          " 3. Metric Value (number)\n" +
+          " 4. Metric Format (string)"
+      );
       return;
     }
 
-    const nestedData = d3.nest().key(function(d) { return d[1]; }).entries(VA_MESSAGE.data);
+    // Create nest to help process tall data structure
+    const nestedData = d3
+      .nest()
+      .key(function(d) {
+        return d[1];
+      })
+      .entries(VA_MESSAGE.data);
     const numMeasures = nestedData.length;
 
+    // Restructure metadata from data message
     OLD_METADATA = METADATA;
     DELTA_ANGLE = (2 * Math.PI) / numMeasures;
-    METADATA = { category: VA_MESSAGE.columns[0].label, metrics: {} };
+
+    METADATA = {
+      category: VA_MESSAGE.columns[0].label,
+      metrics: {}
+    };
 
     const globalMax = d3.max(VA_MESSAGE.data, function(d) { return d[2]; });
-    for (let i = 0; i < numMeasures; i++) {
-      METADATA.metrics[nestedData[i].key] = {
-        metric: nestedData[i].key,
-        angle: i * DELTA_ANGLE,
-        format: translateFormat(VA_MESSAGE.data[i][3]),
-        maximum: globalMax
-      };
-    }
 
+    for (let i = 0; i < numMeasures; i++) {
+        METADATA.metrics[nestedData[i].key] = {
+            metric: nestedData[i].key,
+            angle: i * DELTA_ANGLE,
+            format: translateFormat(VA_MESSAGE.data[i][3]),
+            maximum: globalMax
+        };
+    }
+    
+    // Restructure data robustly
     OLD_DATA = DATA;
-    const dataGroupedByCategory = d3.nest().key(function(d) { return d[0]; }).entries(VA_MESSAGE.data);
+
+    const dataGroupedByCategory = d3.nest()
+      .key(function(d) { return d[0]; }) 
+      .entries(VA_MESSAGE.data);
+
     DATA = dataGroupedByCategory.map(function(categoryGroup) {
       const datum = {
         category: categoryGroup.key,
         id: "id-" + categoryGroup.key.replace(/[\W]/g, "_"),
         metrics: categoryGroup.values.map(function(d) {
-          return {
+          const metric = {
             metric: d[1],
             measure: d[2],
             scaledMeasure: d[2] / METADATA.metrics[d[1]].maximum
           };
+          return metric;
+        }).sort(function(a, b) {
+          // *** ESTA É A CORREÇÃO CRÍTICA ***
+          // Garante que os indicadores fiquem sempre na mesma ordem para o desenho
+          return METADATA.metrics[a.metric].angle - METADATA.metrics[b.metric].angle;
         })
       };
       return datum;
     });
 
-    LEG.title = "";
-    LEG.data = DATA.map(function(d) { return { key: d.category, id: d.id }; });
+    // Assign data variables for legend
+    LEG.title = ""; 
+    LEG.data = DATA.map(function(d) {
+      return {
+        key: d.category,
+        id: d.id
+      };
+    });
+
+    // Assign data variable for gradients
     GRAD.data = LEG.data;
 
+    // Initialize chart if first draw, otherwise process data and update elements accordingly
     if (d3.select("#" + SVG_ID).empty()) {
       drawElements();
     } else {
       updateElements();
     }
   }
-
   function drawElements() {
     if (!DATA) return;
 
