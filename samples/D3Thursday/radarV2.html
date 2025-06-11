@@ -306,38 +306,38 @@ document.addEventListener("DOMContentLoaded", function() {
     
     const allEntries = enterSelection.merge(legendEntries);
     allEntries.attr("transform", (d, i) => `translate(${LEG.elPos[i].x}, <span class="math-inline">\{LEG\.elPos\[i\]\.y\}\)\`\);
-      allEntries\.select\("\.legend\-rect"\)\.attr\("fill", d \=\> GRAD\.fill\[d\.key\] \|\| GRAD\.fillScale\(d\.key\)\)\.attr\("stroke", d \=\> GRAD\.stroke\[d\.key\] \|\| GRAD\.strokeScale\(d\.key\)\);
-      allEntries\.select\("\.legend\-text"\)\.text\(d \=\> d\.key\);
-      if \(SELECTED\_CATEGORY\) \{
-      allEntries\.style\("opacity", d \=\> d\.key \=\=\= SELECTED\_CATEGORY ? 1 \: 0\.5\);
-      allEntries\.filter\(d \=\> d\.key \=\=\= SELECTED\_CATEGORY\)\.classed\("selected", true\);
-      \} else \{
-      allEntries\.style\("opacity", 1\)\.classed\("selected", false\);
-      \}
-      legendEntries\.exit\(\)\.remove\(\);
-      \}
-      function legendSelect\(datum, element\) \{
-      if \(datum && SELECTED\_CATEGORY \=\=\= datum\.key\) \{
-      SELECTED\_CATEGORY \= null; // Deselect if clicking the same one again
-      \} else \{
-      SELECTED\_CATEGORY \= datum ? datum\.key \: null;
-      \}
-      d3\.selectAll\("\.data\-path"\)\.transition\(\)\.duration\(TRANS\_TIME/2\)\.style\("opacity", d \=\> \!SELECTED\_CATEGORY \|\| d\.category \=\=\= SELECTED\_CATEGORY ? 1 \: 0\.1\);
-      G\_CHART\_AREA\.selectAll\("\[class\*\='data\-point\-'\]"\)\.transition\(\)\.duration\(TRANS\_TIME/2\)\.style\("opacity", d \=\> \!SELECTED\_CATEGORY \|\| d\.category \=\=\= SELECTED\_CATEGORY ? 1 \: 0\.1\);
-      drawLegend\(\); // Redraw legend to update styles
-      \}
-      function translateFormat\(t\) \{
-      if \(\!t\) return d3\.format\(",\.0f"\);
-      if \(t\.indexOf\("\."\) \=\=\= t\.length \- 1\) t \+\= 0;
-      if \(t\.includes\("DOLLAR"\)\) return d3\.format\(t\.replace\("DOLLAR", "</span>").replace(".", ",") + "f");
-          if (t.includes("COMMA")) return d3.format(t.replace("COMMA", "").replace(".", ",") + "f");
-          if (t.includes("F")) return d3.format(t.replace("F", "") + "f");
-          if (t.includes("BEST")) return d3.format(t.replace("BEST", "") + "f");
-          if (t.includes("PERCENT")) return d3.format(t.replace("PERCENT", "").replace(".", ",") + "%");
-          return d3.format(",.0f");
-        }
-      
-      });
+allEntries\.select\("\.legend\-rect"\)\.attr\("fill", d \=\> GRAD\.fill\[d\.key\] \|\| GRAD\.fillScale\(d\.key\)\)\.attr\("stroke", d \=\> GRAD\.stroke\[d\.key\] \|\| GRAD\.strokeScale\(d\.key\)\);
+allEntries\.select\("\.legend\-text"\)\.text\(d \=\> d\.key\);
+if \(SELECTED\_CATEGORY\) \{
+allEntries\.style\("opacity", d \=\> d\.key \=\=\= SELECTED\_CATEGORY ? 1 \: 0\.5\);
+allEntries\.filter\(d \=\> d\.key \=\=\= SELECTED\_CATEGORY\)\.classed\("selected", true\);
+\} else \{
+allEntries\.style\("opacity", 1\)\.classed\("selected", false\);
+\}
+legendEntries\.exit\(\)\.remove\(\);
+\}
+function legendSelect\(datum, element\) \{
+if \(datum && SELECTED\_CATEGORY \=\=\= datum\.key\) \{
+SELECTED\_CATEGORY \= null; // Deselect if clicking the same one again
+\} else \{
+SELECTED\_CATEGORY \= datum ? datum\.key \: null;
+\}
+d3\.selectAll\("\.data\-path"\)\.transition\(\)\.duration\(TRANS\_TIME/2\)\.style\("opacity", d \=\> \!SELECTED\_CATEGORY \|\| d\.category \=\=\= SELECTED\_CATEGORY ? 1 \: 0\.1\);
+G\_CHART\_AREA\.selectAll\("\[class\*\='data\-point\-'\]"\)\.transition\(\)\.duration\(TRANS\_TIME/2\)\.style\("opacity", d \=\> \!SELECTED\_CATEGORY \|\| d\.category \=\=\= SELECTED\_CATEGORY ? 1 \: 0\.1\);
+drawLegend\(\); // Redraw legend to update styles
+\}
+function translateFormat\(t\) \{
+if \(\!t\) return d3\.format\(",\.0f"\);
+if \(t\.indexOf\("\."\) \=\=\= t\.length \- 1\) t \+\= 0;
+if \(t\.includes\("DOLLAR"\)\) return d3\.format\(t\.replace\("DOLLAR", "</span>").replace(".", ",") + "f");
+    if (t.includes("COMMA")) return d3.format(t.replace("COMMA", "").replace(".", ",") + "f");
+    if (t.includes("F")) return d3.format(t.replace("F", "") + "f");
+    if (t.includes("BEST")) return d3.format(t.replace("BEST", "") + "f");
+    if (t.includes("PERCENT")) return d3.format(t.replace("PERCENT", "").replace(".", ",") + "%");
+    return d3.format(",.0f");
+  }
+
+});
 </script>
 
 </body>
