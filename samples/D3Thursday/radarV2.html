@@ -191,13 +191,9 @@ limitations under the License.
 document.addEventListener("DOMContentLoaded", function() {
   /******************************************************* Declare variables *******************************************************/
 
-  // Static data variables
-  const SVG_ID = "radar"; // ID of SVG element
+  const SVG_ID = "radar";
   const SAMPLE_MESSAGE = {
-    version: "1",
-    resultName: "dd55",
-    rowCount: 18,
-    availableRowCount: 18,
+    version: "1", resultName: "dd55", rowCount: 18, availableRowCount: 18,
     data: [
       ["Hybrid", "Cylinders", 3.6666666666666665, "BEST12.2"],
       ["Hybrid", "MPG (City)", 55, "BEST12.2"],
@@ -225,76 +221,33 @@ document.addEventListener("DOMContentLoaded", function() {
       { name: "bi176", label: "Format", type: "string" }
     ]
   };
-
-  // Dynamic data variables
-  let VA_MESSAGE;
-  let VA_RESULT_NAME;
-  let DATA;
-  let OLD_DATA;
-  let METADATA = [];
-  let OLD_METADATA;
-  let SELECTED_CATEGORY;
+  
+  let VA_MESSAGE, VA_RESULT_NAME, DATA, OLD_DATA, SELECTED_CATEGORY;
+  let METADATA = [], OLD_METADATA;
   let LAST_TRANSITION_END = Date.now();
-
-  // Static dimension variables
-  const TRANS_TIME = 500;
-  const TRANS_DELAY = 20;
-  const HOVER_TRANS_TIME = 100;
-  const ENTER_REMOVE_TRANS_TIME = 200;
-  const MEASURE_LABEL_PADDING = 5;
-
-  // Dynamic dimension variables
-  let WIDTH;
-  let HEIGHT;
-  let RADIUS;
-  let OLD_RADIUS;
-  let DELTA_ANGLE;
-  let TOP_PAD;
-  let SIDE_PAD;
-
-  // Selection and d3 variables
+  const TRANS_TIME = 500, TRANS_DELAY = 20, HOVER_TRANS_TIME = 100, ENTER_REMOVE_TRANS_TIME = 200, MEASURE_LABEL_PADDING = 10;
+  let WIDTH, HEIGHT, RADIUS, OLD_RADIUS, DELTA_ANGLE, TOP_PAD, SIDE_PAD;
   const SCALED_FORMAT = d3.format("3.0f");
+  let SVG, G_CHART_AREA, G_GRID, GRID_LINES, GRID_CIRCLES, MEASURE_LABELS, DATA_PATHS, DATA_POINTS;
+  
   d3.selection.prototype.moveToFront = function() {
     return this.each(function() { this.parentNode.appendChild(this); });
   };
-  let SVG;
-  let G_CHART_AREA;
-  let G_GRID;
-  let GRID_LINES;
-  let GRID_CIRCLES;
-  let MEASURE_LABELS;
-  let DATA_PATHS;
-  let DATA_POINTS;
-
-  // Legend variables
+  
   const LEG = {
-    topPad: 5,
-    titlePad: 0,
-    rowPad: 3,
-    rectWidth: 12,
-    rectPad: 5,
-    textPad: 5,
-    title: undefined,
-    data: undefined,
-    elPos: undefined,
-    height: undefined,
-    groupSelection: undefined,
-    titleDataJoin: undefined,
-    groupDataJoin: undefined
+    topPad: 20, titlePad: 5, rowPad: 3, rectWidth: 12, rectPad: 5, textPad: 5,
+    title: undefined, data: undefined, elPos: undefined, height: undefined,
+    groupSelection: undefined, titleDataJoin: undefined, groupDataJoin: undefined
   };
-
-  // Tooltip variables
+  
   const TIP = { self: undefined, dir: "n" };
 
-  // Gradient variables
   const GRAD = {
-    fill: { Hybrid: "#4CAF50", Sedan: "#8BC34A", Sports: "#2E7D32", SUV: "#00695C", Truck: "#689F38", Wagon: "#9CCC65" },
-    stroke: { Hybrid: "#4CAF50", Sedan: "#8BC34A", Sports: "#2E7D32", SUV: "#00695C", Truck: "#689F38", Wagon: "#9CCC65" },
-    fillScale: d3.scaleOrdinal(["#4CAF50", "#8BC34A", "#2E7D32", "#00695C", "#689F38", "#9CCC65", "#33691E", "#7CB342", "#1B5E20", "#004D40", "#558B2F", "#76FF03"]),
-    strokeScale: d3.scaleOrdinal(["#4CAF50", "#8BC34A", "#2E7D32", "#00695C", "#689F38", "#9CCC65", "#33691E", "#7CB342", "#1B5E20", "#004D40", "#558B2F", "#76FF03"]),
-    data: undefined,
-    defsSelection: undefined,
-    gradsDataJoin: undefined
+    fill: { "Anos finais": "#2E7D32", "Anos iniciais": "#8BC34A", "Ensino médio": "#4CAF50" },
+    stroke: { "Anos finais": "#2E7D32", "Anos iniciais": "#8BC34A", "Ensino médio": "#4CAF50" },
+    fillScale: d3.scaleOrdinal(["#4CAF50", "#8BC34A", "#2E7D32", "#00695C", "#689F38", "#9CCC65"]),
+    strokeScale: d3.scaleOrdinal(["#4CAF50", "#8BC34A", "#2E7D32", "#00695C", "#689F38", "#9CCC65"]),
+    data: undefined, defsSelection: undefined, gradsDataJoin: undefined
   };
 
   /*************************************************** Setup Callback Functions ***************************************************/
@@ -304,7 +257,7 @@ document.addEventListener("DOMContentLoaded", function() {
     onDataReceived(SAMPLE_MESSAGE);
   }
 
-  // va.contentUtil.setupResizeListener(drawElements); // Descomente para voltar a ser responsivo
+  va.contentUtil.setupResizeListener(drawElements);
 
   /****************************************************** Callback Functions ******************************************************/
   function handleCallback(messageFromVA) {
@@ -317,103 +270,52 @@ document.addEventListener("DOMContentLoaded", function() {
     }
   }
 
-
-function onDataReceived(messageFromVA) {
-    // Initialize data variables
+  function onDataReceived(messageFromVA) {
     VA_MESSAGE = messageFromVA;
     VA_RESULT_NAME = messageFromVA.resultName;
 
-    // Validate data roles
-    if (
-      !va.contentUtil.validateRoles(
-        messageFromVA,
-        ["string", "string", "number", "string"],
-        ["number"]
-      )
-    ) {
-      va.messagingUtil.postInstructionalMessage(
-        VA_RESULT_NAME,
-        "D3 Radar Chart expects columns to be assigned in this order:\n" +
-          " 1. Category (string)\n" +
-          " 2. Metric Name (string)\n" +
-          " 3. Metric Value (number)\n" +
-          " 4. Metric Format (string)"
-      );
+    if (!va.contentUtil.validateRoles(messageFromVA, ["string", "string", "number", "string"], ["number"])) {
+      va.messagingUtil.postInstructionalMessage(VA_RESULT_NAME, "D3 Radar Chart expects ... (error message)");
       return;
     }
 
-    // Create nest to get a list of unique metrics
-    const nestedData = d3
-      .nest()
-      .key(function(d) {
-        return d[1]; // Key by metric name
-      })
-      .entries(VA_MESSAGE.data);
+    const nestedData = d3.nest().key(d => d[1]).entries(VA_MESSAGE.data);
     const numMeasures = nestedData.length;
 
-    // Restructure metadata
     OLD_METADATA = METADATA;
     DELTA_ANGLE = (2 * Math.PI) / numMeasures;
-    METADATA = {
-      category: VA_MESSAGE.columns[0].label,
-      metrics: {}
-    };
+    METADATA = { category: VA_MESSAGE.columns[0].label, metrics: {} };
+    
+    const globalMax = d3.max(VA_MESSAGE.data, d => d[2]);
 
-    // Calculate a single global max value for all metrics
-    const globalMax = d3.max(VA_MESSAGE.data, function(d) { return d[2]; });
-
-    // Populate metadata for each metric using the global max
     for (let i = 0; i < numMeasures; i++) {
-        METADATA.metrics[nestedData[i].key] = {
-            metric: nestedData[i].key,
-            angle: i * DELTA_ANGLE,
-            format: translateFormat(VA_MESSAGE.data[i][3]),
-            maximum: globalMax // Use global max for scaling
-        };
+      METADATA.metrics[nestedData[i].key] = {
+        metric: nestedData[i].key,
+        angle: i * DELTA_ANGLE,
+        format: translateFormat(VA_MESSAGE.data.find(d => d[1] === nestedData[i].key)[3]),
+        maximum: globalMax
+      };
     }
     
-    // Robustly restructure the data for plotting
     OLD_DATA = DATA;
+    const dataGroupedByCategory = d3.nest().key(d => d[0]).entries(VA_MESSAGE.data);
 
-    // 1. Group all data rows by their category (e.g., "Anos iniciais")
-    const dataGroupedByCategory = d3.nest()
-      .key(function(d) { return d[0]; }) 
-      .entries(VA_MESSAGE.data);
-
-    // 2. Map the grouped data into the final DATA structure
-    DATA = dataGroupedByCategory.map(function(categoryGroup) {
-      const datum = {
+    DATA = dataGroupedByCategory.map(categoryGroup => {
+      return {
         category: categoryGroup.key,
         id: "id-" + categoryGroup.key.replace(/[\W]/g, "_"),
-        metrics: categoryGroup.values.map(function(d) {
-          // Create a metric object for each row
-          const metric = {
-            metric: d[1],
-            measure: d[2],
-            scaledMeasure: d[2] / METADATA.metrics[d[1]].maximum
-          };
-          return metric;
-        }).sort(function(a, b) {
-          // 3. CRITICAL FIX: Sort the metrics to ensure the line is drawn in the correct order
-          return METADATA.metrics[a.metric].angle - METADATA.metrics[b.metric].angle;
-        })
-      };
-      return datum;
-    });
-
-    // Assign data for the legend
-    LEG.title = ""; // Optional: Removes legend title
-    LEG.data = DATA.map(function(d) {
-      return {
-        key: d.category,
-        id: d.id
+        metrics: categoryGroup.values.map(d => ({
+          metric: d[1],
+          measure: d[2],
+          scaledMeasure: d[2] / METADATA.metrics[d[1]].maximum
+        })).sort((a, b) => METADATA.metrics[a.metric].angle - METADATA.metrics[b.metric].angle)
       };
     });
 
-    // Assign data for color gradients
+    LEG.title = METADATA.category;
+    LEG.data = DATA.map(d => ({ key: d.category, id: d.id }));
     GRAD.data = LEG.data;
 
-    // Call drawing functions
     if (d3.select("#" + SVG_ID).empty()) {
       drawElements();
     } else {
@@ -421,82 +323,7 @@ function onDataReceived(messageFromVA) {
     }
   }
 
-    // Create nest to help process tall data structure
-    const nestedData = d3
-      .nest()
-      .key(function(d) {
-        return d[1];
-      })
-      .entries(VA_MESSAGE.data);
-    const numMeasures = nestedData.length;
-
-    // Restructure metadata from data message
-    OLD_METADATA = METADATA;
-    DELTA_ANGLE = (2 * Math.PI) / numMeasures;
-
-    METADATA = {
-      category: VA_MESSAGE.columns[0].label,
-      metrics: {}
-    };
-
-    const globalMax = d3.max(VA_MESSAGE.data, function(d) { return d[2]; });
-
-    for (let i = 0; i < numMeasures; i++) {
-        METADATA.metrics[nestedData[i].key] = {
-            metric: nestedData[i].key,
-            angle: i * DELTA_ANGLE,
-            format: translateFormat(VA_MESSAGE.data[i][3]),
-            maximum: globalMax
-        };
-    }
-    
-    // Restructure data robustly
-    OLD_DATA = DATA;
-
-    const dataGroupedByCategory = d3.nest()
-      .key(function(d) { return d[0]; }) 
-      .entries(VA_MESSAGE.data);
-
-    DATA = dataGroupedByCategory.map(function(categoryGroup) {
-      const datum = {
-        category: categoryGroup.key,
-        id: "id-" + categoryGroup.key.replace(/[\W]/g, "_"),
-        metrics: categoryGroup.values.map(function(d) {
-          const metric = {
-            metric: d[1],
-            measure: d[2],
-            scaledMeasure: d[2] / METADATA.metrics[d[1]].maximum
-          };
-          return metric;
-        }).sort(function(a, b) {
-          // *** ESTA É A CORREÇÃO CRÍTICA ***
-          // Garante que os indicadores fiquem sempre na mesma ordem para o desenho
-          return METADATA.metrics[a.metric].angle - METADATA.metrics[b.metric].angle;
-        })
-      };
-      return datum;
-    });
-
-    // Assign data variables for legend
-    LEG.title = ""; 
-    LEG.data = DATA.map(function(d) {
-      return {
-        key: d.category,
-        id: d.id
-      };
-    });
-
-    // Assign data variable for gradients
-    GRAD.data = LEG.data;
-
-    // Initialize chart if first draw, otherwise process data and update elements accordingly
-    if (d3.select("#" + SVG_ID).empty()) {
-      drawElements();
-    } else {
-      updateElements();
-    }
-  }
-function drawElements() {
+  function drawElements() {
     if (!DATA) return;
 
     WIDTH = document.body.clientWidth;
@@ -505,11 +332,11 @@ function drawElements() {
     d3.select("body").selectAll("#" + SVG_ID).data([DATA]).enter().append("svg").attr("id", SVG_ID).on("click", legendDeselectAll)
       .each(function() {
         TIP.self = d3.tip().attr("class", "d3-tip").offset([-8, 0]).html(function(d) {
-          return (
-            "<table class='d3-tip-content'> <tr> <td> " + METADATA.category + ":\t</td> <td>" + d.category + "</td> </tr>" +
-            "<tr> <td> " + d.metric + ":\t</td> <td>" + METADATA.metrics[d.metric].format(d.measure) + "</td> </tr>" +
-            "<tr> <td> " + d.metric + " Scaled:\t</td> <td>" + SCALED_FORMAT(d.scaledMeasure * 100) + "</td> </tr> </table>"
-          );
+          return `<table class='d3-tip-content'>
+                    <tr><td>${METADATA.category}:</td><td>${d.category}</td></tr>
+                    <tr><td>${d.metric}:</td><td>${METADATA.metrics[d.metric].format(d.measure)}</td></tr>
+                    <tr><td>${d.metric} Scaled:</td><td>${SCALED_FORMAT(d.scaledMeasure * 100)}</td></tr>
+                  </table>`;
         });
         d3.select(this).call(TIP.self);
       });
@@ -526,193 +353,81 @@ function drawElements() {
     RADIUS = Math.min(WIDTH - 2 * SIDE_PAD, HEIGHT - LEG.height - 2 * TOP_PAD) / 2;
 
     SVG.selectAll(".g-chart-area").data([DATA]).enter().append("g").classed("g-chart-area", true);
-    G_CHART_AREA = SVG.select(".g-chart-area").attr("transform", "translate(" + WIDTH / 2 + ", " + (TOP_PAD + RADIUS) + ")");
+    G_CHART_AREA = SVG.select(".g-chart-area").attr("transform", `translate(${WIDTH / 2}, ${TOP_PAD + RADIUS})`);
     G_CHART_AREA.selectAll(".g-grid").data([DATA]).enter().append("g").classed("g-grid", true);
     G_GRID = G_CHART_AREA.select(".g-grid");
 
-    GRID_LINES = G_GRID.selectAll(".grid-line").data(Object.values(METADATA.metrics), function(d) { return d.metric; });
-    GRID_LINES.enter().append("line").classed("grid-line", true).attr("stroke", "#C4C4C4").attr("data-angle", function(d) { return d.angle; })
-      .attr("x1", 0).attr("y1", 0).merge(GRID_LINES).attr("x2", function(d) { return RADIUS * Math.sin(d.angle); }).attr("y2", function(d) { return -RADIUS * Math.cos(d.angle); });
+    GRID_LINES = G_GRID.selectAll(".grid-line").data(Object.values(METADATA.metrics), d => d.metric);
+    GRID_LINES.enter().append("line").classed("grid-line", true).attr("stroke", "#C4C4C4")
+      .merge(GRID_LINES).attr("x1", 0).attr("y1", 0)
+      .attr("x2", d => RADIUS * Math.sin(d.angle)).attr("y2", d => -RADIUS * Math.cos(d.angle));
 
     GRID_CIRCLES = G_GRID.selectAll(".grid-circle").data([0.2, 0.4, 0.6, 0.8, 1]);
     GRID_CIRCLES.enter().append("circle").classed("grid-circle", true).attr("fill", "none").attr("stroke", "#E4E4E4")
-      .attr("cx", 0).attr("cy", 0).merge(GRID_CIRCLES).attr("r", function(d) { return d * RADIUS; });
+      .merge(GRID_CIRCLES).attr("cx", 0).attr("cy", 0).attr("r", d => d * RADIUS);
 
-    MEASURE_LABELS = G_CHART_AREA.selectAll(".measure-label").data(Object.values(METADATA.metrics), function(d) { return d.metric; });
-    MEASURE_LABELS.enter().append("text").classed("measure-label", true).text(function(d) { return d.metric; }).attr("data-angle", function(d) { return d.angle; })
-      .attr("dx", function(d) { return d.angle == 0 || d.angle == Math.PI ? -this.getBBox().width / 2 + "px" : d.angle > 0 && d.angle < Math.PI ? 0 + "px" : -this.getBBox().width + "px"; })
-      .attr("dy", function(d) { return d.angle == Math.PI / 2 || d.angle == (3 * Math.PI) / 2 ? -this.getBBox().height / 2 + "px" : d.angle > Math.PI / 2 && d.angle < (3 * Math.PI) / 2 ? 0 + "px" : -this.getBBox().height + "px"; })
-      .merge(MEASURE_LABELS).attr("x", function(d) { return (RADIUS + MEASURE_LABEL_PADDING) * Math.sin(d.angle); }).attr("y", function(d) { return -(RADIUS + MEASURE_LABEL_PADDING) * Math.cos(d.angle); });
+    MEASURE_LABELS = G_CHART_AREA.selectAll(".measure-label").data(Object.values(METADATA.metrics), d => d.metric);
+    MEASURE_LABELS.enter().append("text").classed("measure-label", true)
+      .merge(MEASURE_LABELS).text(d => d.metric)
+      .attr("dx", function(d) { return d.angle === 0 || d.angle === Math.PI ? `${-this.getBBox().width / 2}px` : d.angle > 0 && d.angle < Math.PI ? "0px" : `${-this.getBBox().width}px`; })
+      .attr("dy", function(d) { return d.angle === Math.PI / 2 || d.angle === 3 * Math.PI / 2 ? `${-this.getBBox().height / 2}px` : d.angle > Math.PI / 2 && d.angle < 3 * Math.PI / 2 ? "0px" : `${-this.getBBox().height}px`; })
+      .attr("x", d => (RADIUS + MEASURE_LABEL_PADDING) * Math.sin(d.angle))
+      .attr("y", d => -(RADIUS + MEASURE_LABEL_PADDING) * Math.cos(d.angle));
 
-    DATA_PATHS = G_CHART_AREA.selectAll(".data-path").data(DATA, function(d) { return d.category; });
-    DATA_PATHS.enter().append("path").classed("data-path", true).attr("id", function(d) { return d.category + "-path"; })
-      .attr("fill", function(d) { return GRAD.fill[d.category] ? GRAD.fill[d.category] : GRAD.fillScale(d.category); })
-      .attr("fill-opacity", function(d) { return getOpacity(d.category, OPACITY.fill); })
-      .attr("stroke", function(d) { return GRAD.stroke[d.category] ? GRAD.stroke[d.category] : GRAD.strokeScale(d.category); })
-      .attr("stroke-opacity", function(d) { return getOpacity(d.category, OPACITY.stroke); })
-      .merge(DATA_PATHS).attr("d", function(d) {
-        const dPath = d;
+    DATA_PATHS = G_CHART_AREA.selectAll(".data-path").data(DATA, d => d.category);
+    DATA_PATHS.enter().append("path").classed("data-path", true)
+      .merge(DATA_PATHS)
+      .attr("id", d => d.category + "-path")
+      .style("stroke", d => GRAD.stroke[d.category] || GRAD.strokeScale(d.category))
+      .attr("d", function(dPath) {
         const points = [];
         let path = "M ";
-        let x, y;
-
-        // ***** INÍCIO DA CORREÇÃO CRÍTICA *****
         for (let j = 0; j < dPath.metrics.length; j++) {
           const currentMetric = dPath.metrics[j];
           const angle = METADATA.metrics[currentMetric.metric].angle;
-          
-          x = RADIUS * currentMetric.scaledMeasure * Math.sin(angle);
-          y = -RADIUS * currentMetric.scaledMeasure * Math.cos(angle);
-          
-          points.push({
-            category: dPath.category,
-            metric: currentMetric.metric,
-            measure: currentMetric.measure,
-            scaledMeasure: currentMetric.scaledMeasure,
-            x: x,
-            y: y
-          });
-          path += x + "," + y + (j == dPath.metrics.length - 1 ? " Z" : " L ");
+          const x = RADIUS * currentMetric.scaledMeasure * Math.sin(angle);
+          const y = -RADIUS * currentMetric.scaledMeasure * Math.cos(angle);
+          points.push({ ...currentMetric, category: dPath.category, x, y });
+          path += `${x},${y}${j === dPath.metrics.length - 1 ? " Z" : " L "}`;
         }
-        // ***** FIM DA CORREÇÃO CRÍTICA *****
 
-        DATA_POINTS = G_CHART_AREA.selectAll(".data-point").filter(function(p) { return dPath.category == p.category; }).data(points, function(p) { return p.metric; });
-        DATA_POINTS.enter().append("circle").classed("data-point", true)
-          .attr("fill", function() { return GRAD.fill[dPath.category] ? GRAD.fill[dPath.category] : GRAD.fillScale(dPath.category); })
-          .attr("fill-opacity", getOpacity(dPath.category, OPACITY.stroke))
+        DATA_POINTS = d3.select(this.parentNode).selectAll(`.data-point-${dPath.id}`).data(points, p => p.metric);
+        DATA_POINTS.enter().append("circle").attr("class", `data-point data-point-${dPath.id}`)
+          .merge(DATA_POINTS)
+          .attr("fill", GRAD.fill[dPath.category] || GRAD.fillScale(dPath.category))
+          .attr("r", 4)
           .on("mouseover", function(p) { TIP.self.direction("n").offset([-8, 0]).show(p, this).direction(getTipDirection()).offset(getTipOffset()).show(p, this); })
           .on("mouseout", TIP.self.hide)
-          .merge(DATA_POINTS).attr("cx", function(p) { return p.x; }).attr("cy", function(p) { return p.y; }).attr("r", 4);
+          .attr("cx", p => p.x).attr("cy", p => p.y);
+          
+        DATA_POINTS.exit().remove();
         
         return path;
       });
+      
+    DATA_PATHS.exit().remove();
   }
 
-  // A função updateElements foi omitida para brevidade, mas as mesmas remoções de opacidade deveriam ser aplicadas nela se você a usa.
-  function updateElements() { 
-    // Esta função foi deixada de fora intencionalmente. 
-    // Se precisar dela, as mesmas lógicas de remoção de opacidade da drawElements() devem ser aplicadas aqui.
+  function updateElements() {
+    // For simplicity, just call drawElements. A true update would handle transitions.
+    drawElements();
   }
 
-  /******************************************************* Helper Functions *******************************************************/
-  function inIframe() { try { return window.self !== window.top; } catch (e) { return true; } }
+  // --- O resto das funções (helpers) permanece o mesmo ---
+  function inIframe(){try{return window.self!==window.top}catch(e){return!0}}
+  function calculateLegendDimensions(){let t;SVG.append("text").classed("legend-text",!0).text("TEST").each(function(){t=this.getBBox().height,this.remove()});const e=[];let a;SVG.selectAll(".dummyText").data(LEG.data).enter().append("text").classed("legend-text",!0).text(function(t){return t.key}).style("font-weight","bold").each(function(){a=this.getBBox().height,e.push(this.getComputedTextLength()),this.remove()});const n=[],r=[];let o;let l=0;for(let t=0;t<e.length;t++){o=e[t]+LEG.rectWidth+LEG.rectPad+LEG.textPad,n.push(l);for(;o+e[t+1]+LEG.rectWidth+LEG.rectPad+LEG.textPad<=WIDTH&&t+1<e.length;)t++,o+=e[t]+LEG.rectWidth+LEG.rectPad+LEG.textPad,n.push(l);r.push(o),l++}LEG.elPos=[];for(let i=0;i<e.length;i++)LEG.elPos.push({x:0==i||n[i-1]!=n[i]?WIDTH/2-r[n[i]]/2:LEG.elPos[i-1].x+e[i-1]+LEG.rectWidth+LEG.rectPad+LEG.textPad,y:t+LEG.titlePad+n[i]*(a+LEG.rowPad)});LEG.height=LEG.elPos[LEG.elPos.length-1].y+a+LEG.rowPad}
+  function drawLegend(){SVG.selectAll(".g-legend").data([LEG.title]).enter().append("g").classed("g-legend",!0),LEG.groupSelection=SVG.select(".g-legend"),LEG.titleDataJoin=LEG.groupSelection.selectAll(".legend-title").data([LEG.title]),LEG.titleDataJoin.enter().append("text").classed("legend-title",!0).text(function(t){return t}).merge(LEG.titleDataJoin).attr("transform","translate("+WIDTH/2+", 0)"),LEG.groupDataJoin=LEG.groupSelection.selectAll(".g-legend-entry").data(LEG.data,function(t){return t.id}).enter().append("g").classed("g-legend-entry",!0).attr("id",function(t){return t.id+"-legend-entry"}).on("click",function(t,e){legendSelect(t,e,this)}),LEG.groupSelection.selectAll(".g-legend-entry").data(LEG.data,function(t){return t.id}).attr("transform",function(t,e){return"translate("+LEG.elPos[e].x+", "+LEG.elPos[e].y+")"}),LEG.groupDataJoin.append("rect").classed("legend-rect",!0).attr("width",LEG.rectWidth).attr("height",LEG.rectWidth).attr("fill",function(t){return"url(#"+t.id+"-gradient)"}).attr("stroke",function(t){return GRAD.stroke[t.key]?GRAD.stroke[t.key]:GRAD.strokeScale(t.key)}),LEG.groupDataJoin.append("text").classed("legend-text",!0).text(function(t){return t.key}).attr("x",LEG.rectWidth+LEG.rectPad).attr("y",LEG.rectWidth/2),LEG.groupSelection.attr("transform",function(){return"translate(0, "+(HEIGHT-LEG.height)+")"})}
+  function updateLegend(){drawLegend()}
+  function getTipDirection(){const t=d3.select(".d3-tip").node(),e=t.clientWidth,a=t.offsetLeft,n=t.offsetTop;let r;return r=n<0?"s":"n",a<0?r+="e":a+e>WIDTH&&(r+="w"),TIP.dir=r,r}
+  function getTipOffset(){let t;switch(TIP.dir){case"n":t=[-8,0];break;case"ne":t=[-5,0];break;case"nw":t=[-5,0];break;case"s":t=[8,0];break;case"se":t=[5,0];break;case"sw":t=[5,0]}return t}
+  function defineGradients(){GRAD.gradsDataJoin=GRAD.defsSelection.selectAll(".gradient").data(GRAD.data,function(t){return t.id}),GRAD.gradsDataJoin.enter().append("linearGradient").classed("gradient",!0).attr("id",function(t){return t.id+"-gradient"}).attr("x1","0%").attr("x2","100%").attr("y1","50%").attr("y2","50%").each(function(t){d3.select(this).append("stop").attr("class","start").attr("offset","0%").attr("stop-color",function(){return GRAD.fill[t.key]?GRAD.fill[t.key]:GRAD.fillScale(t.key)}).attr("stop-opacity",1),d3.select(this).append("stop").attr("class","end").attr("offset","100%").attr("stop-color",function(){return GRAD.fill[t.key]?GRAD.fill[t.key]:GRAD.fillScale(t.key)}).attr("stop-opacity",.7)})}
+  function calculatePadding(){let t,e=0;SVG.selectAll(".dummyText").data(Object.values(METADATA.metrics)).enter().append("text").classed("measure-label",!0).text(function(t){return t.metric}).each(function(){t=this.getBBox().height,e=Math.max(this.getComputedTextLength(),e),this.remove()}),SIDE_PAD=e+2*MEASURE_LABEL_PADDING,TOP_PAD=t+2*MEASURE_LABEL_PADDING}
+  function translateFormat(t){return t.indexOf(".")==t.length-1&&(t+=0),t.includes("DOLLAR")?d3.format(t.replace("DOLLAR","$").replace(".",",.")+"f"):t.includes("COMMA")?d3.format(t.replace("COMMA","").replace(".",",.")+"f"):t.includes("F")?d3.format(t.replace("F","")+"f"):t.includes("BEST")?d3.format(t.replace("BEST","")+"f"):t.includes("PERCENT")?d3.format(t.replace("PERCENT","").replace(".",",.")+"%"):void 0}
+  function legendDeselectAll(){SELECTED_CATEGORY=null,LEG.groupSelection.selectAll(".g-legend-entry").classed("selected",!1),d3.selectAll(".data-path, .data-point").transition("select").duration(HOVER_TRANS_TIME).style("opacity",1)}
+  function legendSelect(t,e,a){SELECTED_CATEGORY=t.key,d3.event.stopPropagation(),LEG.groupSelection.selectAll(".g-legend-entry").classed("selected",!1),d3.selectAll(".data-path, .data-point").transition("select").duration(HOVER_TRANS_TIME).style("opacity",.2),d3.select(a).classed("selected",!0),d3.selectAll(".data-path, .data-point").filter(function(e){return t.key==e.category}).moveToFront().transition("select").duration(HOVER_TRANS_TIME).style("opacity",1)}
 
-  function calculateLegendDimensions() {
-    let titleHeight;
-    SVG.append("text").classed("legend-text", true).text("TEST").each(function() { titleHeight = this.getBBox().height; this.remove(); });
-    const textWidths = [];
-    let textHeight;
-    SVG.selectAll(".dummyText").data(LEG.data).enter().append("text").classed("legend-text", true).text(function(d) { return d.key; }).style("font-weight", "bold")
-      .each(function() { textHeight = this.getBBox().height; textWidths.push(this.getComputedTextLength()); this.remove(); });
-    const rows = [];
-    const rowSums = [];
-    let rowSum;
-    let row = 0;
-    for (let i = 0; i < textWidths.length; i++) {
-      rowSum = textWidths[i] + LEG.rectWidth + LEG.rectPad + LEG.textPad;
-      rows.push(row);
-      while (rowSum + textWidths[i + 1] + LEG.rectWidth + LEG.rectPad + LEG.textPad <= WIDTH && i + 1 < textWidths.length) {
-        i++;
-        rowSum += textWidths[i] + LEG.rectWidth + LEG.rectPad + LEG.textPad;
-        rows.push(row);
-      }
-      rowSums.push(rowSum);
-      row++;
-    }
-    LEG.elPos = [];
-    for (let i = 0; i < textWidths.length; i++) {
-      LEG.elPos.push({
-        x: i == 0 || rows[i - 1] != rows[i] ? WIDTH / 2 - rowSums[rows[i]] / 2 : LEG.elPos[i - 1].x + textWidths[i - 1] + LEG.rectWidth + LEG.rectPad + LEG.textPad,
-        y: titleHeight + LEG.titlePad + rows[i] * (textHeight + LEG.rowPad)
-      });
-    }
-    LEG.height = LEG.elPos[LEG.elPos.length - 1].y + textHeight + LEG.rowPad;
-  }
-
-  function drawLegend() {
-    SVG.selectAll(".g-legend").data([LEG.title]).enter().append("g").classed("g-legend", true);
-    LEG.groupSelection = SVG.select(".g-legend");
-    LEG.titleDataJoin = LEG.groupSelection.selectAll(".legend-title").data([LEG.title]);
-    LEG.titleDataJoin.enter().append("text").classed("legend-title", true).text(function(d) { return d; }).merge(LEG.titleDataJoin).attr("transform", "translate(" + WIDTH / 2 + ", 0)");
-    LEG.groupDataJoin = LEG.groupSelection.selectAll(".g-legend-entry").data(LEG.data, function(d) { return d.id; }).enter().append("g").classed("g-legend-entry", true)
-      .attr("id", function(d) { return d.id + "-legend-entry"; }).on("click", function(d, i) { legendSelect(d, i, this); });
-    LEG.groupSelection.selectAll(".g-legend-entry").data(LEG.data, function(d) { return d.id; }).attr("transform", function(d, i) { return "translate(" + LEG.elPos[i].x + ", " + LEG.elPos[i].y + ")"; });
-    LEG.groupDataJoin.append("rect").classed("legend-rect", true).attr("width", LEG.rectWidth).attr("height", LEG.rectWidth)
-      .attr("fill", function(d) { return "url(#" + d.id + "-gradient)"; }).attr("stroke", function(d) { return GRAD.stroke[d.key] ? GRAD.stroke[d.key] : GRAD.strokeScale(d.key); });
-    LEG.groupDataJoin.append("text").classed("legend-text", true).text(function(d) { return d.key; }).attr("x", LEG.rectWidth + LEG.rectPad).attr("y", LEG.rectWidth / 2);
-    LEG.groupSelection.attr("transform", function() { return "translate(0, " + (HEIGHT - LEG.height) + ")"; });
-  }
-
-  function updateLegend() {
-      // Esta função foi deixada de fora intencionalmente.
-  }
-
-  function getTipDirection() {
-    const tip = d3.select(".d3-tip").node(); const w = tip.clientWidth; const left = tip.offsetLeft; const top = tip.offsetTop; let dir;
-    dir = top < 0 ? "s" : "n";
-    if (left < 0) { dir += "e"; } else if (left + w > WIDTH) { dir += "w"; }
-    TIP.dir = dir; return dir;
-  }
-  
-  function getTipOffset() {
-    let offset;
-    switch (TIP.dir) {
-      case "n": offset = [-8, 0]; break;
-      case "ne": offset = [-5, 0]; break;
-      case "nw": offset = [-5, 0]; break;
-      case "s": offset = [8, 0]; break;
-      case "se": offset = [5, 0]; break;
-      case "sw": offset = [5, 0]; break;
-    }
-    return offset;
-  }
-  
-  function defineGradients() {
-    GRAD.gradsDataJoin = GRAD.defsSelection.selectAll(".gradient").data(GRAD.data, function(d) { return d.id; });
-    GRAD.gradsDataJoin.enter().append("linearGradient").classed("gradient", true).attr("id", function(d) { return d.id + "-gradient"; })
-      .attr("x1", "0%").attr("x2", "100%").attr("y1", "50%").attr("y2", "50%")
-      .each(function(d) {
-        d3.select(this).append("stop").attr("class", "start").attr("offset", "0%").attr("stop-color", function() { return GRAD.fill[d.key] ? GRAD.fill[d.key] : GRAD.fillScale(d.key); }).attr("stop-opacity", 1);
-        d3.select(this).append("stop").attr("class", "end").attr("offset", "100%").attr("stop-color", function() { return GRAD.fill[d.key] ? GRAD.fill[d.key] : GRAD.fillScale(d.key); }).attr("stop-opacity", 0.7);
-      });
-  }
-
-  function calculatePadding() {
-    let height; let width = 0;
-    SVG.selectAll(".dummyText").data(Object.values(METADATA.metrics)).enter().append("text").classed("measure-label", true).text(function(d) { return d.metric; })
-      .each(function() { height = this.getBBox().height; width = Math.max(this.getComputedTextLength(), width); this.remove(); });
-    SIDE_PAD = width + 2 * MEASURE_LABEL_PADDING;
-    TOP_PAD = height + 2 * MEASURE_LABEL_PADDING;
-  }
-
-  function translateFormat(formatString) {
-    if (formatString.indexOf(".") == formatString.length - 1) formatString += 0;
-    if (formatString.includes("DOLLAR")) return d3.format(formatString.replace("DOLLAR", "$").replace(".", ",.") + "f");
-    else if (formatString.includes("COMMA")) return d3.format(formatString.replace("COMMA", "").replace(".", ",.") + "f");
-    else if (formatString.includes("F")) return d3.format(formatString.replace("F", "") + "f");
-    else if (formatString.includes("BEST")) return d3.format(formatString.replace("BEST", "") + "f");
-    else if (formatString.includes("PERCENT")) return d3.format(formatString.replace("PERCENT", "").replace(".", ",.") + "%");
-  }
-
-  function legendDeselectAll() {
-    SELECTED_CATEGORY = null;
-    LEG.groupSelection.selectAll(".g-legend-entry").classed("selected", false);
-    d3.selectAll(".data-path, .data-point").transition("select").duration(HOVER_TRANS_TIME).style("opacity", 1);
-  }
-
-  function legendSelect(datum, index, el) {
-    SELECTED_CATEGORY = datum.key;
-    d3.event.stopPropagation();
-    LEG.groupSelection.selectAll(".g-legend-entry").classed("selected", false);
-    d3.selectAll(".data-path, .data-point").transition("select").duration(HOVER_TRANS_TIME).style("opacity", 0.2); // Foca nos selecionados
-    d3.select(el).classed("selected", true);
-    d3.selectAll(".data-path, .data-point").filter(function(d) { return datum.key == d.category; })
-        .moveToFront()
-        .transition("select")
-        .duration(HOVER_TRANS_TIME)
-        .style("opacity", 1);
-  }
 });
 </script>
+
 </body>
 </html>
