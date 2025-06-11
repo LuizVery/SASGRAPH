@@ -318,6 +318,7 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 
 function onDataReceived(messageFromVA) {
+function onDataReceived(messageFromVA) {
     // Initialize data variables
     VA_MESSAGE = messageFromVA;
     VA_RESULT_NAME = messageFromVA.resultName;
@@ -340,6 +341,85 @@ function onDataReceived(messageFromVA) {
       );
       return;
     }
+
+    // Create nest to get a list of unique metrics
+    const nestedData = d3
+      .nest()
+      .key(function(d) {
+        return d[1]; // Key by metric name
+      })
+      .entries(VA_MESSAGE.data);
+    const numMeasures = nestedData.length;
+
+    // Restructure metadata
+    OLD_METADATA = METADATA;
+    DELTA_ANGLE = (2 * Math.PI) / numMeasures;
+    METADATA = {
+      category: VA_MESSAGE.columns[0].label,
+      metrics: {}
+    };
+
+    // Calculate a single global max value for all metrics
+    const globalMax = d3.max(VA_MESSAGE.data, function(d) { return d[2]; });
+
+    // Populate metadata for each metric using the global max
+    for (let i = 0; i < numMeasures; i++) {
+        METADATA.metrics[nestedData[i].key] = {
+            metric: nestedData[i].key,
+            angle: i * DELTA_ANGLE,
+            format: translateFormat(VA_MESSAGE.data[i][3]),
+            maximum: globalMax // Use global max for scaling
+        };
+    }
+    
+    // Robustly restructure the data for plotting
+    OLD_DATA = DATA;
+
+    // 1. Group all data rows by their category (e.g., "Anos iniciais")
+    const dataGroupedByCategory = d3.nest()
+      .key(function(d) { return d[0]; }) 
+      .entries(VA_MESSAGE.data);
+
+    // 2. Map the grouped data into the final DATA structure
+    DATA = dataGroupedByCategory.map(function(categoryGroup) {
+      const datum = {
+        category: categoryGroup.key,
+        id: "id-" + categoryGroup.key.replace(/[\W]/g, "_"),
+        metrics: categoryGroup.values.map(function(d) {
+          // Create a metric object for each row
+          const metric = {
+            metric: d[1],
+            measure: d[2],
+            scaledMeasure: d[2] / METADATA.metrics[d[1]].maximum
+          };
+          return metric;
+        }).sort(function(a, b) {
+          // 3. CRITICAL FIX: Sort the metrics to ensure the line is drawn in the correct order
+          return METADATA.metrics[a.metric].angle - METADATA.metrics[b.metric].angle;
+        })
+      };
+      return datum;
+    });
+
+    // Assign data for the legend
+    LEG.title = ""; // Optional: Removes legend title
+    LEG.data = DATA.map(function(d) {
+      return {
+        key: d.category,
+        id: d.id
+      };
+    });
+
+    // Assign data for color gradients
+    GRAD.data = LEG.data;
+
+    // Call drawing functions
+    if (d3.select("#" + SVG_ID).empty()) {
+      drawElements();
+    } else {
+      updateElements();
+    }
+  }
 
     // Create nest to help process tall data structure
     const nestedData = d3
