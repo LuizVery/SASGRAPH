@@ -71,7 +71,7 @@ limitations under the License.
 
   .data-path {
     pointer-events: none;
-    stroke-width: 6; /* Alteração 3: Era 4, mudei para 6 */
+    stroke-width: 3; /* Espessura da linha diminuída */
   }
 
   .measure-label {
@@ -274,7 +274,7 @@ document.addEventListener("DOMContentLoaded", function() {
   const TRANS_DELAY = 20; // Small buffer to ensure all callbacks have finished before allowing new transition
   const HOVER_TRANS_TIME = 100; // Duration of focus transitions
   const ENTER_REMOVE_TRANS_TIME = 200; // Duration of enter and exit transitions for data points and grid lines
-  const MEASURE_LABEL_PADDING = 25; // Alteração 2: Padding entre a borda do gráfico e os labels das medidas
+  const MEASURE_LABEL_PADDING = 25; // Padding entre a borda do gráfico e os labels das medidas
 
   // Dynamic dimension variables
   let WIDTH; // Width of SVG element
@@ -431,13 +431,18 @@ document.addEventListener("DOMContentLoaded", function() {
         metric: nestedData[i].key,
         angle: i * DELTA_ANGLE,
         format: translateFormat(VA_MESSAGE.data[i][3]),
-        maximum: d3.max(VA_MESSAGE.data, function(d) {
-          if (d[1] == nestedData[i].key) {
-            return d[2];
-          } else {
-            return Number.MIN_VALUE;
-          }
-        })
+        // Alteração: Lógica robusta para detectar se a escala é percentual (0-100)
+        maximum: (() => {
+          const maxValue = d3.max(VA_MESSAGE.data, function(d) {
+            if (d[1] == nestedData[i].key) {
+              return d[2];
+            } else {
+              return Number.MIN_VALUE;
+            }
+          });
+          // Se todos os valores forem menores ou iguais a 100, assume que a escala é 100 (útil para percentuais).
+          return maxValue <= 100 ? 100 : maxValue;
+        })()
       };
     }
 
@@ -562,7 +567,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Determine radius now that legend height has been determined
     OLD_RADIUS = RADIUS;
-    // Alteração 1: Ajustar o raio do gráfico
+    // Ajustar o raio do gráfico
     RADIUS =
       Math.min(WIDTH - 2 * SIDE_PAD, HEIGHT - LEG.height - 2 * TOP_PAD) / 2.2;
 
@@ -762,7 +767,7 @@ document.addEventListener("DOMContentLoaded", function() {
           .attr("cy", function(d) {
             return d.y;
           })
-          .attr("r", 6); // Alteração 4: Aumentar o tamanho dos pontos de dados
+          .attr("r", 6); // Aumentar o tamanho dos pontos de dados
 
         return path;
       });
@@ -793,7 +798,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Update dimensions
     OLD_RADIUS = RADIUS;
-    // Alteração 1: Ajustar o raio do gráfico
+    // Ajustar o raio do gráfico
     RADIUS =
       Math.min(WIDTH - 2 * SIDE_PAD, HEIGHT - LEG.height - 2 * TOP_PAD) / 2.2;
 
@@ -1091,7 +1096,7 @@ document.addEventListener("DOMContentLoaded", function() {
           .attr("cy", function(d) {
             return d.y;
           })
-          .attr("r", 6) // Alteração 4: Aumentar o tamanho dos pontos de dados
+          .attr("r", 6) // Aumentar o tamanho dos pontos de dados
           .attr("fill-opacity", getOpacity(dPath.category, OPACITY.stroke))
           .on("mouseover", function(d) {
             // Assign direction and show tooltip
@@ -1222,7 +1227,7 @@ document.addEventListener("DOMContentLoaded", function() {
           .on("mouseout", TIP.self.hide)
           .attr("cx", 0)
           .attr("cy", 0)
-          .attr("r", 6) // Alteração 4: Aumentar o tamanho dos pontos de dados
+          .attr("r", 6) // Aumentar o tamanho dos pontos de dados
           .style("opacity", 0);
 
         return path;
@@ -1387,7 +1392,7 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     // Set legend height
-    // Alteração 5: Ajustar o posicionamento da legenda
+    // Ajustar o posicionamento da legenda
     LEG.height = LEG.elPos[LEG.elPos.length - 1].y + textHeight + LEG.rowPad + 15;
   }
 
