@@ -704,13 +704,25 @@ document.addEventListener("DOMContentLoaded", function() {
 
           path += x + "," + y + (j == dPath.metrics.length - 1 ? " Z" : " L ");
         }
-
+        
+        // Antes de criar os pontos, remover duplicatas do array points
+        const uniquePoints = [];
+        const seen = new Set();
+        points.forEach(point => {
+          const key = point.category + "-" + point.metric;
+          if (!seen.has(key)) {
+            seen.add(key);
+            uniquePoints.push(point);
+          }
+        });
+        
+        // Usar uniquePoints em vez de points
         DATA_POINTS = G_CHART_AREA.selectAll(".data-point")
           .filter(function(d) {
             return dPath.category == d.category;
           })
-          .data(points, function(d) {
-            return d.metric;
+          .data(uniquePoints, function(d) {
+            return d.category + "-" + d.metric;
           });
 
         DATA_POINTS.enter()
