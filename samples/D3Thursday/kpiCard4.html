@@ -353,13 +353,13 @@ function initializeKPICard() {
         const padding = Math.max(width * 0.025, 15); // Reduzido de 0.04 para 0.025 e mínimo de 15px
         const contentWidth = width - (padding * 2);
         
-        // Tamanhos de fonte mais responsivos (TÍTULO MENOR)
-        const titleFontSize = Math.min(Math.max(height * 0.06, 14), width * 0.045, 24); // Reduzido de 0.08 para 0.06
+        // Tamanhos de fonte mais responsivos (TÍTULO AINDA MENOR)
+        const titleFontSize = Math.min(Math.max(height * 0.045, 12), width * 0.035, 20); // Reduzido ainda mais
         const labelFontSize = Math.min(Math.max(height * 0.05, 12), width * 0.03, 18);
         const secondaryValueFontSize = Math.min(Math.max(height * 0.06, 14), width * 0.035, 22);
 
         // --- Layout Vertical Responsivo ---
-        const titleHeight = Math.max(height * 0.10, 50); // Reduzido de 0.12 para 0.10
+        const titleHeight = Math.max(height * 0.08, 40); // Reduzido ainda mais
         const chartSectionHeight = Math.max(height * 0.55, 180);
         const variationsSectionHeight = height - titleHeight - chartSectionHeight;
 
@@ -463,15 +463,15 @@ function initializeKPICard() {
                     }
                 });
             
-            // Adiciona os anos/períodos abaixo do gráfico - fonte responsiva
-            const yearLabelFontSize = Math.min(Math.max(height * 0.045, 10), width * 0.028, 16);
+            // Adiciona os anos/períodos abaixo do gráfico - fonte responsiva (ANOS MENORES)
+            const yearLabelFontSize = Math.min(Math.max(height * 0.035, 9), width * 0.022, 14); // Reduzido
             chartGroup.selectAll(".year-label")
                 .data(lineData)
                 .enter()
                 .append("text")
                 .attr("class", "year-label")
                 .attr("x", function(d) { return d.x; })
-                .attr("y", chartHeight + Math.max(18, height * 0.03))
+                .attr("y", chartHeight + Math.max(15, height * 0.025)) // Ajustado também a posição
                 .attr("font-size", yearLabelFontSize + "px")
                 .attr("fill", "#2d5016")
                 .attr("text-anchor", "middle")
