@@ -349,18 +349,18 @@ function initializeKPICard() {
         mainGroup = svg.append("g");
         
         // --- Cálculo de Posições e Tamanhos Responsivos ---
-        const padding = width * 0.06; // 6% da largura como preenchimento
+        const padding = Math.max(width * 0.04, 20); // Mínimo 20px
         const contentWidth = width - (padding * 2);
         
-        const titleFontSize = Math.min(height * 0.12, width * 0.075);
-        const mainValueFontSize = Math.min(height * 0.22, width * 0.13);
-        const labelFontSize = Math.min(height * 0.08, width * 0.045);
-        const secondaryValueFontSize = Math.min(height * 0.09, width * 0.05);
+        // Tamanhos de fonte mais responsivos
+        const titleFontSize = Math.min(Math.max(height * 0.08, 16), width * 0.06, 32);
+        const labelFontSize = Math.min(Math.max(height * 0.05, 12), width * 0.03, 18);
+        const secondaryValueFontSize = Math.min(Math.max(height * 0.06, 14), width * 0.035, 22);
 
-        // --- Layout Vertical: Título > Gráfico > Variações ---
-        const titleHeight = height * 0.15;
-        const chartSectionHeight = height * 0.5;
-        const variationsSectionHeight = height * 0.35;
+        // --- Layout Vertical Responsivo ---
+        const titleHeight = Math.max(height * 0.12, 60);
+        const chartSectionHeight = Math.max(height * 0.55, 180);
+        const variationsSectionHeight = height - titleHeight - chartSectionHeight;
 
         // --- Título Principal ---
         mainGroup.append("text")
@@ -370,11 +370,11 @@ function initializeKPICard() {
             .attr("font-size", titleFontSize + "px")
             .text(processedData.titulo);
 
-        // --- Seção do Gráfico (Expandido para os lados) ---
+        // --- Seção do Gráfico (Expandido e Responsivo) ---
         const chartY = titleHeight;
-        const chartPadding = width * 0.04; // Padding menor para expandir mais
+        const chartPadding = Math.max(width * 0.03, 15); // Mínimo 15px
         const chartWidth = width - (chartPadding * 2);
-        const chartHeight = chartSectionHeight * 0.8;
+        const chartHeight = Math.max(chartSectionHeight * 0.7, 120);
         
         const chartGroup = mainGroup.append("g")
             .attr("transform", "translate(" + chartPadding + ", " + chartY + ")");
@@ -388,8 +388,8 @@ function initializeKPICard() {
             const maxVal = d3.max(valores);
             const range = maxVal - minVal || 1;
             
-            // Margem interna do gráfico
-            const innerChartPadding = chartWidth * 0.05;
+            // Margem interna do gráfico responsiva
+            const innerChartPadding = Math.max(chartWidth * 0.04, 20);
             const innerWidth = chartWidth - (innerChartPadding * 2);
             const innerHeight = chartHeight - (innerChartPadding * 2);
             
@@ -407,7 +407,7 @@ function initializeKPICard() {
                 };
             });
             
-            // Desenha a linha principal - MAIS GROSSA
+            // Desenha a linha principal - responsiva
             const line = d3.line()
                 .x(function(d) { return d.x; })
                 .y(function(d) { return d.y; })
@@ -417,12 +417,12 @@ function initializeKPICard() {
                 .datum(lineData)
                 .attr("d", line)
                 .attr("stroke", "#1A9850")
-                .attr("stroke-width", Math.max(8, width * 0.015)) // Linha ainda mais grossa para gráfico maior
+                .attr("stroke-width", Math.min(Math.max(width * 0.01, 4), 12)) // Entre 4px e 12px
                 .attr("fill", "none")
                 .attr("stroke-linecap", "round")
                 .attr("opacity", 1);
             
-            // Adiciona pontos na linha para melhor visualização
+            // Adiciona pontos na linha - tamanho responsivo
             chartGroup.selectAll(".data-point")
                 .data(lineData)
                 .enter()
@@ -430,20 +430,20 @@ function initializeKPICard() {
                 .attr("class", "data-point")
                 .attr("cx", function(d) { return d.x; })
                 .attr("cy", function(d) { return d.y; })
-                .attr("r", Math.max(4, width * 0.008))
+                .attr("r", Math.min(Math.max(width * 0.006, 3), 8)) // Entre 3px e 8px
                 .attr("fill", "#1A9850")
                 .attr("stroke", "#ffffff")
-                .attr("stroke-width", 2);
+                .attr("stroke-width", Math.min(Math.max(width * 0.003, 1.5), 3));
             
-            // Adiciona os valores reais acima dos pontos
-            const valueLabelFontSize = Math.min(height * 0.05, width * 0.03);
+            // Adiciona os valores reais acima dos pontos - fonte responsiva
+            const valueLabelFontSize = Math.min(Math.max(height * 0.04, 10), width * 0.025, 16);
             chartGroup.selectAll(".value-label")
                 .data(lineData)
                 .enter()
                 .append("text")
                 .attr("class", "value-label")
                 .attr("x", function(d) { return d.x; })
-                .attr("y", function(d) { return d.y - 15; })
+                .attr("y", function(d) { return d.y - Math.max(12, height * 0.02); })
                 .attr("font-size", valueLabelFontSize + "px")
                 .attr("fill", "#1a4f0e")
                 .attr("text-anchor", "middle")
@@ -462,15 +462,15 @@ function initializeKPICard() {
                     }
                 });
             
-            // Adiciona os anos/períodos abaixo do gráfico
-            const yearLabelFontSize = Math.min(height * 0.06, width * 0.035);
+            // Adiciona os anos/períodos abaixo do gráfico - fonte responsiva
+            const yearLabelFontSize = Math.min(Math.max(height * 0.045, 10), width * 0.028, 16);
             chartGroup.selectAll(".year-label")
                 .data(lineData)
                 .enter()
                 .append("text")
                 .attr("class", "year-label")
                 .attr("x", function(d) { return d.x; })
-                .attr("y", chartHeight + 20)
+                .attr("y", chartHeight + Math.max(18, height * 0.03))
                 .attr("font-size", yearLabelFontSize + "px")
                 .attr("fill", "#2d5016")
                 .attr("text-anchor", "middle")
@@ -482,14 +482,14 @@ function initializeKPICard() {
             chartGroup.append("text")
                 .attr("x", chartWidth / 2)
                 .attr("y", chartHeight / 2)
-                .attr("font-size", Math.min(16, width * 0.03) + "px")
+                .attr("font-size", Math.min(Math.max(14, height * 0.025), width * 0.03) + "px")
                 .attr("fill", "rgba(45,80,22,0.5)")
                 .attr("text-anchor", "middle")
                 .text("Sem dados temporais");
         }
 
         // --- Seção das Variações (Abaixo do Gráfico) ---
-        const variationsY = titleHeight + chartSectionHeight;
+        const variationsY = titleHeight + chartSectionHeight - Math.max(height * 0.02, 10);
         
         // --- Linha Separadora ---
         mainGroup.append("line")
@@ -500,29 +500,28 @@ function initializeKPICard() {
             .attr("stroke", "rgba(45,80,22,0.3)")
             .attr("stroke-width", 1);
 
-        // --- Valor Principal (Variação no Período) ---
-        const mainVariationY = variationsY + height * 0.06;
+        // --- Valores das Variações (ambos com mesmo layout) ---
+        const mainVariationY = variationsY + Math.max(height * 0.04, 20);
+        const variationSpacing = Math.max(height * 0.08, 35);
         
-        // Rótulo Valor Principal
+        // Primeira linha: Variação no Período
         mainGroup.append("text")
-            .attr("class", "main-label-text")
+            .attr("class", "secondary-label-text")
             .attr("x", padding)
             .attr("y", mainVariationY)
             .attr("font-size", labelFontSize + "px")
             .text(processedData.valorPrincipal.label);
 
-        // Valor Principal
         mainGroup.append("text")
-            .attr("class", "main-value-text")
-            .attr("x", padding)
-            .attr("y", mainVariationY + mainValueFontSize * 1.2)
-            .attr("font-size", mainValueFontSize + "px")
+            .attr("class", "secondary-value-text")
+            .attr("x", width - padding)
+            .attr("y", mainVariationY)
+            .attr("font-size", secondaryValueFontSize + "px")
             .text(processedData.valorPrincipal.format(processedData.valorPrincipal.value));
 
-        // --- Valor Secundário (Variação vs Ano Anterior) ---
-        const secondaryVariationY = mainVariationY + mainValueFontSize * 1.8;
+        // Segunda linha: Variação vs Ano Anterior
+        const secondaryVariationY = mainVariationY + variationSpacing;
         
-        // Rótulo Valor Secundário
         mainGroup.append("text")
             .attr("class", "secondary-label-text")
             .attr("x", padding)
@@ -530,7 +529,6 @@ function initializeKPICard() {
             .attr("font-size", labelFontSize + "px")
             .text(processedData.valorSecundario.label);
         
-        // Valor Secundário
         mainGroup.append("text")
             .attr("class", "secondary-value-text")
             .attr("x", width - padding)
