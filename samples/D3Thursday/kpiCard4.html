@@ -7,6 +7,7 @@ VERSÃO ADAPTADA: Trabalha com múltiplas linhas ao invés de arrays
 MODIFICAÇÃO: Gráfico expandido para os lados, variações posicionadas abaixo
 ATUALIZAÇÃO: Fundo do gráfico removido, gradiente branco-verde, variação apenas ano anterior
 MELHORIAS: Texto com mais destaque, linha mais grossa, gradiente mais branco, fonte Avenir Next
+OTIMIZAÇÕES: Título menor, marcadores menores, linha mais fina, padding reduzido
 -->
 <html>
 <head>
@@ -348,17 +349,17 @@ function initializeKPICard() {
         // Agrupador principal para facilitar o posicionamento
         mainGroup = svg.append("g");
         
-        // --- Cálculo de Posições e Tamanhos Responsivos ---
-        const padding = Math.max(width * 0.04, 20); // Mínimo 20px
+        // --- Cálculo de Posições e Tamanhos Responsivos (PADDING REDUZIDO) ---
+        const padding = Math.max(width * 0.025, 15); // Reduzido de 0.04 para 0.025 e mínimo de 15px
         const contentWidth = width - (padding * 2);
         
-        // Tamanhos de fonte mais responsivos
-        const titleFontSize = Math.min(Math.max(height * 0.08, 16), width * 0.06, 32);
+        // Tamanhos de fonte mais responsivos (TÍTULO MENOR)
+        const titleFontSize = Math.min(Math.max(height * 0.06, 14), width * 0.045, 24); // Reduzido de 0.08 para 0.06
         const labelFontSize = Math.min(Math.max(height * 0.05, 12), width * 0.03, 18);
         const secondaryValueFontSize = Math.min(Math.max(height * 0.06, 14), width * 0.035, 22);
 
         // --- Layout Vertical Responsivo ---
-        const titleHeight = Math.max(height * 0.12, 60);
+        const titleHeight = Math.max(height * 0.10, 50); // Reduzido de 0.12 para 0.10
         const chartSectionHeight = Math.max(height * 0.55, 180);
         const variationsSectionHeight = height - titleHeight - chartSectionHeight;
 
@@ -372,7 +373,7 @@ function initializeKPICard() {
 
         // --- Seção do Gráfico (Expandido e Responsivo) ---
         const chartY = titleHeight;
-        const chartPadding = Math.max(width * 0.03, 15); // Mínimo 15px
+        const chartPadding = Math.max(width * 0.02, 12); // Reduzido de 0.03 para 0.02 e mínimo de 12px
         const chartWidth = width - (chartPadding * 2);
         const chartHeight = Math.max(chartSectionHeight * 0.7, 120);
         
@@ -389,7 +390,7 @@ function initializeKPICard() {
             const range = maxVal - minVal || 1;
             
             // Margem interna do gráfico responsiva
-            const innerChartPadding = Math.max(chartWidth * 0.04, 20);
+            const innerChartPadding = Math.max(chartWidth * 0.03, 15); // Reduzido de 0.04 para 0.03
             const innerWidth = chartWidth - (innerChartPadding * 2);
             const innerHeight = chartHeight - (innerChartPadding * 2);
             
@@ -407,7 +408,7 @@ function initializeKPICard() {
                 };
             });
             
-            // Desenha a linha principal - responsiva
+            // Desenha a linha principal - responsiva (LINHA MAIS FINA)
             const line = d3.line()
                 .x(function(d) { return d.x; })
                 .y(function(d) { return d.y; })
@@ -417,12 +418,12 @@ function initializeKPICard() {
                 .datum(lineData)
                 .attr("d", line)
                 .attr("stroke", "#1A9850")
-                .attr("stroke-width", Math.min(Math.max(width * 0.01, 4), 12)) // Entre 4px e 12px
+                .attr("stroke-width", Math.min(Math.max(width * 0.007, 3), 8)) // Reduzido de 0.01 para 0.007 e máximo de 8px
                 .attr("fill", "none")
                 .attr("stroke-linecap", "round")
                 .attr("opacity", 1);
             
-            // Adiciona pontos na linha - tamanho responsivo
+            // Adiciona pontos na linha - tamanho responsivo (MARCADORES MENORES)
             chartGroup.selectAll(".data-point")
                 .data(lineData)
                 .enter()
@@ -430,10 +431,10 @@ function initializeKPICard() {
                 .attr("class", "data-point")
                 .attr("cx", function(d) { return d.x; })
                 .attr("cy", function(d) { return d.y; })
-                .attr("r", Math.min(Math.max(width * 0.006, 3), 8)) // Entre 3px e 8px
+                .attr("r", Math.min(Math.max(width * 0.004, 2.5), 6)) // Reduzido de 0.006 para 0.004 e máximo de 6px
                 .attr("fill", "#1A9850")
                 .attr("stroke", "#ffffff")
-                .attr("stroke-width", Math.min(Math.max(width * 0.003, 1.5), 3));
+                .attr("stroke-width", Math.min(Math.max(width * 0.002, 1), 2)); // Reduzido stroke também
             
             // Adiciona os valores reais acima dos pontos - fonte responsiva
             const valueLabelFontSize = Math.min(Math.max(height * 0.04, 10), width * 0.025, 16);
