@@ -5,13 +5,13 @@ Estrutura baseada no exemplo D3 Radar Chart fornecido pela SAS.
 Lógica do card KPI e design fornecidos pelo usuário.
 VERSÃO ADAPTADA: Trabalha com múltiplas linhas ao invés de arrays
 MODIFICAÇÃO: Layout horizontal - gráfico alargado, variações compactas
-ATUALIZAÇÃO: Variações em pontos percentuais com 1 casa decimal, média anual
-MELHORIAS: Layout responsivo horizontal, fonte Avenir Next, valores destacados
+ATUALIZAÇÃO: Tooltip formatado com labels das colunas
+MELHORIAS: Layout responsivo horizontal, fonte Avenir Next, valores destacados, tooltips
 -->
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>KPI Card Percentage Points Final para SAS VA</title>
+    <title>KPI Card with Formatted Tooltip para SAS VA</title>
     <!-- Import D3.js -->
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 
@@ -73,9 +73,39 @@ MELHORIAS: Layout responsivo horizontal, fonte Avenir Next, valores destacados
         text-anchor: middle;
         text-shadow: 0px 1px 2px rgba(0,0,0,0.1);
     }
+
+    /* Estilos para o tooltip */
+    .tooltip {
+        position: absolute;
+        background-color: rgba(26, 79, 14, 0.95);
+        color: white;
+        padding: 10px 14px;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 600;
+        font-family: 'Avenir Next', 'Avenir', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        pointer-events: none;
+        z-index: 1000;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        border: 1px solid rgba(255,255,255,0.2);
+        display: none;
+        line-height: 1.4;
+    }
+
+    .tooltip::after {
+        content: '';
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        margin-left: -5px;
+        border: 5px solid transparent;
+        border-top-color: rgba(26, 79, 14, 0.95);
+    }
 </style>
 
 <div id="chart-container"></div>
+<!-- Tooltip element -->
+<div id="tooltip" class="tooltip"></div>
 
 <script>
 "use strict";
@@ -115,6 +145,9 @@ function initializeKPICard() {
 
     // Elementos D3
     let svg, mainGroup;
+
+    // Tooltip
+    const tooltip = d3.select("#tooltip");
 
     /*******************************************************
      * FUNÇÃO DE FORMATAÇÃO PERSONALIZADA      *
@@ -166,6 +199,71 @@ function initializeKPICard() {
         }
     }
 
+    /**
+     * Formata valores para tooltip (mais completo, sem abreviações para números pequenos)
+     * @param {number} value - Valor a ser formatado
+     * @returns {string} - Valor formatado para tooltip
+     */
+    function formatValueForTooltip(value) {
+        if (value >= 1000000000) {
+            // Para bilhões (mantém formatação abreviada)
+            const billions = value / 1000000000;
+            if (billions >= 100) {
+                return Math.round(billions) + "B";
+            } else if (billions >= 10) {
+                return d3.format(".1f")(billions).replace(/\.0$/, "") + "B";
+            } else {
+                return d3.format(".2f")(billions).replace(/\.00$/, "").replace(/0$/, "") + "B";
+            }
+        } else if (value >= 1000000) {
+            // Para milhões (mantém formatação abreviada)
+            const millions = value / 1000000;
+            if (millions >= 100) {
+                return Math.round(millions) + "M";
+            } else if (millions >= 10) {
+                return d3.format(".1f")(millions).replace(/\.0$/, "") + "M";
+            } else {
+                return d3.format(".2f")(millions).replace(/\.00$/, "").replace(/0$/, "") + "M";
+            }
+        } else if (value >= 10000) {
+            // Para valores grandes em milhares (mostra formato abreviado)
+            const thousands = value / 1000;
+            if (thousands >= 100) {
+                return Math.round(thousands) + "K";
+            } else if (thousands >= 10) {
+                return d3.format(".1f")(thousands).replace(/\.0$/, "") + "K";
+            } else {
+                return d3.format(".2f")(thousands).replace(/\.00$/, "").replace(/0$/, "") + "K";
+            }
+        } else {
+            // Para valores menores que 10000 - mostra número completo formatado
+            return d3.format(",")(Math.round(value));
+        }
+    }
+
+    /*******************************************************
+     * FUNÇÕES DO TOOLTIP                    *
+     *******************************************************/
+    
+    function showTooltip(event, data) {
+        // Usa as labels das colunas para criar o tooltip
+        const periodLabel = processedData.columnLabels.period || "Período";
+        const valueLabel = processedData.columnLabels.value || "Valor";
+        const formattedValue = formatValueForTooltip(data.value);
+        
+        const tooltipContent = `${periodLabel}: ${data.period}<br/>${valueLabel}: ${formattedValue}`;
+        
+        tooltip
+            .style("display", "block")
+            .html(tooltipContent)
+            .style("left", (event.pageX - tooltip.node().offsetWidth / 2) + "px")
+            .style("top", (event.pageY - tooltip.node().offsetHeight - 10) + "px");
+    }
+
+    function hideTooltip() {
+        tooltip.style("display", "none");
+    }
+
     /*******************************************************
      * CONFIGURAÇÃO PARA DEBUG FORA DO SAS VA      *
      *******************************************************/
@@ -185,7 +283,7 @@ function initializeKPICard() {
         columns: [
             { label: "Título", type: "string" },
             { label: "Ano", type: "number" },
-            { label: "Valor Temporal", type: "number", format: { name: "BEST", precision: 0 } }
+            { label: "Número de Vendas", type: "number", format: { name: "BEST", precision: 0 } }
         ]
     };
 
@@ -323,15 +421,32 @@ function initializeKPICard() {
             variacaoAnterior = ultimoValor - penultimoValor; // Diferença absoluta em pontos percentuais
         }
 
-        // CÁLCULO: Média anual em pontos percentuais
+        // CÁLCULO CORRIGIDO: Média anual das variações em pontos percentuais
         let mediaAnual = 0;
-        if (valores.length > 0) {
-            const somaValores = valores.reduce(function(soma, valor) { return soma + valor; }, 0);
-            mediaAnual = somaValores / valores.length; // Média aritmética simples
+        if (valores.length > 1) {
+            // Calcula as variações ano a ano em pontos percentuais
+            const variacoesAnuais = [];
+            for (let i = 1; i < valores.length; i++) {
+                const variacaoAnual = valores[i] - valores[i - 1]; // Diferença absoluta entre anos consecutivos
+                variacoesAnuais.push(variacaoAnual);
+            }
+            
+            // Calcula a média das variações anuais
+            if (variacoesAnuais.length > 0) {
+                const somaVariacoes = variacoesAnuais.reduce(function(soma, variacao) { 
+                    return soma + variacao; 
+                }, 0);
+                mediaAnual = somaVariacoes / variacoesAnuais.length;
+            }
         }
         
         processedData = {
             titulo: titulo,
+            // Labels das colunas para usar no tooltip
+            columnLabels: {
+                period: columns[1].label, // Ex: "Ano", "Ano do censo"
+                value: columns[2].label   // Ex: "Número de Vendas", "Número de escolas"
+            },
             valorPrincipal: {
                 label: "Variação no Período",
                 value: variacaoPeriodo,
@@ -350,11 +465,11 @@ function initializeKPICard() {
                 }
             },
             valorTerciario: {
-                label: "Média Anual", // MUDADO de "Média do Período" para "Média Anual"
+                label: "Média Anual", // Média das variações anuais
                 value: mediaAnual,
                 format: function(val) { 
-                    // APENAS 1 casa decimal (sem sinal +/-)
-                    return val !== null ? d3.format(".1f")(val) + " pp" : "N/A";
+                    // APENAS 1 casa decimal (com sinal +/- para mostrar se é crescimento ou decrescimento)
+                    return val !== null ? d3.format("+.1f")(val) + " pp" : "N/A";
                 }
             },
             // Dados temporais para linha de tendência
@@ -521,7 +636,7 @@ function initializeKPICard() {
                 .attr("stroke-linecap", "round")
                 .attr("opacity", 1);
             
-            // Adiciona pontos na linha - tamanho responsivo
+            // Adiciona pontos na linha - tamanho responsivo COM TOOLTIP
             const pointRadius = isCompactHorizontal ? 
                 Math.min(Math.max(height * 0.015, 2), 4) : 
                 Math.min(Math.max(width * 0.005, 3), 7);
@@ -536,7 +651,32 @@ function initializeKPICard() {
                 .attr("r", pointRadius)
                 .attr("fill", "#1A9850")
                 .attr("stroke", "#ffffff")
-                .attr("stroke-width", Math.max(pointRadius * 0.3, 1));
+                .attr("stroke-width", Math.max(pointRadius * 0.3, 1))
+                .style("cursor", "pointer")
+                .on("mouseenter", function(event, d) {
+                    // Aumenta o tamanho do ponto no hover
+                    d3.select(this)
+                        .transition()
+                        .duration(150)
+                        .attr("r", pointRadius * 1.4);
+                    
+                    // Mostra o tooltip
+                    showTooltip(event, d);
+                })
+                .on("mouseleave", function(event, d) {
+                    // Volta ao tamanho original
+                    d3.select(this)
+                        .transition()
+                        .duration(150)
+                        .attr("r", pointRadius);
+                    
+                    // Esconde o tooltip
+                    hideTooltip();
+                })
+                .on("mousemove", function(event, d) {
+                    // Atualiza posição do tooltip
+                    showTooltip(event, d);
+                });
             
             // TAMANHO DE FONTE DOS ANOS (para equalizar com valores)
             const yearLabelFontSize = isCompactHorizontal ? 
