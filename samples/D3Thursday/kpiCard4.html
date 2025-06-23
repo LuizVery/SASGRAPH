@@ -5,13 +5,13 @@ Estrutura baseada no exemplo D3 Radar Chart fornecido pela SAS.
 Lógica do card KPI e design fornecidos pelo usuário.
 VERSÃO ADAPTADA: Trabalha com múltiplas linhas ao invés de arrays
 MODIFICAÇÃO: Layout horizontal - gráfico alargado, variações compactas
-ATUALIZAÇÃO: Variações em pontos percentuais, média aritmética simples
+ATUALIZAÇÃO: Variações em pontos percentuais com 1 casa decimal, média anual
 MELHORIAS: Layout responsivo horizontal, fonte Avenir Next, valores destacados
 -->
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>KPI Card Percentage Points para SAS VA</title>
+    <title>KPI Card Percentage Points Final para SAS VA</title>
     <!-- Import D3.js -->
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 
@@ -311,23 +311,23 @@ function initializeKPICard() {
         const primeiroValor = valores[0];
         const penultimoValor = valores.length > 1 ? valores[valores.length - 2] : null;
         
-        // NOVO CÁLCULO: Variação em pontos percentuais no período
+        // CÁLCULO: Variação em pontos percentuais no período
         let variacaoPeriodo = 0;
         if (primeiroValor !== null && ultimoValor !== null) {
             variacaoPeriodo = ultimoValor - primeiroValor; // Diferença absoluta em pontos percentuais
         }
         
-        // NOVO CÁLCULO: Variação em pontos percentuais vs ano anterior
+        // CÁLCULO: Variação em pontos percentuais vs ano anterior
         let variacaoAnterior = 0;
         if (penultimoValor !== null && ultimoValor !== null) {
             variacaoAnterior = ultimoValor - penultimoValor; // Diferença absoluta em pontos percentuais
         }
 
-        // NOVO CÁLCULO: Média aritmética simples em pontos percentuais
-        let mediaAritmetica = 0;
+        // CÁLCULO: Média anual em pontos percentuais
+        let mediaAnual = 0;
         if (valores.length > 0) {
             const somaValores = valores.reduce(function(soma, valor) { return soma + valor; }, 0);
-            mediaAritmetica = somaValores / valores.length; // Média aritmética simples
+            mediaAnual = somaValores / valores.length; // Média aritmética simples
         }
         
         processedData = {
@@ -336,22 +336,25 @@ function initializeKPICard() {
                 label: "Variação no Período",
                 value: variacaoPeriodo,
                 format: function(val) { 
-                    return val !== null ? d3.format("+.1f")(val) + " pp" : "N/A"; // pp = pontos percentuais
+                    // APENAS 1 casa decimal
+                    return val !== null ? d3.format("+.1f")(val) + " pp" : "N/A";
                 }
             },
-            // Valores em pontos percentuais
+            // Valores em pontos percentuais com APENAS 1 casa decimal
             valorSecundario: {
                 label: "Variação vs Ano Anterior",
                 value: variacaoAnterior,
                 format: function(val) { 
-                    return val !== null ? d3.format("+.1f")(val) + " pp" : "N/A"; // pp = pontos percentuais
+                    // APENAS 1 casa decimal
+                    return val !== null ? d3.format("+.1f")(val) + " pp" : "N/A";
                 }
             },
             valorTerciario: {
-                label: "Média do Período",
-                value: mediaAritmetica,
+                label: "Média Anual", // MUDADO de "Média do Período" para "Média Anual"
+                value: mediaAnual,
                 format: function(val) { 
-                    return val !== null ? d3.format(".1f")(val) + " pp" : "N/A"; // pp = pontos percentuais (sem sinal +/-)
+                    // APENAS 1 casa decimal (sem sinal +/-)
+                    return val !== null ? d3.format(".1f")(val) + " pp" : "N/A";
                 }
             },
             // Dados temporais para linha de tendência
@@ -648,7 +651,7 @@ function initializeKPICard() {
             .attr("font-size", valueFontSize + "px")
             .text(processedData.valorSecundario.format(processedData.valorSecundario.value));
 
-        // TERCEIRA VARIAÇÃO: Média do Período (em pontos percentuais)
+        // TERCEIRA VARIAÇÃO: Média Anual (em pontos percentuais)
         const variation3Y = variation2Y + variationBlockHeight;
         
         // Nome da variação (em cima)
