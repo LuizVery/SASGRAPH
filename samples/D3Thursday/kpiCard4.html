@@ -5,13 +5,13 @@ Estrutura baseada no exemplo D3 Radar Chart fornecido pela SAS.
 Lógica do card KPI e design fornecidos pelo usuário.
 VERSÃO ADAPTADA: Trabalha com múltiplas linhas ao invés de arrays
 MODIFICAÇÃO: Layout horizontal - gráfico alargado, variações compactas
-ATUALIZAÇÃO: Gráfico mais largo, valores com 1 casa decimal, fontes equalizadas
+ATUALIZAÇÃO: Formatação correta dos valores (máximo 3 dígitos, sem .0 desnecessário)
 MELHORIAS: Layout responsivo horizontal, fonte Avenir Next, valores destacados
 -->
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>KPI Card Responsive Wider Chart para SAS VA</title>
+    <title>KPI Card Responsive Proper Formatting para SAS VA</title>
     <!-- Import D3.js -->
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 
@@ -115,6 +115,56 @@ function initializeKPICard() {
 
     // Elementos D3
     let svg, mainGroup;
+
+    /*******************************************************
+     * FUNÇÃO DE FORMATAÇÃO PERSONALIZADA      *
+     *******************************************************/
+    
+    /**
+     * Formata valores com máximo 3 dígitos e sem .0 desnecessário
+     * @param {number} value - Valor a ser formatado
+     * @returns {string} - Valor formatado
+     */
+    function formatValue(value) {
+        if (value >= 1000000000) {
+            // Para bilhões
+            const billions = value / 1000000000;
+            if (billions >= 100) {
+                return Math.round(billions) + "B"; // 100B, 150B, etc.
+            } else if (billions >= 10) {
+                return d3.format(".1f")(billions).replace(/\.0$/, "") + "B"; // 10.1B, 15.7B, etc.
+            } else {
+                return d3.format(".2f")(billions).replace(/\.00$/, "").replace(/0$/, "") + "B"; // 1.25B, 9.8B, etc.
+            }
+        } else if (value >= 1000000) {
+            // Para milhões
+            const millions = value / 1000000;
+            if (millions >= 100) {
+                return Math.round(millions) + "M"; // 100M, 150M, etc.
+            } else if (millions >= 10) {
+                return d3.format(".1f")(millions).replace(/\.0$/, "") + "M"; // 10.1M, 15.7M, etc.
+            } else {
+                return d3.format(".2f")(millions).replace(/\.00$/, "").replace(/0$/, "") + "M"; // 1.25M, 9.8M, etc.
+            }
+        } else if (value >= 1000) {
+            // Para milhares
+            const thousands = value / 1000;
+            if (thousands >= 100) {
+                return Math.round(thousands) + "K"; // 100K, 150K, etc.
+            } else if (thousands >= 10) {
+                return d3.format(".1f")(thousands).replace(/\.0$/, "") + "K"; // 10.1K, 15.7K, etc.
+            } else {
+                return d3.format(".2f")(thousands).replace(/\.00$/, "").replace(/0$/, "") + "K"; // 1.25K, 9.8K, etc.
+            }
+        } else {
+            // Para valores menores que 1000 - SEM casas decimais desnecessárias
+            if (value === Math.floor(value)) {
+                return Math.round(value).toString(); // 123, 45, 7, etc.
+            } else {
+                return d3.format(".1f")(value).replace(/\.0$/, ""); // 123.5, mas não 123.0
+            }
+        }
+    }
 
     /*******************************************************
      * CONFIGURAÇÃO PARA DEBUG FORA DO SAS VA      *
@@ -496,7 +546,7 @@ function initializeKPICard() {
                 Math.min(Math.max(height * 0.08, 7), 12) : 
                 Math.min(Math.max(height * 0.04, 10), width * 0.025, 15);
             
-            // Adiciona os valores reais acima dos pontos - MESMO TAMANHO DOS ANOS
+            // Adiciona os valores reais acima dos pontos - FORMATAÇÃO CORRETA
             chartGroup.selectAll(".value-label")
                 .data(lineData)
                 .enter()
@@ -509,17 +559,8 @@ function initializeKPICard() {
                 .attr("text-anchor", "middle")
                 .attr("font-weight", "700")
                 .text(function(d) { 
-                    // Formata o valor com 1 casa decimal
-                    const value = d.value;
-                    if (value >= 1000000000) {
-                        return d3.format(".2f")(value / 1000000000) + "B"; // 2 casas para manter 1 decimal após divisão
-                    } else if (value >= 1000000) {
-                        return d3.format(".2f")(value / 1000000) + "M"; // 2 casas para manter 1 decimal após divisão
-                    } else if (value >= 1000) {
-                        return d3.format(".2f")(value / 1000) + "K"; // 2 casas para manter 1 decimal após divisão
-                    } else {
-                        return d3.format(".1f")(value); // 1 casa decimal para valores menores
-                    }
+                    // USA A FUNÇÃO DE FORMATAÇÃO PERSONALIZADA
+                    return formatValue(d.value);
                 });
             
             // Adiciona os anos/períodos abaixo do gráfico - fonte responsiva
