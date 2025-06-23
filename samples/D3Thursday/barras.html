@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<!--
+  Copyright 2018 SAS Institute Inc.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+  https://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<html>
+<head>
+  <!-- Import D3.js -->
+  <script type="text/javascript" src="https://d3js.org/d3.v5.min.js"></script>
+  <!-- Import Avenir Next font -->
+  <link href="https://fonts.googleapis.com/css2?family=Avenir+Next:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+<style type="text/css">
+  html,
+  body,
+  svg {
+    overflow: hidden;
+    margin: 0px;
+    width: 100%;
+    height: 100%;
+    font-family: 'Avenir Next', sans-serif;
+  }
+
+  .data-bar {
+    stroke: none;
+  }
+
+  .data-bar:hover {
+    opacity: 0.8;
+  }
+
+  .x-axis text {
+    font-family: 'Avenir Next', sans-serif;
+    font-size: 9pt;
+    font-weight: normal;
+    fill: black;
+  }
+
+  .y-axis text {
+    font-family: 'Avenir Next', sans-serif;
+    font-size: 8.25pt;
+    font-weight: normal;
+    fill: black;
+  }
+
+  .axis path,
+  .axis line {
+    stroke: black;
+    stroke-width: 1;
+  }
+</style>
+
+<script>
+"use strict";
+
+document.addEventListener("DOMContentLoaded", function() {
+  setTimeout(function() {
+    // Wait until iFrame has been assigned the proper size
+    /******************************************************* Declare variables *******************************************************/
+
+    // Static data variables
+    const SVG_ID = "horizontal-bar"; // ID of SVG element
+    // Dados de exemplo - substitua pelos dados reais do SAS VA
+    const DATA = [["Apple", 15], ["Banana", 35], ["Mango", 45], ["Orange", 65], ["Grape", 25], ["Pineapple", 55]];
+
+    // Função para calcular limites dinamicamente baseados nos dados
+    function calculateDynamicLimits(data) {
+      const values = data.map(d => d[1]);
+      const minValue = d3.min(values);
+      const maxValue = d3.max(values);
+      const range = maxValue - minValue;
+      
+      // Criando 14 limites (C_Limite_01 a C_Limite_14) distribuídos uniformemente
+      const limits = {};
+      for (let i = 1; i <= 14; i++) {
+        limits[`C_LIMITE_${i.toString().padStart(2, '0')}`] = minValue + (range * i / 15);
+      }
+      
+      return limits;
+    }
+
+    // Calculando os limites dinamicamente
+    const LIMITS = calculateDynamicLimits(DATA);
+
+    // Função para determinar a cor baseada no valor
+    function getBarColor(value) {
+      if (value <= LIMITS.C_LIMITE_01) return "#DE432A";
+      else if (value > LIMITS.C_LIMITE_01 && value <= LIMITS.C_LIMITE_02) return "#E8773D";
+      else if (value > LIMITS.C_LIMITE_02 && value <= LIMITS.C_LIMITE_03) return "#EE9E4A";
+      else if (value > LIMITS.C_LIMITE_03 && value <= LIMITS.C_LIMITE_04) return "#F0A84D";
+      else if (value > LIMITS.C_LIMITE_04 && value <= LIMITS.C_LIMITE_05) return "#F7D15B";
+      else if (value > LIMITS.C_LIMITE_05 && value <= LIMITS.C_LIMITE_06) return "#F5C958";
+      else if (value > LIMITS.C_LIMITE_06 && value <= LIMITS.C_LIMITE_07) return "#F8D95E";
+      else if (value > LIMITS.C_LIMITE_07 && value <= LIMITS.C_LIMITE_08) return "#D9EC6B";
+      else if (value > LIMITS.C_LIMITE_08 && value <= LIMITS.C_LIMITE_09) return "#C1E16C";
+      else if (value > LIMITS.C_LIMITE_09 && value <= LIMITS.C_LIMITE_10) return "#CEE76C";
+      else if (value > LIMITS.C_LIMITE_10 && value <= LIMITS.C_LIMITE_11) return "#ACDD6D";
+      else if (value > LIMITS.C_LIMITE_11 && value <= LIMITS.C_LIMITE_12) return "#99CD6D";
+      else if (value > LIMITS.C_LIMITE_12 && value <= LIMITS.C_LIMITE_13) return "#63B46E";
+      else if (value > LIMITS.C_LIMITE_13 && value <= LIMITS.C_LIMITE_14) return "#4EA96F";
+      else return "#329C70";
+    }
+
+    // Static dimension variables
+    const EDGE_PADDING = 10; // Padding between end of axes and edge of SVG
+    const Y_AXIS_WIDTH = 80; // Width allocated for y-axis (increased for horizontal bars)
+    const X_AXIS_HEIGHT = 30; // Height allocated for x-axis
+
+    // Dynamic dimension variables
+    let WIDTH = window.innerWidth; // Width of SVG element
+    let HEIGHT = window.innerHeight; // Height of SVG element
+    let CHART_WIDTH = WIDTH - Y_AXIS_WIDTH - EDGE_PADDING; // Width of chart area for bars
+    let CHART_HEIGHT = HEIGHT - X_AXIS_HEIGHT - EDGE_PADDING; // Height of chart area for bars
+
+    // Selection and d3 variables
+    let SVG; // SVG selection
+    let G_CHART_AREA; // Chart area group selection
+    let X_SCALE; // Linear scale for bar lengths (horizontal)
+    let Y_SCALE; // Band scale for y categories (horizontal)
+    let X_AXIS; // X axis data-join
+    let Y_AXIS; // Y axis data join
+    let DATA_BARS; // Data bars data-join
+
+    /**************************************************** Create Static Elements ****************************************************/
+
+    // Append svg and save reference
+    d3.select("body")
+      .selectAll("#" + SVG_ID)
+      .data([DATA])
+      .enter()
+      .append("svg")
+      .attr("id", SVG_ID);
+
+    SVG = d3
+      .select("#" + SVG_ID)
+      .attr("width", WIDTH)
+      .attr("height", HEIGHT);
+
+    // Append chart area group and save reference
+    SVG.selectAll(".g-chart-area")
+      .data([DATA])
+      .enter()
+      .append("g")
+      .classed("g-chart-area", true)
+      .attr(
+        "transform",
+        "translate(" + Y_AXIS_WIDTH + ", " + EDGE_PADDING + ")"
+      );
+
+    G_CHART_AREA = SVG.select(".g-chart-area");
+
+    /************************************************ Create Data Dependent Elements ************************************************/
+
+    // Create x scale (for bar lengths - horizontal orientation)
+    X_SCALE = d3
+      .scaleLinear()
+      .rangeRound([0, CHART_WIDTH])
+      .domain([
+        0,
+        d3.max(DATA, function(d) {
+          return d[1];
+        })
+      ]);
+
+    // Create y scale (for categories - horizontal orientation)
+    Y_SCALE = d3
+      .scaleBand()
+      .rangeRound([0, CHART_HEIGHT])
+      .padding(0.1)
+      .domain(
+        DATA.map(function(d) {
+          return d[0];
+        })
+      );
+
+    // Create x axis (bottom axis showing values)
+    X_AXIS = SVG.selectAll(".x-axis").data([DATA]);
+
+    X_AXIS.enter()
+      .append("g")
+      .classed("x-axis axis", true)
+      .attr(
+        "transform",
+        "translate(" + Y_AXIS_WIDTH + ", " + (HEIGHT - X_AXIS_HEIGHT) + ")"
+      )
+      .call(d3.axisBottom(X_SCALE));
+
+    // Create y axis (left axis showing categories)
+    Y_AXIS = SVG.selectAll(".y-axis").data([DATA]);
+
+    Y_AXIS.enter()
+      .append("g")
+      .classed("y-axis axis", true)
+      .attr(
+        "transform",
+        "translate(" + Y_AXIS_WIDTH + ", " + EDGE_PADDING + ")"
+      )
+      .call(d3.axisLeft(Y_SCALE));
+
+    // Create horizontal bars for each category
+    DATA_BARS = G_CHART_AREA.selectAll(".data-bar").data(DATA);
+
+    DATA_BARS.enter()
+      .append("rect")
+      .classed("data-bar", true)
+      .attr("x", 0) // Start at 0 for horizontal bars
+      .attr("y", function(d) {
+        return Y_SCALE(d[0]);
+      })
+      .attr("width", function(d) {
+        return X_SCALE(d[1]); // Width based on value for horizontal bars
+      })
+      .attr("height", function() {
+        return Y_SCALE.bandwidth(); // Height is the band width
+      })
+      .attr("fill", function(d) {
+        return getBarColor(d[1]);
+      });
+
+    // Console log dos limites calculados para debug
+    console.log("Limites calculados dinamicamente:", LIMITS);
+    
+  }, 500);
+});
+</script>
+</body>
+</html>
