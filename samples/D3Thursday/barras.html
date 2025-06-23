@@ -2,6 +2,7 @@
 <!--
 Adaptado para SAS Visual Analytics baseado EXATAMENTE no código KPI Card funcional.
 Gráfico de barras horizontal com cores dinâmicas e limite de 15 itens.
+VERSÃO FINAL: Sem eixo X, rótulos em formato de porcentagem, SEM TICKS no eixo Y
 -->
 <html>
 <head>
@@ -43,13 +44,6 @@ Gráfico de barras horizontal com cores dinâmicas e limite de 15 itens.
         cursor: pointer;
     }
 
-    .x-axis text {
-        font-family: 'Avenir Next', sans-serif;
-        font-size: 9pt;
-        font-weight: normal;
-        fill: black;
-    }
-
     .y-axis text {
         font-family: 'Avenir Next', sans-serif;
         font-size: 8.25pt;
@@ -57,10 +51,20 @@ Gráfico de barras horizontal com cores dinâmicas e limite de 15 itens.
         fill: black;
     }
 
-    .axis path,
-    .axis line {
-        stroke: black;
-        stroke-width: 1;
+    /* REMOVENDO OS TICKS (tracinhos) DO EIXO Y */
+    .y-axis .tick line {
+        display: none; /* Remove os tracinhos */
+    }
+
+    .y-axis path {
+        display: none; /* Remove a linha principal do eixo */
+    }
+
+    .value-label {
+        font-family: 'Avenir Next', sans-serif;
+        font-size: 10px;
+        font-weight: 600;
+        fill: #333;
     }
 
     .tooltip {
@@ -111,30 +115,29 @@ function initializeBarChart() {
     let svg, mainGroup;
     const tooltip = d3.select("#tooltip");
 
-    // DADOS DE EXEMPLO EXATOS
+    // DADOS DE EXEMPLO EXATOS (com valores em formato decimal para porcentagem)
     const SAMPLE_MESSAGE = {
         resultName: "barChartSample",
         rowCount: 15,
         data: [
-            ["São Paulo", 85.2],
-            ["Rio de Janeiro", 78.5],
-            ["Belo Horizonte", 72.3],
-            ["Salvador", 68.7],
-            ["Fortaleza", 65.1],
-            ["Brasília", 82.4],
-            ["Curitiba", 79.8],
-            ["Recife", 64.9],
-            ["Porto Alegre", 76.2],
-            ["Goiânia", 71.5],
-            ["Belém", 58.3],
-            ["Manaus", 55.7],
-            ["São Luís", 52.4],
-            ["Maceió", 49.8],
-            ["Campo Grande", 69.2]
+            ["Teresina", 11.49],
+            ["Macapá", 5.66],
+            ["Parnaíba", 2.62],
+            ["Picos", 1.75],
+            ["Floriano", 1.55],
+            ["Santana", 1.51],
+            ["Piripiri", 1.45],
+            ["Mazagão", 1.43],
+            ["União", 1.41],
+            ["São Paulo", 8.52],
+            ["Rio de Janeiro", 7.85],
+            ["Belo Horizonte", 7.23],
+            ["Salvador", 6.87],
+            ["Fortaleza", 6.51]
         ],
         columns: [
             { label: "Município", type: "string" },
-            { label: "Porcentagem de frequência", type: "number", format: { name: "BEST", precision: 1 } }
+            { label: "Porcentagem de frequência", type: "number", format: { name: "BEST", precision: 2 } }
         ]
     };
 
@@ -171,11 +174,16 @@ function initializeBarChart() {
         else return "#329C70";
     }
 
+    // FUNÇÃO PARA FORMATAR PORCENTAGEM (igual à imagem)
+    function formatPercentage(value) {
+        return d3.format(".2f")(value) + "%";
+    }
+
     // TOOLTIP
     function showTooltip(event, data) {
         const categoryLabel = processedData.columnLabels.category || "Categoria";
         const valueLabel = processedData.columnLabels.value || "Valor";
-        const formattedValue = d3.format(",.1f")(data.value);
+        const formattedValue = formatPercentage(data.value);
         
         const tooltipContent = `${categoryLabel}: ${data.category}<br/>${valueLabel}: ${formattedValue}`;
         
@@ -299,10 +307,11 @@ function initializeBarChart() {
 
         d3.select("#" + SVG_CONTAINER_ID).selectAll("*").remove();
 
+        // MARGENS AJUSTADAS (removido espaço do bottom para eixo X)
         const margin = {
             top: 20,
-            right: 40,
-            bottom: 40,
+            right: 80, // Aumentado para acomodar os rótulos de porcentagem
+            bottom: 20, // Reduzido já que não há eixo X
             left: 120
         };
 
@@ -327,12 +336,7 @@ function initializeBarChart() {
             .range([0, chartHeight])
             .padding(0.1);
 
-        // EIXOS
-        mainGroup.append("g")
-            .attr("class", "x-axis axis")
-            .attr("transform", "translate(0," + chartHeight + ")")
-            .call(d3.axisBottom(xScale));
-
+        // APENAS EIXO Y (removido eixo X completamente) - AGORA SEM TICKS
         mainGroup.append("g")
             .attr("class", "y-axis axis")
             .call(d3.axisLeft(yScale));
@@ -358,20 +362,16 @@ function initializeBarChart() {
                 showTooltip(event, d);
             });
 
-        // LABELS DE VALOR
+        // LABELS DE VALOR EM FORMATO DE PORCENTAGEM (igual à imagem)
         mainGroup.selectAll(".value-label")
             .data(processedData.data)
             .enter()
             .append("text")
             .attr("class", "value-label")
-            .attr("x", d => xScale(d.value) + 5)
+            .attr("x", d => xScale(d.value) + 8) // Pequeno espaçamento da barra
             .attr("y", d => yScale(d.category) + yScale.bandwidth() / 2)
             .attr("dy", "0.35em")
-            .attr("font-family", "'Avenir Next', sans-serif")
-            .attr("font-size", "10px")
-            .attr("font-weight", "600")
-            .attr("fill", "#333")
-            .text(d => d3.format(",.1f")(d.value));
+            .text(d => formatPercentage(d.value)); // FORMATO DE PORCENTAGEM
     }
 }
 </script>
