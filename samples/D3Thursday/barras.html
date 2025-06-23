@@ -1,309 +1,436 @@
 <!DOCTYPE html>
 <!--
-  Copyright 2018 SAS Institute Inc.
-
-  Licensed under the Apache License, Version 2.0 (the "License");
-  you may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
-
-  https://www.apache.org/licenses/LICENSE-2.0
-
-  Unless required by applicable law or agreed to in writing, software
-  distributed under the License is distributed on an "AS IS" BASIS,
-  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-  See the License for the specific language governing permissions and
-  limitations under the License.
+Adaptado para SAS Visual Analytics baseado no código KPI Card funcional.
+Gráfico de barras horizontal com cores dinâmicas e limite de 15 itens.
+Fonte Avenir Next e formatação conforme especificações.
 -->
 <html>
 <head>
-  <!-- Import D3.js -->
-  <script type="text/javascript" src="https://d3js.org/d3.v5.min.js"></script>
-  <!-- Import Avenir Next font -->
-  <link href="https://fonts.googleapis.com/css2?family=Avenir+Next:wght@400;500;600&display=swap" rel="stylesheet">
+    <meta charset="UTF-8">
+    <title>Gráfico de Barras Horizontal para SAS VA</title>
+    <!-- Import D3.js -->
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+
+    <!-- Importar utilitários do SAS VA (apenas se disponível) -->
+    <script type="text/javascript">
+        // Verifica se os utilitários do SAS VA estão disponíveis antes de importar
+        if (typeof window !== 'undefined' && window.self !== window.top) {
+            // Está em iframe, pode tentar carregar os utilitários do SAS
+            try {
+                document.write('<script type="text/javascript" src="../../util/messagingUtil.js"><\/script>');
+                document.write('<script type="text/javascript" src="../../util/contentUtil.js"><\/script>');
+            } catch(e) {
+                console.log("Utilitários do SAS VA não disponíveis");
+            }
+        }
+    </script>
 </head>
 <body>
 <style type="text/css">
-  html,
-  body,
-  svg {
-    overflow: hidden;
-    margin: 0px;
-    width: 100%;
-    height: 100%;
-    font-family: 'Avenir Next', sans-serif;
-  }
+    /* Estilos globais */
+    html, body, svg {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        font-family: 'Avenir Next', 'Avenir', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    }
 
-  .data-bar {
-    stroke: none;
-  }
+    .data-bar {
+        stroke: none;
+    }
 
-  .data-bar:hover {
-    opacity: 0.8;
-  }
+    .data-bar:hover {
+        opacity: 0.8;
+        cursor: pointer;
+    }
 
-  .x-axis text {
-    font-family: 'Avenir Next', sans-serif;
-    font-size: 9pt;
-    font-weight: normal;
-    fill: black;
-  }
+    .x-axis text {
+        font-family: 'Avenir Next', sans-serif;
+        font-size: 9pt;
+        font-weight: normal;
+        fill: black;
+    }
 
-  .y-axis text {
-    font-family: 'Avenir Next', sans-serif;
-    font-size: 8.25pt;
-    font-weight: normal;
-    fill: black;
-  }
+    .y-axis text {
+        font-family: 'Avenir Next', sans-serif;
+        font-size: 8.25pt;
+        font-weight: normal;
+        fill: black;
+    }
 
-  .axis path,
-  .axis line {
-    stroke: black;
-    stroke-width: 1;
-  }
+    .axis path,
+    .axis line {
+        stroke: black;
+        stroke-width: 1;
+    }
+
+    /* Tooltip */
+    .tooltip {
+        position: absolute;
+        background-color: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 8px 12px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 500;
+        font-family: 'Avenir Next', sans-serif;
+        pointer-events: none;
+        z-index: 1000;
+        display: none;
+    }
 </style>
+
+<div id="chart-container"></div>
+<div id="tooltip" class="tooltip"></div>
 
 <script>
 "use strict";
 
-// Global variables for SAS VA integration
-var _g = window._g || {};
-_g.data = [];
-_g.resultData = {};
-
-// Message handler for SAS VA
-if (typeof window.addEventListener === "function") {
-  window.addEventListener("message", onMessage);
-}
-
-function onMessage(event) {
-  if (event && event.data && event.data.resultName) {
-    _g.resultData[event.data.resultName] = event.data;
-    
-    if (event.data.resultName === "data") {
-      processData(event.data);
+// Função para aguardar o carregamento do D3
+function waitForD3(callback) {
+    if (typeof d3 !== 'undefined') {
+        callback();
+    } else {
+        setTimeout(function() { 
+            waitForD3(callback); 
+        }, 100);
     }
-  }
 }
 
-function processData(messageData) {
-  if (!messageData || !messageData.data) {
-    console.error("Dados não recebidos do SAS VA");
-    return;
-  }
-
-  // Extrair dados do SAS VA
-  var data = messageData.data;
-  var columns = messageData.columns;
-  
-  // Converter dados para formato esperado e limitar aos 15 primeiros
-  var formattedData = [];
-  for (var i = 0; i < Math.min(data.length, 15); i++) {
-    var row = data[i];
-    // Assumindo que a primeira coluna é categoria e a segunda é valor
-    formattedData.push([row[0], parseFloat(row[1]) || 0]);
-  }
-  
-  console.log("Dados formatados (15 primeiros):", formattedData);
-  
-  // Ordenar por valor decrescente para mostrar os maiores primeiro
-  formattedData.sort(function(a, b) {
-    return b[1] - a[1];
-  });
-  
-  // Chamar função para criar o gráfico
-  createChart(formattedData);
-}
-
-function createChart(DATA) {
-  // Limpar qualquer gráfico existente
-  d3.select("body").selectAll("svg").remove();
-  
-  /******************************************************* Declare variables *******************************************************/
-
-  // Static data variables
-  const SVG_ID = "horizontal-bar"; // ID of SVG element
-
-  // Função para calcular limites dinamicamente baseados nos dados
-  function calculateDynamicLimits(data) {
-    const values = data.map(d => d[1]);
-    const minValue = d3.min(values);
-    const maxValue = d3.max(values);
-    const range = maxValue - minValue;
-    
-    // Criando 14 limites (C_Limite_01 a C_Limite_14) distribuídos uniformemente
-    const limits = {};
-    for (let i = 1; i <= 14; i++) {
-      limits[`C_LIMITE_${i.toString().padStart(2, '0')}`] = minValue + (range * i / 15);
-    }
-    
-    return limits;
-  }
-
-  // Calculando os limites dinamicamente
-  const LIMITS = calculateDynamicLimits(DATA);
-
-  // Função para determinar a cor baseada no valor
-  function getBarColor(value) {
-    if (value <= LIMITS.C_LIMITE_01) return "#DE432A";
-    else if (value > LIMITS.C_LIMITE_01 && value <= LIMITS.C_LIMITE_02) return "#E8773D";
-    else if (value > LIMITS.C_LIMITE_02 && value <= LIMITS.C_LIMITE_03) return "#EE9E4A";
-    else if (value > LIMITS.C_LIMITE_03 && value <= LIMITS.C_LIMITE_04) return "#F0A84D";
-    else if (value > LIMITS.C_LIMITE_04 && value <= LIMITS.C_LIMITE_05) return "#F7D15B";
-    else if (value > LIMITS.C_LIMITE_05 && value <= LIMITS.C_LIMITE_06) return "#F5C958";
-    else if (value > LIMITS.C_LIMITE_06 && value <= LIMITS.C_LIMITE_07) return "#F8D95E";
-    else if (value > LIMITS.C_LIMITE_07 && value <= LIMITS.C_LIMITE_08) return "#D9EC6B";
-    else if (value > LIMITS.C_LIMITE_08 && value <= LIMITS.C_LIMITE_09) return "#C1E16C";
-    else if (value > LIMITS.C_LIMITE_09 && value <= LIMITS.C_LIMITE_10) return "#CEE76C";
-    else if (value > LIMITS.C_LIMITE_10 && value <= LIMITS.C_LIMITE_11) return "#ACDD6D";
-    else if (value > LIMITS.C_LIMITE_11 && value <= LIMITS.C_LIMITE_12) return "#99CD6D";
-    else if (value > LIMITS.C_LIMITE_12 && value <= LIMITS.C_LIMITE_13) return "#63B46E";
-    else if (value > LIMITS.C_LIMITE_13 && value <= LIMITS.C_LIMITE_14) return "#4EA96F";
-    else return "#329C70";
-  }
-
-  // Static dimension variables
-  const EDGE_PADDING = 10;
-  const Y_AXIS_WIDTH = 120; // Aumentado para acomodar nomes de municípios
-  const X_AXIS_HEIGHT = 30;
-
-  // Dynamic dimension variables
-  let WIDTH = window.innerWidth;
-  let HEIGHT = window.innerHeight;
-  let CHART_WIDTH = WIDTH - Y_AXIS_WIDTH - EDGE_PADDING;
-  let CHART_HEIGHT = HEIGHT - X_AXIS_HEIGHT - EDGE_PADDING;
-
-  // Selection and d3 variables
-  let SVG;
-  let G_CHART_AREA;
-  let X_SCALE;
-  let Y_SCALE;
-  let X_AXIS;
-  let Y_AXIS;
-  let DATA_BARS;
-
-  /**************************************************** Create Static Elements ****************************************************/
-
-  // Append svg and save reference
-  d3.select("body")
-    .selectAll("#" + SVG_ID)
-    .data([DATA])
-    .enter()
-    .append("svg")
-    .attr("id", SVG_ID);
-
-  SVG = d3
-    .select("#" + SVG_ID)
-    .attr("width", WIDTH)
-    .attr("height", HEIGHT);
-
-  // Append chart area group and save reference
-  SVG.selectAll(".g-chart-area")
-    .data([DATA])
-    .enter()
-    .append("g")
-    .classed("g-chart-area", true)
-    .attr(
-      "transform",
-      "translate(" + Y_AXIS_WIDTH + ", " + EDGE_PADDING + ")"
-    );
-
-  G_CHART_AREA = SVG.select(".g-chart-area");
-
-  /************************************************ Create Data Dependent Elements ************************************************/
-
-  // Create x scale (for bar lengths - horizontal orientation)
-  X_SCALE = d3
-    .scaleLinear()
-    .rangeRound([0, CHART_WIDTH])
-    .domain([
-      0,
-      d3.max(DATA, function(d) {
-        return d[1];
-      })
-    ]);
-
-  // Create y scale (for categories - horizontal orientation)
-  Y_SCALE = d3
-    .scaleBand()
-    .rangeRound([0, CHART_HEIGHT])
-    .padding(0.1)
-    .domain(
-      DATA.map(function(d) {
-        return d[0];
-      })
-    );
-
-  // Create x axis (bottom axis showing values)
-  X_AXIS = SVG.selectAll(".x-axis").data([DATA]);
-
-  X_AXIS.enter()
-    .append("g")
-    .classed("x-axis axis", true)
-    .attr(
-      "transform",
-      "translate(" + Y_AXIS_WIDTH + ", " + (HEIGHT - X_AXIS_HEIGHT) + ")"
-    )
-    .call(d3.axisBottom(X_SCALE));
-
-  // Create y axis (left axis showing categories)
-  Y_AXIS = SVG.selectAll(".y-axis").data([DATA]);
-
-  Y_AXIS.enter()
-    .append("g")
-    .classed("y-axis axis", true)
-    .attr(
-      "transform",
-      "translate(" + Y_AXIS_WIDTH + ", " + EDGE_PADDING + ")"
-    )
-    .call(d3.axisLeft(Y_SCALE));
-
-  // Create horizontal bars for each category
-  DATA_BARS = G_CHART_AREA.selectAll(".data-bar").data(DATA);
-
-  DATA_BARS.enter()
-    .append("rect")
-    .classed("data-bar", true)
-    .attr("x", 0)
-    .attr("y", function(d) {
-      return Y_SCALE(d[0]);
-    })
-    .attr("width", function(d) {
-      return X_SCALE(d[1]);
-    })
-    .attr("height", function() {
-      return Y_SCALE.bandwidth();
-    })
-    .attr("fill", function(d) {
-      return getBarColor(d[1]);
-    });
-
-  // Console log dos limites calculados para debug
-  console.log("Limites calculados dinamicamente:", LIMITS);
-}
-
-// Função de fallback caso não receba dados do SAS VA
+// Aguarda tanto o DOM quanto o D3 estarem prontos
 document.addEventListener("DOMContentLoaded", function() {
-  setTimeout(function() {
-    // Se não recebeu dados do SAS VA após 2 segundos, usar dados de exemplo
-    if (_g.data.length === 0) {
-      console.warn("Dados não recebidos do SAS VA, usando dados de exemplo");
-      var exampleData = [
-        ["Município A", 65], ["Município B", 55], ["Município C", 45], 
-        ["Município D", 35], ["Município E", 25], ["Município F", 75],
-        ["Município G", 85], ["Município H", 15], ["Município I", 95],
-        ["Município J", 5], ["Município K", 50], ["Município L", 40],
-        ["Município M", 60], ["Município N", 70], ["Município O", 80]
-      ];
-      createChart(exampleData);
-    }
-  }, 2000);
+    waitForD3(function() {
+        initializeBarChart();
+    });
 });
 
-// Request data from SAS VA
-if (window.parent && window.parent.postMessage) {
-  window.parent.postMessage({
-    resultName: "data"
-  }, "*");
+function initializeBarChart() {
+    /*******************************************************
+     * DECLARAÇÃO DE VARIÁVEIS               *
+     *******************************************************/
+
+    // Constantes e configurações
+    const SVG_CONTAINER_ID = "chart-container";
+    let VA_RESULT_NAME;
+
+    // Dados dinâmicos
+    let vaMessage;
+    let processedData;
+    let lastRenderTime = 0;
+    const renderDelay = 250;
+
+    // Elementos D3
+    let svg, mainGroup;
+
+    // Tooltip
+    const tooltip = d3.select("#tooltip");
+
+    /*******************************************************
+     * CONFIGURAÇÃO PARA DEBUG FORA DO SAS VA      *
+     *******************************************************/
+    const SAMPLE_MESSAGE = {
+        resultName: "barChartSample",
+        rowCount: 20,
+        data: [
+            ["São Paulo", 85.2],
+            ["Rio de Janeiro", 78.5],
+            ["Belo Horizonte", 72.3],
+            ["Salvador", 68.7],
+            ["Fortaleza", 65.1],
+            ["Brasília", 82.4],
+            ["Curitiba", 79.8],
+            ["Recife", 64.9],
+            ["Porto Alegre", 76.2],
+            ["Goiânia", 71.5],
+            ["Belém", 58.3],
+            ["Manaus", 55.7],
+            ["São Luís", 52.4],
+            ["Maceió", 49.8],
+            ["Campo Grande", 69.2],
+            ["João Pessoa", 61.7],
+            ["Teresina", 54.1],
+            ["Aracaju", 66.8],
+            ["Florianópolis", 84.3],
+            ["Vitória", 73.9]
+        ],
+        columns: [
+            { label: "Município", type: "string" },
+            { label: "Porcentagem de frequência", type: "number", format: { name: "BEST", precision: 1 } }
+        ]
+    };
+
+    /*******************************************************
+     * FUNÇÕES DE CORES DINÂMICAS              *
+     *******************************************************/
+
+    // Função para calcular limites dinamicamente baseados nos dados
+    function calculateDynamicLimits(data) {
+        const values = data.map(d => d.value);
+        const minValue = d3.min(values);
+        const maxValue = d3.max(values);
+        const range = maxValue - minValue;
+        
+        // Criando 14 limites distribuídos uniformemente
+        const limits = {};
+        for (let i = 1; i <= 14; i++) {
+            limits[`C_LIMITE_${i.toString().padStart(2, '0')}`] = minValue + (range * i / 15);
+        }
+        
+        return limits;
+    }
+
+    // Função para determinar a cor baseada no valor
+    function getBarColor(value, limits) {
+        if (value <= limits.C_LIMITE_01) return "#DE432A";
+        else if (value > limits.C_LIMITE_01 && value <= limits.C_LIMITE_02) return "#E8773D";
+        else if (value > limits.C_LIMITE_02 && value <= limits.C_LIMITE_03) return "#EE9E4A";
+        else if (value > limits.C_LIMITE_03 && value <= limits.C_LIMITE_04) return "#F0A84D";
+        else if (value > limits.C_LIMITE_04 && value <= limits.C_LIMITE_05) return "#F7D15B";
+        else if (value > limits.C_LIMITE_05 && value <= limits.C_LIMITE_06) return "#F5C958";
+        else if (value > limits.C_LIMITE_06 && value <= limits.C_LIMITE_07) return "#F8D95E";
+        else if (value > limits.C_LIMITE_07 && value <= limits.C_LIMITE_08) return "#D9EC6B";
+        else if (value > limits.C_LIMITE_08 && value <= limits.C_LIMITE_09) return "#C1E16C";
+        else if (value > limits.C_LIMITE_09 && value <= limits.C_LIMITE_10) return "#CEE76C";
+        else if (value > limits.C_LIMITE_10 && value <= limits.C_LIMITE_11) return "#ACDD6D";
+        else if (value > limits.C_LIMITE_11 && value <= limits.C_LIMITE_12) return "#99CD6D";
+        else if (value > limits.C_LIMITE_12 && value <= limits.C_LIMITE_13) return "#63B46E";
+        else if (value > limits.C_LIMITE_13 && value <= limits.C_LIMITE_14) return "#4EA96F";
+        else return "#329C70";
+    }
+
+    /*******************************************************
+     * FUNÇÕES DO TOOLTIP                    *
+     *******************************************************/
+    
+    function showTooltip(event, data) {
+        const categoryLabel = processedData.columnLabels.category || "Categoria";
+        const valueLabel = processedData.columnLabels.value || "Valor";
+        const formattedValue = d3.format(",.1f")(data.value);
+        
+        const tooltipContent = `${categoryLabel}: ${data.category}<br/>${valueLabel}: ${formattedValue}`;
+        
+        tooltip
+            .style("display", "block")
+            .html(tooltipContent)
+            .style("left", (event.pageX + 10) + "px")
+            .style("top", (event.pageY - 10) + "px");
+    }
+
+    function hideTooltip() {
+        tooltip.style("display", "none");
+    }
+
+    /*******************************************************
+     * FUNÇÕES DE CALLBACK DO SAS VA          *
+     *******************************************************/
+
+    if (isInSASVA()) {
+        // Este bloco é executado APENAS DENTRO do SAS Visual Analytics
+        if (typeof va !== 'undefined' && va.messagingUtil) {
+            va.messagingUtil.setOnDataReceivedCallback(handleDataReceived);
+        }
+
+        if (typeof va !== 'undefined' && va.contentUtil) {
+            va.contentUtil.setupResizeListener(renderChart);
+        }
+    } else {
+        // Este bloco é executado FORA do SAS VA (para debug local)
+        handleDataReceived(SAMPLE_MESSAGE);
+        window.addEventListener("resize", renderChart);
+    }
+
+    /**
+     * Verifica se está rodando dentro do SAS Visual Analytics
+     */
+    function isInSASVA() {
+        try {
+            return window.self !== window.top && 
+                   typeof va !== 'undefined' && 
+                   va.messagingUtil && 
+                   va.contentUtil;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    /**
+     * Controla o fluxo de recebimento de dados
+     */
+    function handleDataReceived(messageFromVA) {
+        const now = Date.now();
+        if (now - lastRenderTime < renderDelay) {
+            setTimeout(function() { 
+                onDataReceived(messageFromVA); 
+            }, renderDelay);
+        } else {
+            onDataReceived(messageFromVA);
+        }
+        lastRenderTime = now;
+    }
+
+    /**
+     * Processa os dados recebidos do SAS VA
+     */
+    function onDataReceived(messageFromVA) {
+        vaMessage = messageFromVA;
+        VA_RESULT_NAME = messageFromVA.resultName;
+
+        // Validação de papéis (roles): espera categoria e valor
+        if (isInSASVA() && typeof va !== 'undefined' && va.contentUtil) {
+            const expectedRoles = ["string", "number"];
+                
+            if (!va.contentUtil.validateRoles(messageFromVA, expectedRoles, false)) {
+                if (va.messagingUtil) {
+                    va.messagingUtil.postInstructionalMessage(
+                        VA_RESULT_NAME,
+                        "O Gráfico de Barras Horizontal espera que as colunas sejam atribuídas nesta ordem:\n" +
+                        " 1. Categoria (string) - Ex: Município, Região, etc.\n" +
+                        " 2. Valor (número) - Ex: Porcentagem, Quantidade, etc.\n\n" +
+                        "Serão exibidos apenas os 15 primeiros itens ordenados por valor."
+                    );
+                }
+                return;
+            }
+        }
+
+        // Se não houver dados, limpa o gráfico
+        if (!messageFromVA.data || messageFromVA.data.length === 0) {
+            processedData = null;
+            d3.select("#" + SVG_CONTAINER_ID).selectAll("*").remove();
+            return;
+        }
+
+        // Processa os dados
+        const columns = messageFromVA.columns;
+        const allData = messageFromVA.data;
+        
+        // Converte e ordena os dados, limitando aos 15 primeiros
+        const chartData = allData
+            .map(function(row) {
+                return {
+                    category: row[0],
+                    value: parseFloat(row[1]) || 0
+                };
+            })
+            .sort(function(a, b) { 
+                return b.value - a.value; // Ordena decrescente
+            })
+            .slice(0, 15); // Limita aos 15 primeiros
+
+        // Calcula os limites dinamicamente
+        const limits = calculateDynamicLimits(chartData);
+        
+        processedData = {
+            data: chartData,
+            limits: limits,
+            columnLabels: {
+                category: columns[0].label,
+                value: columns[1].label
+            }
+        };
+
+        console.log("Dados processados:", processedData);
+        console.log("Limites calculados:", limits);
+
+        renderChart();
+    }
+
+    /*******************************************************
+     * FUNÇÃO PRINCIPAL DE RENDERIZAÇÃO      *
+     *******************************************************/
+
+    function renderChart() {
+        if (!processedData) {
+            return;
+        }
+
+        // Obtém as dimensões do container
+        const width = document.body.clientWidth;
+        const height = document.body.clientHeight;
+
+        // Limpa o container antes de desenhar
+        d3.select("#" + SVG_CONTAINER_ID).selectAll("*").remove();
+
+        // Dimensões e margens
+        const margin = {
+            top: 20,
+            right: 40,
+            bottom: 40,
+            left: 120 // Espaço para labels das categorias
+        };
+
+        const chartWidth = width - margin.left - margin.right;
+        const chartHeight = height - margin.top - margin.bottom;
+
+        // Cria o elemento SVG principal
+        svg = d3.select("#" + SVG_CONTAINER_ID)
+            .append("svg")
+            .attr("width", width)
+            .attr("height", height);
+
+        // Grupo principal
+        mainGroup = svg.append("g")
+            .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+        // Escalas
+        const xScale = d3.scaleLinear()
+            .domain([0, d3.max(processedData.data, d => d.value)])
+            .range([0, chartWidth]);
+
+        const yScale = d3.scaleBand()
+            .domain(processedData.data.map(d => d.category))
+            .range([0, chartHeight])
+            .padding(0.1);
+
+        // Eixo X (valores)
+        mainGroup.append("g")
+            .attr("class", "x-axis axis")
+            .attr("transform", "translate(0," + chartHeight + ")")
+            .call(d3.axisBottom(xScale));
+
+        // Eixo Y (categorias)
+        mainGroup.append("g")
+            .attr("class", "y-axis axis")
+            .call(d3.axisLeft(yScale));
+
+        // Barras
+        mainGroup.selectAll(".data-bar")
+            .data(processedData.data)
+            .enter()
+            .append("rect")
+            .attr("class", "data-bar")
+            .attr("x", 0)
+            .attr("y", d => yScale(d.category))
+            .attr("width", d => xScale(d.value))
+            .attr("height", yScale.bandwidth())
+            .attr("fill", d => getBarColor(d.value, processedData.limits))
+            .on("mouseenter", function(event, d) {
+                showTooltip(event, d);
+            })
+            .on("mouseleave", function() {
+                hideTooltip();
+            })
+            .on("mousemove", function(event, d) {
+                showTooltip(event, d);
+            });
+
+        // Labels de valor nas barras
+        mainGroup.selectAll(".value-label")
+            .data(processedData.data)
+            .enter()
+            .append("text")
+            .attr("class", "value-label")
+            .attr("x", d => xScale(d.value) + 5)
+            .attr("y", d => yScale(d.category) + yScale.bandwidth() / 2)
+            .attr("dy", "0.35em")
+            .attr("font-family", "'Avenir Next', sans-serif")
+            .attr("font-size", "10px")
+            .attr("font-weight", "600")
+            .attr("fill", "#333")
+            .text(d => d3.format(",.1f")(d.value));
+    }
 }
 </script>
 </body>
