@@ -5,13 +5,13 @@ Estrutura baseada no exemplo D3 Radar Chart fornecido pela SAS.
 Lógica do card KPI e design fornecidos pelo usuário.
 VERSÃO ADAPTADA: Trabalha com múltiplas linhas ao invés de arrays
 MODIFICAÇÃO: Layout horizontal - gráfico alargado, variações compactas
-ATUALIZAÇÃO: Tooltip formatado com labels das colunas
+CORREÇÃO: Cálculo correto de pontos percentuais (conversão para % primeiro)
 MELHORIAS: Layout responsivo horizontal, fonte Avenir Next, valores destacados, tooltips
 -->
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>KPI Card with Formatted Tooltip para SAS VA</title>
+    <title>KPI Card Correct Percentage Points para SAS VA</title>
     <!-- Import D3.js -->
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 
@@ -409,36 +409,46 @@ function initializeKPICard() {
         const primeiroValor = valores[0];
         const penultimoValor = valores.length > 1 ? valores[valores.length - 2] : null;
         
-        // CÁLCULO: Variação em pontos percentuais no período
-        let variacaoPeriodo = 0;
-        if (primeiroValor !== null && ultimoValor !== null) {
-            variacaoPeriodo = ultimoValor - primeiroValor; // Diferença absoluta em pontos percentuais
+        // CÁLCULO CORRETO: Converte para percentuais primeiro, depois calcula pontos percentuais
+        
+        // 1. Variação percentual no período (último vs primeiro)
+        let variacaoPercentualPeriodo = 0;
+        if (primeiroValor !== 0 && primeiroValor !== null && ultimoValor !== null) {
+            variacaoPercentualPeriodo = ((ultimoValor - primeiroValor) / primeiroValor) * 100;
         }
         
-        // CÁLCULO: Variação em pontos percentuais vs ano anterior
-        let variacaoAnterior = 0;
-        if (penultimoValor !== null && ultimoValor !== null) {
-            variacaoAnterior = ultimoValor - penultimoValor; // Diferença absoluta em pontos percentuais
+        // 2. Variação percentual vs ano anterior (último vs penúltimo)
+        let variacaoPercentualAnterior = 0;
+        if (penultimoValor !== null && penultimoValor !== 0 && ultimoValor !== null) {
+            variacaoPercentualAnterior = ((ultimoValor - penultimoValor) / penultimoValor) * 100;
         }
 
-        // CÁLCULO CORRIGIDO: Média anual das variações em pontos percentuais
-        let mediaAnual = 0;
+        // 3. CÁLCULO CORRETO: Média anual das variações percentuais
+        let mediaAnualPercentual = 0;
         if (valores.length > 1) {
-            // Calcula as variações ano a ano em pontos percentuais
-            const variacoesAnuais = [];
+            // Calcula as variações percentuais ano a ano
+            const variacoesPercentuaisAnuais = [];
             for (let i = 1; i < valores.length; i++) {
-                const variacaoAnual = valores[i] - valores[i - 1]; // Diferença absoluta entre anos consecutivos
-                variacoesAnuais.push(variacaoAnual);
+                const valorAnterior = valores[i - 1];
+                const valorAtual = valores[i];
+                
+                if (valorAnterior !== 0 && valorAnterior !== null) {
+                    const variacaoPercentualAnual = ((valorAtual - valorAnterior) / valorAnterior) * 100;
+                    variacoesPercentuaisAnuais.push(variacaoPercentualAnual);
+                }
             }
             
-            // Calcula a média das variações anuais
-            if (variacoesAnuais.length > 0) {
-                const somaVariacoes = variacoesAnuais.reduce(function(soma, variacao) { 
+            // Calcula a média das variações percentuais anuais
+            if (variacoesPercentuaisAnuais.length > 0) {
+                const somaVariacoesPercentuais = variacoesPercentuaisAnuais.reduce(function(soma, variacao) { 
                     return soma + variacao; 
                 }, 0);
-                mediaAnual = somaVariacoes / variacoesAnuais.length;
+                mediaAnualPercentual = somaVariacoesPercentuais / variacoesPercentuaisAnuais.length;
             }
         }
+        
+        // AGORA SIM: Os valores estão em percentual, então as diferenças são em pontos percentuais
+        // Exemplo: Se uma taxa vai de 10% para 15%, a variação é +5 pontos percentuais
         
         processedData = {
             titulo: titulo,
@@ -449,26 +459,26 @@ function initializeKPICard() {
             },
             valorPrincipal: {
                 label: "Variação no Período",
-                value: variacaoPeriodo,
+                value: variacaoPercentualPeriodo,
                 format: function(val) { 
-                    // APENAS 1 casa decimal
+                    // CORRETO: Agora são pontos percentuais de verdade
                     return val !== null ? d3.format("+.1f")(val) + " pp" : "N/A";
                 }
             },
-            // Valores em pontos percentuais com APENAS 1 casa decimal
+            // Variações percentuais (que quando comparadas geram pontos percentuais)
             valorSecundario: {
                 label: "Variação vs Ano Anterior",
-                value: variacaoAnterior,
+                value: variacaoPercentualAnterior,
                 format: function(val) { 
-                    // APENAS 1 casa decimal
+                    // CORRETO: Agora são pontos percentuais de verdade
                     return val !== null ? d3.format("+.1f")(val) + " pp" : "N/A";
                 }
             },
             valorTerciario: {
-                label: "Média Anual", // Média das variações anuais
-                value: mediaAnual,
+                label: "Média Anual", // Média das variações percentuais anuais
+                value: mediaAnualPercentual,
                 format: function(val) { 
-                    // APENAS 1 casa decimal (com sinal +/- para mostrar se é crescimento ou decrescimento)
+                    // CORRETO: Agora são pontos percentuais de verdade
                     return val !== null ? d3.format("+.1f")(val) + " pp" : "N/A";
                 }
             },
@@ -753,7 +763,7 @@ function initializeKPICard() {
         // Centraliza horizontalmente na seção de variações
         const variationCenterX = variationsWidth / 2;
         
-        // PRIMEIRA VARIAÇÃO: Variação no Período (em pontos percentuais)
+        // PRIMEIRA VARIAÇÃO: Variação no Período (em pontos percentuais CORRETOS)
         const variation1Y = variationStartY;
         
         // Nome da variação (em cima)
@@ -772,7 +782,7 @@ function initializeKPICard() {
             .attr("font-size", valueFontSize + "px")
             .text(processedData.valorPrincipal.format(processedData.valorPrincipal.value));
 
-        // SEGUNDA VARIAÇÃO: Variação vs Ano Anterior (em pontos percentuais)
+        // SEGUNDA VARIAÇÃO: Variação vs Ano Anterior (em pontos percentuais CORRETOS)
         const variation2Y = variation1Y + variationBlockHeight;
         
         // Nome da variação (em cima)
@@ -791,7 +801,7 @@ function initializeKPICard() {
             .attr("font-size", valueFontSize + "px")
             .text(processedData.valorSecundario.format(processedData.valorSecundario.value));
 
-        // TERCEIRA VARIAÇÃO: Média Anual (em pontos percentuais)
+        // TERCEIRA VARIAÇÃO: Média Anual (em pontos percentuais CORRETOS)
         const variation3Y = variation2Y + variationBlockHeight;
         
         // Nome da variação (em cima)
