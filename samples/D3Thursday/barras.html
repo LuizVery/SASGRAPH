@@ -1,8 +1,7 @@
 <!DOCTYPE html>
 <!--
-Adaptado para SAS Visual Analytics baseado no código KPI Card funcional.
+Adaptado para SAS Visual Analytics baseado EXATAMENTE no código KPI Card funcional.
 Gráfico de barras horizontal com cores dinâmicas e limite de 15 itens.
-Fonte Avenir Next e formatação conforme especificações.
 -->
 <html>
 <head>
@@ -11,11 +10,9 @@ Fonte Avenir Next e formatação conforme especificações.
     <!-- Import D3.js -->
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 
-    <!-- Importar utilitários do SAS VA (apenas se disponível) -->
+    <!-- Importar utilitários do SAS VA (EXATA ESTRUTURA DO KPI) -->
     <script type="text/javascript">
-        // Verifica se os utilitários do SAS VA estão disponíveis antes de importar
         if (typeof window !== 'undefined' && window.self !== window.top) {
-            // Está em iframe, pode tentar carregar os utilitários do SAS
             try {
                 document.write('<script type="text/javascript" src="../../util/messagingUtil.js"><\/script>');
                 document.write('<script type="text/javascript" src="../../util/contentUtil.js"><\/script>');
@@ -27,7 +24,6 @@ Fonte Avenir Next e formatação conforme especificações.
 </head>
 <body>
 <style type="text/css">
-    /* Estilos globais */
     html, body, svg {
         margin: 0;
         padding: 0;
@@ -35,6 +31,7 @@ Fonte Avenir Next e formatação conforme especificações.
         height: 100%;
         overflow: hidden;
         font-family: 'Avenir Next', 'Avenir', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        background-color: #f5f5f5;
     }
 
     .data-bar {
@@ -66,7 +63,6 @@ Fonte Avenir Next e formatação conforme especificações.
         stroke-width: 1;
     }
 
-    /* Tooltip */
     .tooltip {
         position: absolute;
         background-color: rgba(0, 0, 0, 0.8);
@@ -88,7 +84,6 @@ Fonte Avenir Next e formatação conforme especificações.
 <script>
 "use strict";
 
-// Função para aguardar o carregamento do D3
 function waitForD3(callback) {
     if (typeof d3 !== 'undefined') {
         callback();
@@ -99,7 +94,6 @@ function waitForD3(callback) {
     }
 }
 
-// Aguarda tanto o DOM quanto o D3 estarem prontos
 document.addEventListener("DOMContentLoaded", function() {
     waitForD3(function() {
         initializeBarChart();
@@ -107,32 +101,20 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 
 function initializeBarChart() {
-    /*******************************************************
-     * DECLARAÇÃO DE VARIÁVEIS               *
-     *******************************************************/
-
-    // Constantes e configurações
+    // ESTRUTURA EXATA DO KPI CARD
     const SVG_CONTAINER_ID = "chart-container";
     let VA_RESULT_NAME;
-
-    // Dados dinâmicos
     let vaMessage;
     let processedData;
     let lastRenderTime = 0;
     const renderDelay = 250;
-
-    // Elementos D3
     let svg, mainGroup;
-
-    // Tooltip
     const tooltip = d3.select("#tooltip");
 
-    /*******************************************************
-     * CONFIGURAÇÃO PARA DEBUG FORA DO SAS VA      *
-     *******************************************************/
+    // DADOS DE EXEMPLO EXATOS
     const SAMPLE_MESSAGE = {
         resultName: "barChartSample",
-        rowCount: 20,
+        rowCount: 15,
         data: [
             ["São Paulo", 85.2],
             ["Rio de Janeiro", 78.5],
@@ -148,12 +130,7 @@ function initializeBarChart() {
             ["Manaus", 55.7],
             ["São Luís", 52.4],
             ["Maceió", 49.8],
-            ["Campo Grande", 69.2],
-            ["João Pessoa", 61.7],
-            ["Teresina", 54.1],
-            ["Aracaju", 66.8],
-            ["Florianópolis", 84.3],
-            ["Vitória", 73.9]
+            ["Campo Grande", 69.2]
         ],
         columns: [
             { label: "Município", type: "string" },
@@ -161,18 +138,13 @@ function initializeBarChart() {
         ]
     };
 
-    /*******************************************************
-     * FUNÇÕES DE CORES DINÂMICAS              *
-     *******************************************************/
-
-    // Função para calcular limites dinamicamente baseados nos dados
+    // FUNÇÕES DE CORES (IGUAIS ÀS SUAS ESPECIFICAÇÕES)
     function calculateDynamicLimits(data) {
         const values = data.map(d => d.value);
         const minValue = d3.min(values);
         const maxValue = d3.max(values);
         const range = maxValue - minValue;
         
-        // Criando 14 limites distribuídos uniformemente
         const limits = {};
         for (let i = 1; i <= 14; i++) {
             limits[`C_LIMITE_${i.toString().padStart(2, '0')}`] = minValue + (range * i / 15);
@@ -181,7 +153,6 @@ function initializeBarChart() {
         return limits;
     }
 
-    // Função para determinar a cor baseada no valor
     function getBarColor(value, limits) {
         if (value <= limits.C_LIMITE_01) return "#DE432A";
         else if (value > limits.C_LIMITE_01 && value <= limits.C_LIMITE_02) return "#E8773D";
@@ -200,10 +171,7 @@ function initializeBarChart() {
         else return "#329C70";
     }
 
-    /*******************************************************
-     * FUNÇÕES DO TOOLTIP                    *
-     *******************************************************/
-    
+    // TOOLTIP
     function showTooltip(event, data) {
         const categoryLabel = processedData.columnLabels.category || "Categoria";
         const valueLabel = processedData.columnLabels.value || "Valor";
@@ -222,28 +190,19 @@ function initializeBarChart() {
         tooltip.style("display", "none");
     }
 
-    /*******************************************************
-     * FUNÇÕES DE CALLBACK DO SAS VA          *
-     *******************************************************/
-
+    // ESTRUTURA EXATA DE DETECÇÃO DO SAS VA (COPIADA DO KPI)
     if (isInSASVA()) {
-        // Este bloco é executado APENAS DENTRO do SAS Visual Analytics
         if (typeof va !== 'undefined' && va.messagingUtil) {
             va.messagingUtil.setOnDataReceivedCallback(handleDataReceived);
         }
-
         if (typeof va !== 'undefined' && va.contentUtil) {
             va.contentUtil.setupResizeListener(renderChart);
         }
     } else {
-        // Este bloco é executado FORA do SAS VA (para debug local)
         handleDataReceived(SAMPLE_MESSAGE);
         window.addEventListener("resize", renderChart);
     }
 
-    /**
-     * Verifica se está rodando dentro do SAS Visual Analytics
-     */
     function isInSASVA() {
         try {
             return window.self !== window.top && 
@@ -255,9 +214,6 @@ function initializeBarChart() {
         }
     }
 
-    /**
-     * Controla o fluxo de recebimento de dados
-     */
     function handleDataReceived(messageFromVA) {
         const now = Date.now();
         if (now - lastRenderTime < renderDelay) {
@@ -270,14 +226,12 @@ function initializeBarChart() {
         lastRenderTime = now;
     }
 
-    /**
-     * Processa os dados recebidos do SAS VA
-     */
+    // PROCESSAMENTO DOS DADOS (ADAPTADO PARA BARRAS)
     function onDataReceived(messageFromVA) {
         vaMessage = messageFromVA;
         VA_RESULT_NAME = messageFromVA.resultName;
 
-        // Validação de papéis (roles): espera categoria e valor
+        // VALIDAÇÃO EXATA COMO NO KPI
         if (isInSASVA() && typeof va !== 'undefined' && va.contentUtil) {
             const expectedRoles = ["string", "number"];
                 
@@ -302,11 +256,11 @@ function initializeBarChart() {
             return;
         }
 
-        // Processa os dados
+        // PROCESSAMENTO DOS DADOS
         const columns = messageFromVA.columns;
         const allData = messageFromVA.data;
         
-        // Converte e ordena os dados, limitando aos 15 primeiros
+        // Converte dados limitando aos 15 primeiros
         const chartData = allData
             .map(function(row) {
                 return {
@@ -315,11 +269,10 @@ function initializeBarChart() {
                 };
             })
             .sort(function(a, b) { 
-                return b.value - a.value; // Ordena decrescente
+                return b.value - a.value; 
             })
-            .slice(0, 15); // Limita aos 15 primeiros
+            .slice(0, 15);
 
-        // Calcula os limites dinamicamente
         const limits = calculateDynamicLimits(chartData);
         
         processedData = {
@@ -331,50 +284,40 @@ function initializeBarChart() {
             }
         };
 
-        console.log("Dados processados:", processedData);
-        console.log("Limites calculados:", limits);
-
+        console.log("Dados processados (Barras):", processedData);
         renderChart();
     }
 
-    /*******************************************************
-     * FUNÇÃO PRINCIPAL DE RENDERIZAÇÃO      *
-     *******************************************************/
-
+    // RENDERIZAÇÃO DO GRÁFICO
     function renderChart() {
         if (!processedData) {
             return;
         }
 
-        // Obtém as dimensões do container
         const width = document.body.clientWidth;
         const height = document.body.clientHeight;
 
-        // Limpa o container antes de desenhar
         d3.select("#" + SVG_CONTAINER_ID).selectAll("*").remove();
 
-        // Dimensões e margens
         const margin = {
             top: 20,
             right: 40,
             bottom: 40,
-            left: 120 // Espaço para labels das categorias
+            left: 120
         };
 
         const chartWidth = width - margin.left - margin.right;
         const chartHeight = height - margin.top - margin.bottom;
 
-        // Cria o elemento SVG principal
         svg = d3.select("#" + SVG_CONTAINER_ID)
             .append("svg")
             .attr("width", width)
             .attr("height", height);
 
-        // Grupo principal
         mainGroup = svg.append("g")
             .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
-        // Escalas
+        // ESCALAS
         const xScale = d3.scaleLinear()
             .domain([0, d3.max(processedData.data, d => d.value)])
             .range([0, chartWidth]);
@@ -384,18 +327,17 @@ function initializeBarChart() {
             .range([0, chartHeight])
             .padding(0.1);
 
-        // Eixo X (valores)
+        // EIXOS
         mainGroup.append("g")
             .attr("class", "x-axis axis")
             .attr("transform", "translate(0," + chartHeight + ")")
             .call(d3.axisBottom(xScale));
 
-        // Eixo Y (categorias)
         mainGroup.append("g")
             .attr("class", "y-axis axis")
             .call(d3.axisLeft(yScale));
 
-        // Barras
+        // BARRAS COM CORES DINÂMICAS
         mainGroup.selectAll(".data-bar")
             .data(processedData.data)
             .enter()
@@ -416,7 +358,7 @@ function initializeBarChart() {
                 showTooltip(event, d);
             });
 
-        // Labels de valor nas barras
+        // LABELS DE VALOR
         mainGroup.selectAll(".value-label")
             .data(processedData.data)
             .enter()
