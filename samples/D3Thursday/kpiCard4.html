@@ -5,13 +5,13 @@ Estrutura baseada no exemplo D3 Radar Chart fornecido pela SAS.
 Lógica do card KPI e design fornecidos pelo usuário.
 VERSÃO ADAPTADA: Trabalha com múltiplas linhas ao invés de arrays
 MODIFICAÇÃO: Layout horizontal - gráfico alargado, variações compactas
-ATUALIZAÇÃO: Formatação correta dos valores (máximo 3 dígitos, sem .0 desnecessário)
+ATUALIZAÇÃO: Variações em pontos percentuais, média aritmética simples
 MELHORIAS: Layout responsivo horizontal, fonte Avenir Next, valores destacados
 -->
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>KPI Card Responsive Proper Formatting para SAS VA</title>
+    <title>KPI Card Percentage Points para SAS VA</title>
     <!-- Import D3.js -->
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 
@@ -311,29 +311,23 @@ function initializeKPICard() {
         const primeiroValor = valores[0];
         const penultimoValor = valores.length > 1 ? valores[valores.length - 2] : null;
         
-        // Cálculo da variação no período (KPI principal)
+        // NOVO CÁLCULO: Variação em pontos percentuais no período
         let variacaoPeriodo = 0;
-        if (primeiroValor !== 0 && primeiroValor !== null && ultimoValor !== null) {
-            variacaoPeriodo = ((ultimoValor - primeiroValor) / primeiroValor) * 100;
+        if (primeiroValor !== null && ultimoValor !== null) {
+            variacaoPeriodo = ultimoValor - primeiroValor; // Diferença absoluta em pontos percentuais
         }
         
-        // Cálculo da variação em relação ao ano anterior
+        // NOVO CÁLCULO: Variação em pontos percentuais vs ano anterior
         let variacaoAnterior = 0;
-        if (penultimoValor !== null && penultimoValor !== 0 && ultimoValor !== null) {
-            variacaoAnterior = ((ultimoValor - penultimoValor) / penultimoValor) * 100;
+        if (penultimoValor !== null && ultimoValor !== null) {
+            variacaoAnterior = ultimoValor - penultimoValor; // Diferença absoluta em pontos percentuais
         }
 
-        // Cálculo da média anual em porcentagem
-        let mediaAnual = 0;
-        if (timeSeriesData.length > 1) {
-            const primeiroAno = timeSeriesData[0].periodo;
-            const ultimoAno = timeSeriesData[timeSeriesData.length - 1].periodo;
-            const anosDecorridos = ultimoAno - primeiroAno;
-            
-            if (anosDecorridos > 0 && primeiroValor !== 0 && primeiroValor !== null) {
-                // Calcula a taxa de crescimento composta anual (CAGR)
-                mediaAnual = (Math.pow(ultimoValor / primeiroValor, 1 / anosDecorridos) - 1) * 100;
-            }
+        // NOVO CÁLCULO: Média aritmética simples em pontos percentuais
+        let mediaAritmetica = 0;
+        if (valores.length > 0) {
+            const somaValores = valores.reduce(function(soma, valor) { return soma + valor; }, 0);
+            mediaAritmetica = somaValores / valores.length; // Média aritmética simples
         }
         
         processedData = {
@@ -342,22 +336,22 @@ function initializeKPICard() {
                 label: "Variação no Período",
                 value: variacaoPeriodo,
                 format: function(val) { 
-                    return val !== null ? d3.format("+.1f")(val) + "%" : "N/A"; 
+                    return val !== null ? d3.format("+.1f")(val) + " pp" : "N/A"; // pp = pontos percentuais
                 }
             },
-            // Três valores secundários: variação vs ano anterior e média anual
+            // Valores em pontos percentuais
             valorSecundario: {
                 label: "Variação vs Ano Anterior",
                 value: variacaoAnterior,
                 format: function(val) { 
-                    return val !== null ? d3.format("+.1f")(val) + "%" : "N/A"; 
+                    return val !== null ? d3.format("+.1f")(val) + " pp" : "N/A"; // pp = pontos percentuais
                 }
             },
             valorTerciario: {
-                label: "Média Anual (CAGR)",
-                value: mediaAnual,
+                label: "Média do Período",
+                value: mediaAritmetica,
                 format: function(val) { 
-                    return val !== null ? d3.format("+.1f")(val) + "%" : "N/A"; 
+                    return val !== null ? d3.format(".1f")(val) + " pp" : "N/A"; // pp = pontos percentuais (sem sinal +/-)
                 }
             },
             // Dados temporais para linha de tendência
@@ -616,7 +610,7 @@ function initializeKPICard() {
         // Centraliza horizontalmente na seção de variações
         const variationCenterX = variationsWidth / 2;
         
-        // PRIMEIRA VARIAÇÃO: Variação no Período
+        // PRIMEIRA VARIAÇÃO: Variação no Período (em pontos percentuais)
         const variation1Y = variationStartY;
         
         // Nome da variação (em cima)
@@ -635,7 +629,7 @@ function initializeKPICard() {
             .attr("font-size", valueFontSize + "px")
             .text(processedData.valorPrincipal.format(processedData.valorPrincipal.value));
 
-        // SEGUNDA VARIAÇÃO: Variação vs Ano Anterior
+        // SEGUNDA VARIAÇÃO: Variação vs Ano Anterior (em pontos percentuais)
         const variation2Y = variation1Y + variationBlockHeight;
         
         // Nome da variação (em cima)
@@ -654,7 +648,7 @@ function initializeKPICard() {
             .attr("font-size", valueFontSize + "px")
             .text(processedData.valorSecundario.format(processedData.valorSecundario.value));
 
-        // TERCEIRA VARIAÇÃO: Média Anual (CAGR)
+        // TERCEIRA VARIAÇÃO: Média do Período (em pontos percentuais)
         const variation3Y = variation2Y + variationBlockHeight;
         
         // Nome da variação (em cima)
