@@ -10,7 +10,7 @@ https://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUTHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 -->
@@ -419,41 +419,41 @@ document.addEventListener("DOMContentLoaded", function() {
       .entries(VA_MESSAGE.data);
     const numMeasures = nestedData.length;
 
-    /******************************************************* MODIFICAÇÃO INICIADA *******************************************************/
-    // O bloco de código a seguir foi reestruturado para normalizar os eixos.
-    // 1. Calculamos o valor máximo para cada métrica.
-    // 2. Criamos uma escala linear D3 para cada métrica, definindo o domínio de 0 até o valor máximo + 15% de preenchimento (padding).
-    //    Isso garante que nenhum ponto de dados toque a borda do gráfico, a menos que seu valor seja igual ao máximo com preenchimento.
-    // 3. Ao processar os dados, usamos essa nova escala para calcular a posição de cada ponto no gráfico ('scaledMeasure').
+    /******************************************************* MODIFICAÇÃO INICIADA (Versão 2) *******************************************************/
+    // O bloco de código a seguir foi reestruturado para usar uma escala global.
+    // 1. Calculamos o valor máximo GLOBAL em todo o conjunto de dados.
+    // 2. Criamos UMA ÚNICA escala linear D3, com o domínio de 0 até o máximo global + 15% de preenchimento (padding).
+    //    Isso garante que todos os eixos compartilhem a mesma escala, refletindo com precisão as magnitudes relativas.
+    // 3. Ao processar os dados, usamos esta escala global única para calcular a posição de cada ponto no gráfico ('scaledMeasure').
 
     OLD_METADATA = METADATA;
     DELTA_ANGLE = (2 * Math.PI) / numMeasures;
+
+    // Etapa 1: Calcular o máximo global.
+    const globalMax = d3.max(VA_MESSAGE.data, d => d[2]);
+    const paddedGlobalMax = globalMax * 1.15; // Adiciona 15% de preenchimento
+
+    // Etapa 2: Criar uma única escala global.
+    const globalScale = d3.scaleLinear()
+        .domain([0, paddedGlobalMax])
+        .range([0, 1])
+        .clamp(true); // Garante que valores > paddedGlobalMax não excedam o raio.
 
     METADATA = {
       category: VA_MESSAGE.columns[0].label,
       metrics: {}
     };
 
-    // Etapa 1: Popular metadados com os valores máximos de cada métrica
+    // Popular metadados básicos (sem a escala individual)
     for (let i = 0; i < numMeasures; i++) {
         const metricName = nestedData[i].key;
         METADATA.metrics[metricName] = {
             metric: metricName,
             angle: i * DELTA_ANGLE,
             format: translateFormat(VA_MESSAGE.data[i][3]),
+            // A propriedade 'maximum' individual não é mais usada para escalar, mas pode ser útil para outras coisas.
             maximum: d3.max(VA_MESSAGE.data, d => (d[1] === metricName ? d[2] : Number.MIN_VALUE))
         };
-    }
-
-    // Etapa 2: Criar uma escala linear para cada métrica com preenchimento de 15%
-    for (const metricName in METADATA.metrics) {
-        if (METADATA.metrics.hasOwnProperty(metricName)) {
-            const max = METADATA.metrics[metricName].maximum;
-            const paddedMax = max * 1.15; // Adiciona 15% de preenchimento
-            METADATA.metrics[metricName].scale = d3.scaleLinear()
-                .domain([0, paddedMax])
-                .range([0, 1]);
-        }
     }
 
     OLD_DATA = DATA;
@@ -462,7 +462,7 @@ document.addEventListener("DOMContentLoaded", function() {
       .key(function(d) { return d[0]; })
       .entries(VA_MESSAGE.data);
 
-    // Etapa 3: Reestruturar os dados usando as novas escalas
+    // Etapa 3: Reestruturar os dados usando a nova escala GLOBAL
     DATA = dataGroupedByCategory.map(function(categoryGroup) {
         const datum = {
             category: categoryGroup.key,
@@ -470,19 +470,17 @@ document.addEventListener("DOMContentLoaded", function() {
             metrics: categoryGroup.values.map(function(d) {
                 const metricName = d[1];
                 const measureValue = d[2];
-                // Usa a escala para obter o valor normalizado. clamp(true) garante que não exceda 1.
-                const scale = METADATA.metrics[metricName].scale.clamp(true); 
                 const metric = {
                     metric: metricName,
                     measure: measureValue,
-                    scaledMeasure: scale(measureValue)
+                    scaledMeasure: globalScale(measureValue) // Usa a escala global para todos
                 };
                 return metric;
             })
         };
         return datum;
     });
-    /******************************************************* MODIFICAÇÃO FINALIZADA *******************************************************/
+    /******************************************************* MODIFICAÇÃO FINALIZADA (Versão 2) *******************************************************/
 
     // Assign data variables for legend
     LEG.title = ""; // Define o título como uma string vazia
