@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<!--
+    Autor: Adaptado para SAS Visual Analytics
+    Versão: 2.0 - KPI Matrix Card
+    Descrição: Um objeto de conteúdo de dados para exibir um resumo de KPIs em um formato de matriz/tabela.
+               Agora com cabeçalho e grelha totalmente dinâmicos, populados por dados do SAS VA.
+               O layout utiliza CSS Grid para uma estrutura robusta.
+-->
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>KPI Matrix Card para SAS VA</title>
+    <!-- Import D3.js (usado para manipulação de dados e formatação) -->
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+ 
+    <!-- Importar utilitários do SAS VA (apenas se disponível) -->
+    <script type="text/javascript">
+        if (typeof window !== 'undefined' && window.self !== window.top) {
+            try {
+                document.write('<script type="text/javascript" src="../../util/messagingUtil.js"><\/script>');
+                document.write('<script type="text/javascript" src="../../util/contentUtil.js"><\/script>');
+            } catch(e) {
+                console.log("Utilitários do SAS VA não disponíveis.");
+            }
+        }
+    </script>
+</head>
+<body>
+<style type="text/css">
+    html, body, #card-container {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        font-family: 'Avenir Next', 'Avenir', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        background-color: #f5f5f5;
+        color: white;
+    }
+ 
+    #card-container {
+        display: flex;
+        flex-direction: column;
+        background: linear-gradient(135deg, #1a7cb9, #0f679a);
+        border-radius: 12px;
+        padding: 20px;
+        box-sizing: border-box;
+    }
+ 
+    /* Secção superior para KPIs gerais */
+    .header-kpis {
+        display: flex;
+        justify-content: space-between;
+        padding-bottom: 15px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+        flex-shrink: 0;
+        gap: 15px;
+    }
+    .kpi-item {
+        font-size: 1em;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+ 
+    /* Grelha principal para a matriz de dados */
+    .data-grid {
+        display: grid;
+        /* Define 3 colunas: a primeira para o rótulo, as outras duas para os valores */
+        grid-template-columns: 1.5fr 1fr 1fr;
+        gap: 15px 10px; /* Espaçamento entre linhas e colunas */
+        padding-top: 15px;
+        flex-grow: 1;
+    }
+ 
+    /* Estilos para as células da grelha */
+    .grid-cell {
+        font-size: 0.95em;
+    }
+    .grid-header {
+        font-weight: 700;
+        opacity: 0.9;
+    }
+    .grid-label {
+        font-weight: 600;
+    }
+    .grid-value {
+        font-weight: 700;
+        text-align: right;
+    }
+   
+    /* Linha de total com destaque */
+    .total-row {
+        font-weight: 700;
+        border-top: 1px solid rgba(255, 255, 255, 0.5);
+        padding-top: 10px;
+        margin-top: -5px; /* Puxa para perto da linha */
+    }
+ 
+</style>
+ 
+<div id="card-container">
+    <!-- O conteúdo será gerado dinamicamente aqui -->
+</div>
+ 
+<script>
+"use strict";
+ 
+function initializeKPIMatrix() {
+    /*******************************************************
+     * DECLARAÇÃO DE VARIÁVEIS                             *
+     *******************************************************/
+    const CONTAINER_ID = "card-container";
+    let VA_RESULT_NAME;
+   
+    // Define a formatação de números para o padrão brasileiro (ponto como separador de milhar)
+    const ptBR = d3.formatLocale({
+        decimal: ",",
+        thousands: ".",
+        grouping: [3],
+        currency: ["R$", ""]
+    });
+    const formatNumber = ptBR.format(",.0f"); // Formato para inteiros com separador
+ 
+    /*******************************************************
+     * DADOS DE EXEMPLO (PARA DEBUG)                       *
+     *******************************************************/
+    const SAMPLE_MESSAGE = {
+        resultName: "kpiMatrixSample",
+        data: [
+            // Categoria, KPI Cabeçalho 1, KPI Cabeçalho 2, KPI Cabeçalho 3, Medida Grelha 1, Medida Grelha 2
+            ["Ens.Médio Regular", 194000957, 7399058254, 109837420, 7542043, 1870661],
+            ["EJA Ens. Médio", 194000957, 7399058254, 109837420, 1049604, 286833],
+            ["Profissionalizante", 194000957, 7399058254, 109837420, 829107, 184048]
+        ],
+        columns: [
+            { label: "Nível", type: "string" },
+            { label: "População", type: "number" },
+            { label: "PIB", type: "number" },
+            { label: "PIB per capita", type: "number" },
+            { label: "Matrículas", type: "number" },
+            { label: "Concluintes", type: "number" }
+        ]
+    };
+ 
+    /*******************************************************
+     * FUNÇÕES DE CALLBACK DO SAS VA                       *
+     *******************************************************/
+    if (typeof va !== 'undefined' && va.messagingUtil) {
+        va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
+    } else {
+        // Se estiver fora do VA, usa os dados de exemplo
+        onDataReceived(SAMPLE_MESSAGE);
+    }
+ 
+    /**
+     * Processa os dados recebidos do SAS VA e inicia a renderização.
+     */
+    function onDataReceived(messageFromVA) {
+        VA_RESULT_NAME = messageFromVA.resultName;
+ 
+        // Validação de papéis (roles)
+        if (typeof va !== 'undefined' && va.contentUtil) {
+            // Espera no mínimo 3 colunas, mas idealmente 6 para funcionalidade completa
+            if (messageFromVA.columns.length < 6) {
+                 va.messagingUtil.postInstructionalMessage(
+                    VA_RESULT_NAME,
+                    "Dados insuficientes. Atribua 6 variáveis na seguinte ordem:\n" +
+                    "1. Categoria (para linhas)\n" +
+                    "2. KPI Cabeçalho 1 (ex: População)\n" +
+                    "3. KPI Cabeçalho 2 (ex: PIB)\n" +
+                    "4. KPI Cabeçalho 3 (ex: PIB per capita)\n" +
+                    "5. Medida Grelha 1 (ex: Matrículas)\n" +
+                    "6. Medida Grelha 2 (ex: Concluintes)"
+                );
+                return;
+            }
+        }
+ 
+        if (!messageFromVA.data || messageFromVA.data.length === 0) {
+            d3.select("#" + CONTAINER_ID).html(""); // Limpa o container
+            return;
+        }
+ 
+        const dataRows = messageFromVA.data;
+        const columnLabels = messageFromVA.columns.map(c => c.label);
+        const firstRow = dataRows[0];
+       
+        // --- Processa os dados para o formato do nosso cartão ---
+ 
+        // KPIs do cabeçalho são extraídos da primeira linha de dados
+        const dynamicHeaderKpis = [
+            { label: columnLabels[1], value: formatNumber(firstRow[1]) },
+            { label: columnLabels[2], value: formatNumber(firstRow[2]) },
+            { label: columnLabels[3], value: formatNumber(firstRow[3]) }
+        ];
+ 
+        // Dados da grelha usam a categoria (col 0) e as medidas (col 4 e 5)
+        const gridDataRows = dataRows.map(row => [row[0], row[4], row[5]]);
+        const gridHeaders = [columnLabels[4], columnLabels[5]];
+ 
+        // Calcula os totais para as colunas da grelha
+        const totalCol1 = d3.sum(dataRows, row => row[4]);
+        const totalCol2 = d3.sum(dataRows, row => row[5]);
+ 
+        const processedData = {
+            headerKpis: dynamicHeaderKpis,
+            gridHeaders: gridHeaders,
+            gridRows: gridDataRows,
+            gridTotals: [totalCol1, totalCol2]
+        };
+       
+        renderCard(processedData);
+    }
+ 
+    /**
+     * Renderiza ou atualiza o card no DOM.
+     */
+    function renderCard(data) {
+        const container = d3.select("#" + CONTAINER_ID);
+        container.html(""); // Limpa o conteúdo anterior
+ 
+        // --- Renderiza o Cabeçalho (KPIs agora dinâmicos) ---
+        const header = container.append("div").attr("class", "header-kpis");
+        data.headerKpis.forEach(kpi => {
+            header.append("div")
+                  .attr("class", "kpi-item")
+                  .text(`${kpi.label}: ${kpi.value}`);
+        });
+ 
+        // --- Renderiza a Grelha de Dados ---
+        const grid = container.append("div").attr("class", "data-grid");
+ 
+        // Cabeçalho da grelha
+        grid.append("div").attr("class", "grid-cell grid-header"); // Célula vazia no canto
+        grid.append("div").attr("class", "grid-cell grid-header grid-value").text(data.gridHeaders[0]);
+        grid.append("div").attr("class", "grid-cell grid-header grid-value").text(data.gridHeaders[1]);
+       
+        // Linhas de dados
+        data.gridRows.forEach(row => {
+            grid.append("div").attr("class", "grid-cell grid-label").text(row[0]);
+            grid.append("div").attr("class", "grid-cell grid-value").text(formatNumber(row[1]));
+            grid.append("div").attr("class", "grid-cell grid-value").text(formatNumber(row[2]));
+        });
+ 
+        // Linha de Total
+        grid.append("div").attr("class", "grid-cell grid-label total-row").text("TOTAL");
+        grid.append("div").attr("class", "grid-cell grid-value total-row").text(formatNumber(data.gridTotals[0]));
+        grid.append("div").attr("class", "grid-cell grid-value total-row").text(formatNumber(data.gridTotals[1]));
+    }
+}
+ 
+// Inicia a lógica do card
+initializeKPIMatrix();
+ 
+</script>
+</body>
+</html>
+ 
