@@ -3,6 +3,7 @@
 Adaptado para SAS Visual Analytics baseado EXATAMENTE no código KPI Card funcional.
 Gráfico de barras horizontal com cores dinâmicas e limite de 15 itens.
 VERSÃO MODIFICADA: Fundo transparente, margens zeradas e fonte aumentada
+IMPLEMENTAÇÃO EXATA DA LÓGICA DE CÁLCULO DE CORES DINÂMICAS
 -->
 <html>
 <head>
@@ -156,79 +157,201 @@ function initializeBarChart() {
         ]
     };
 
-    // IMPLEMENTAÇÃO EXATA DO PADRÃO DE CORES DINÂMICAS
+    // IMPLEMENTAÇÃO EXATA DA LÓGICA ESPECIFICADA
     function calculateDynamicColorLimits(data) {
         const values = data.map(d => d.value);
         const percentualMinimoDinamico = d3.min(values);
         const percentualMaximoDinamico = d3.max(values);
         
+        console.log("=== CÁLCULOS BASE ===");
+        console.log("Percentual Mínimo Dinâmico:", percentualMinimoDinamico);
+        console.log("Percentual Máximo Dinâmico:", percentualMaximoDinamico);
+        
         // 1. C_Intervalo_Total
-        const cIntervaloTotal = percentualMaximoDinamico - percentualMinimoDinamico;
+        // Expressão: 'Percentual Máximo Dinâmico'n - 'Percentual Mínimo Dinâmico'n
+        const C_Intervalo_Total = percentualMaximoDinamico - percentualMinimoDinamico;
+        console.log("1. C_Intervalo_Total:", C_Intervalo_Total);
         
         // 2. C_Tamanho_Faixa
-        const cTamanhoFaixa = cIntervaloTotal / 15;
+        // Expressão: 'C_Intervalo_Total'n / 15
+        const C_Tamanho_Faixa = C_Intervalo_Total / 15;
+        console.log("2. C_Tamanho_Faixa:", C_Tamanho_Faixa);
         
-        // 3-16. Calcular os 14 limites conforme especificação
-        const limits = {
-            C_LIMITE_01: percentualMinimoDinamico + (1 * cTamanhoFaixa),
-            C_LIMITE_02: percentualMinimoDinamico + (2 * cTamanhoFaixa),
-            C_LIMITE_03: percentualMinimoDinamico + (3 * cTamanhoFaixa),
-            C_LIMITE_04: percentualMinimoDinamico + (4 * cTamanhoFaixa),
-            C_LIMITE_05: percentualMinimoDinamico + (5 * cTamanhoFaixa),
-            C_LIMITE_06: percentualMinimoDinamico + (6 * cTamanhoFaixa),
-            C_LIMITE_07: percentualMinimoDinamico + (7 * cTamanhoFaixa),
-            C_LIMITE_08: percentualMinimoDinamico + (8 * cTamanhoFaixa),
-            C_LIMITE_09: percentualMinimoDinamico + (9 * cTamanhoFaixa),
-            C_LIMITE_10: percentualMinimoDinamico + (10 * cTamanhoFaixa),
-            C_LIMITE_11: percentualMinimoDinamico + (11 * cTamanhoFaixa),
-            C_LIMITE_12: percentualMinimoDinamico + (12 * cTamanhoFaixa),
-            C_LIMITE_13: percentualMinimoDinamico + (13 * cTamanhoFaixa),
-            C_LIMITE_14: percentualMinimoDinamico + (14 * cTamanhoFaixa)
-        };
+        console.log("=== 14 LIMITES DE FAIXA ===");
+        
+        // 3. C_Limite_01
+        // Expressão: 'Percentual Mínimo Dinâmico'n + 'C_Tamanho_Faixa'n
+        const C_Limite_01 = percentualMinimoDinamico + C_Tamanho_Faixa;
+        console.log("3. C_Limite_01:", C_Limite_01);
+        
+        // 4. C_Limite_02
+        // Expressão: 'Percentual Mínimo Dinâmico'n + (2 * 'C_Tamanho_Faixa'n)
+        const C_Limite_02 = percentualMinimoDinamico + (2 * C_Tamanho_Faixa);
+        console.log("4. C_Limite_02:", C_Limite_02);
+        
+        // 5. C_Limite_03
+        // Expressão: 'Percentual Mínimo Dinâmico'n + (3 * 'C_Tamanho_Faixa'n)
+        const C_Limite_03 = percentualMinimoDinamico + (3 * C_Tamanho_Faixa);
+        console.log("5. C_Limite_03:", C_Limite_03);
+        
+        // 6. C_Limite_04
+        // Expressão: 'Percentual Mínimo Dinâmico'n + (4 * 'C_Tamanho_Faixa'n)
+        const C_Limite_04 = percentualMinimoDinamico + (4 * C_Tamanho_Faixa);
+        console.log("6. C_Limite_04:", C_Limite_04);
+        
+        // 7. C_Limite_05
+        // Expressão: 'Percentual Mínimo Dinâmico'n + (5 * 'C_Tamanho_Faixa'n)
+        const C_Limite_05 = percentualMinimoDinamico + (5 * C_Tamanho_Faixa);
+        console.log("7. C_Limite_05:", C_Limite_05);
+        
+        // 8. C_Limite_06
+        // Expressão: 'Percentual Mínimo Dinâmico'n + (6 * 'C_Tamanho_Faixa'n)
+        const C_Limite_06 = percentualMinimoDinamico + (6 * C_Tamanho_Faixa);
+        console.log("8. C_Limite_06:", C_Limite_06);
+        
+        // 9. C_Limite_07
+        // Expressão: 'Percentual Mínimo Dinâmico'n + (7 * 'C_Tamanho_Faixa'n)
+        const C_Limite_07 = percentualMinimoDinamico + (7 * C_Tamanho_Faixa);
+        console.log("9. C_Limite_07:", C_Limite_07);
+        
+        // 10. C_Limite_08
+        // Expressão: 'Percentual Mínimo Dinâmico'n + (8 * 'C_Tamanho_Faixa'n)
+        const C_Limite_08 = percentualMinimoDinamico + (8 * C_Tamanho_Faixa);
+        console.log("10. C_Limite_08:", C_Limite_08);
+        
+        // 11. C_Limite_09
+        // Expressão: 'Percentual Mínimo Dinâmico'n + (9 * 'C_Tamanho_Faixa'n)
+        const C_Limite_09 = percentualMinimoDinamico + (9 * C_Tamanho_Faixa);
+        console.log("11. C_Limite_09:", C_Limite_09);
+        
+        // 12. C_Limite_10
+        // Expressão: 'Percentual Mínimo Dinâmico'n + (10 * 'C_Tamanho_Faixa'n)
+        const C_Limite_10 = percentualMinimoDinamico + (10 * C_Tamanho_Faixa);
+        console.log("12. C_Limite_10:", C_Limite_10);
+        
+        // 13. C_Limite_11
+        // Expressão: 'Percentual Mínimo Dinâmico'n + (11 * 'C_Tamanho_Faixa'n)
+        const C_Limite_11 = percentualMinimoDinamico + (11 * C_Tamanho_Faixa);
+        console.log("13. C_Limite_11:", C_Limite_11);
+        
+        // 14. C_Limite_12
+        // Expressão: 'Percentual Mínimo Dinâmico'n + (12 * 'C_Tamanho_Faixa'n)
+        const C_Limite_12 = percentualMinimoDinamico + (12 * C_Tamanho_Faixa);
+        console.log("14. C_Limite_12:", C_Limite_12);
+        
+        // 15. C_Limite_13
+        // Expressão: 'Percentual Mínimo Dinâmico'n + (13 * 'C_Tamanho_Faixa'n)
+        const C_Limite_13 = percentualMinimoDinamico + (13 * C_Tamanho_Faixa);
+        console.log("15. C_Limite_13:", C_Limite_13);
+        
+        // 16. C_Limite_14
+        // Expressão: 'Percentual Mínimo Dinâmico'n + (14 * 'C_Tamanho_Faixa'n)
+        const C_Limite_14 = percentualMinimoDinamico + (14 * C_Tamanho_Faixa);
+        console.log("16. C_Limite_14:", C_Limite_14);
+        
+        console.log("=== FIM DOS CÁLCULOS ===");
 
-        // Debug para verificar os cálculos
-        console.log("Cálculos das cores dinâmicas:");
-        console.log("Percentual Mínimo:", percentualMinimoDinamico);
-        console.log("Percentual Máximo:", percentualMaximoDinamico);
-        console.log("C_Intervalo_Total:", cIntervaloTotal);
-        console.log("C_Tamanho_Faixa:", cTamanhoFaixa);
-        console.log("Limites calculados:", limits);
-        
-        return limits;
+        return {
+            C_LIMITE_01: C_Limite_01,
+            C_LIMITE_02: C_Limite_02,
+            C_LIMITE_03: C_Limite_03,
+            C_LIMITE_04: C_Limite_04,
+            C_LIMITE_05: C_Limite_05,
+            C_LIMITE_06: C_Limite_06,
+            C_LIMITE_07: C_Limite_07,
+            C_LIMITE_08: C_Limite_08,
+            C_LIMITE_09: C_Limite_09,
+            C_LIMITE_10: C_Limite_10,
+            C_LIMITE_11: C_Limite_11,
+            C_LIMITE_12: C_Limite_12,
+            C_LIMITE_13: C_Limite_13,
+            C_LIMITE_14: C_Limite_14,
+            // Valores de referência para debug
+            PERCENTUAL_MINIMO: percentualMinimoDinamico,
+            PERCENTUAL_MAXIMO: percentualMaximoDinamico,
+            INTERVALO_TOTAL: C_Intervalo_Total,
+            TAMANHO_FAIXA: C_Tamanho_Faixa
+        };
     }
 
     function getBarColor(value, limits) {
-        // Implementação exata conforme especificação das 15 faixas de cores
+        // Implementação das 15 faixas de cores conforme a lógica especificada
+        console.log(`Analisando valor: ${value}`);
+        
+        // Faixa 1: Valor <= C_Limite_01
         if (value <= limits.C_LIMITE_01) {
+            console.log(`  Faixa 1: ${value} <= ${limits.C_LIMITE_01} = #DE432A`);
             return "#DE432A"; // Vermelho escuro
-        } else if (value > limits.C_LIMITE_01 && value <= limits.C_LIMITE_02) {
+        } 
+        // Faixa 2: C_Limite_01 < Valor <= C_Limite_02
+        else if (value > limits.C_LIMITE_01 && value <= limits.C_LIMITE_02) {
+            console.log(`  Faixa 2: ${limits.C_LIMITE_01} < ${value} <= ${limits.C_LIMITE_02} = #E8773D`);
             return "#E8773D"; // Vermelho-laranja
-        } else if (value > limits.C_LIMITE_02 && value <= limits.C_LIMITE_03) {
+        } 
+        // Faixa 3: C_Limite_02 < Valor <= C_Limite_03
+        else if (value > limits.C_LIMITE_02 && value <= limits.C_LIMITE_03) {
+            console.log(`  Faixa 3: ${limits.C_LIMITE_02} < ${value} <= ${limits.C_LIMITE_03} = #EE9E4A`);
             return "#EE9E4A"; // Laranja
-        } else if (value > limits.C_LIMITE_03 && value <= limits.C_LIMITE_04) {
+        } 
+        // Faixa 4: C_Limite_03 < Valor <= C_Limite_04
+        else if (value > limits.C_LIMITE_03 && value <= limits.C_LIMITE_04) {
+            console.log(`  Faixa 4: ${limits.C_LIMITE_03} < ${value} <= ${limits.C_LIMITE_04} = #F0A84D`);
             return "#F0A84D"; // Laranja claro
-        } else if (value > limits.C_LIMITE_04 && value <= limits.C_LIMITE_05) {
+        } 
+        // Faixa 5: C_Limite_04 < Valor <= C_Limite_05
+        else if (value > limits.C_LIMITE_04 && value <= limits.C_LIMITE_05) {
+            console.log(`  Faixa 5: ${limits.C_LIMITE_04} < ${value} <= ${limits.C_LIMITE_05} = #F7D15B`);
             return "#F7D15B"; // Amarelo-laranja
-        } else if (value > limits.C_LIMITE_05 && value <= limits.C_LIMITE_06) {
+        } 
+        // Faixa 6: C_Limite_05 < Valor <= C_Limite_06
+        else if (value > limits.C_LIMITE_05 && value <= limits.C_LIMITE_06) {
+            console.log(`  Faixa 6: ${limits.C_LIMITE_05} < ${value} <= ${limits.C_LIMITE_06} = #F5C958`);
             return "#F5C958"; // Amarelo
-        } else if (value > limits.C_LIMITE_06 && value <= limits.C_LIMITE_07) {
+        } 
+        // Faixa 7: C_Limite_06 < Valor <= C_Limite_07
+        else if (value > limits.C_LIMITE_06 && value <= limits.C_LIMITE_07) {
+            console.log(`  Faixa 7: ${limits.C_LIMITE_06} < ${value} <= ${limits.C_LIMITE_07} = #F8D95E`);
             return "#F8D95E"; // Amarelo claro
-        } else if (value > limits.C_LIMITE_07 && value <= limits.C_LIMITE_08) {
+        } 
+        // Faixa 8: C_Limite_07 < Valor <= C_Limite_08
+        else if (value > limits.C_LIMITE_07 && value <= limits.C_LIMITE_08) {
+            console.log(`  Faixa 8: ${limits.C_LIMITE_07} < ${value} <= ${limits.C_LIMITE_08} = #D9EC6B`);
             return "#D9EC6B"; // Amarelo-verde
-        } else if (value > limits.C_LIMITE_08 && value <= limits.C_LIMITE_09) {
+        } 
+        // Faixa 9: C_Limite_08 < Valor <= C_Limite_09
+        else if (value > limits.C_LIMITE_08 && value <= limits.C_LIMITE_09) {
+            console.log(`  Faixa 9: ${limits.C_LIMITE_08} < ${value} <= ${limits.C_LIMITE_09} = #C1E16C`);
             return "#C1E16C"; // Verde-amarelo
-        } else if (value > limits.C_LIMITE_09 && value <= limits.C_LIMITE_10) {
+        } 
+        // Faixa 10: C_Limite_09 < Valor <= C_Limite_10
+        else if (value > limits.C_LIMITE_09 && value <= limits.C_LIMITE_10) {
+            console.log(`  Faixa 10: ${limits.C_LIMITE_09} < ${value} <= ${limits.C_LIMITE_10} = #CEE76C`);
             return "#CEE76C"; // Verde claro
-        } else if (value > limits.C_LIMITE_10 && value <= limits.C_LIMITE_11) {
+        } 
+        // Faixa 11: C_Limite_10 < Valor <= C_Limite_11
+        else if (value > limits.C_LIMITE_10 && value <= limits.C_LIMITE_11) {
+            console.log(`  Faixa 11: ${limits.C_LIMITE_10} < ${value} <= ${limits.C_LIMITE_11} = #ACDD6D`);
             return "#ACDD6D"; // Verde
-        } else if (value > limits.C_LIMITE_11 && value <= limits.C_LIMITE_12) {
+        } 
+        // Faixa 12: C_Limite_11 < Valor <= C_Limite_12
+        else if (value > limits.C_LIMITE_11 && value <= limits.C_LIMITE_12) {
+            console.log(`  Faixa 12: ${limits.C_LIMITE_11} < ${value} <= ${limits.C_LIMITE_12} = #99CD6D`);
             return "#99CD6D"; // Verde médio
-        } else if (value > limits.C_LIMITE_12 && value <= limits.C_LIMITE_13) {
+        } 
+        // Faixa 13: C_Limite_12 < Valor <= C_Limite_13
+        else if (value > limits.C_LIMITE_12 && value <= limits.C_LIMITE_13) {
+            console.log(`  Faixa 13: ${limits.C_LIMITE_12} < ${value} <= ${limits.C_LIMITE_13} = #63B46E`);
             return "#63B46E"; // Verde escuro
-        } else if (value > limits.C_LIMITE_13 && value <= limits.C_LIMITE_14) {
+        } 
+        // Faixa 14: C_Limite_13 < Valor <= C_Limite_14
+        else if (value > limits.C_LIMITE_13 && value <= limits.C_LIMITE_14) {
+            console.log(`  Faixa 14: ${limits.C_LIMITE_13} < ${value} <= ${limits.C_LIMITE_14} = #4EA96F`);
             return "#4EA96F"; // Verde muito escuro
-        } else {
-            return "#329C70"; // Verde final (maior que C_LIMITE_14)
+        } 
+        // Faixa 15: Valor > C_Limite_14
+        else {
+            console.log(`  Faixa 15: ${value} > ${limits.C_LIMITE_14} = #329C70`);
+            return "#329C70"; // Verde final (maior que C_Limite_14)
         }
     }
 
@@ -338,7 +461,7 @@ function initializeBarChart() {
                 return b.value - a.value; 
             });
 
-        // Usar a função correta para calcular os limites dinâmicos
+        // Aplicar a lógica EXATA de cálculo dos limites dinâmicos
         const limits = calculateDynamicColorLimits(chartData);
         
         processedData = {
@@ -350,7 +473,7 @@ function initializeBarChart() {
             }
         };
 
-        console.log("Dados processados (Barras):", processedData);
+        console.log("Dados processados (Barras) com limites calculados:", processedData);
         renderChart();
     }
 
@@ -405,7 +528,7 @@ function initializeBarChart() {
             .attr("class", "y-axis axis")
             .call(d3.axisLeft(yScale));
 
-        // BARRAS COM CORES DINÂMICAS IMPLEMENTADAS CORRETAMENTE
+        // BARRAS COM CORES DINÂMICAS IMPLEMENTADAS EXATAMENTE CONFORME ESPECIFICAÇÃO
         mainGroup.selectAll(".data-bar")
             .data(processedData.data)
             .enter()
@@ -417,7 +540,6 @@ function initializeBarChart() {
             .attr("height", yScale.bandwidth())
             .attr("fill", d => {
                 const color = getBarColor(d.value, processedData.limits);
-                console.log(`Valor: ${d.value}, Cor: ${color}`); // Debug
                 return color;
             })
             .on("mouseenter", function(event, d) {
