@@ -50,7 +50,8 @@ VERSÃO MODIFICADA: Fundo transparente, margens zeradas e fonte aumentada
     }
 
     .data-bar {
-        stroke: none;
+        stroke: #cccccc; /* BORDA CINZA CLARO SUAVE */
+        stroke-width: 0.5px; /* BORDA BEM FINA */
     }
 
     .data-bar:hover {
@@ -60,7 +61,7 @@ VERSÃO MODIFICADA: Fundo transparente, margens zeradas e fonte aumentada
 
     .y-axis text {
         font-family: 'Avenir Next', sans-serif;
-        font-size: 14px; /* FONTE AUMENTADA */
+        font-size: 10px; /* FONTE REDUZIDA */
         font-weight: normal;
         fill: black;
     }
@@ -76,7 +77,7 @@ VERSÃO MODIFICADA: Fundo transparente, margens zeradas e fonte aumentada
 
     .value-label {
         font-family: 'Avenir Next', sans-serif;
-        font-size: 14px; /* FONTE AUMENTADA */
+        font-size: 10px; /* FONTE REDUZIDA */
         font-weight: 600;
         fill: #333;
     }
@@ -87,7 +88,7 @@ VERSÃO MODIFICADA: Fundo transparente, margens zeradas e fonte aumentada
         color: white;
         padding: 8px 12px;
         border-radius: 4px;
-        font-size: 14px; /* FONTE AUMENTADA */
+        font-size: 10px; /* FONTE REDUZIDA */
         font-weight: 500;
         font-family: 'Avenir Next', sans-serif;
         pointer-events: none;
@@ -318,8 +319,8 @@ function initializeBarChart() {
         const containerWidth = document.body.clientWidth;
         const containerHeight = document.body.clientHeight;
         
-        // ALTURA CALCULADA BASEADA NO NÚMERO DE BARRAS (cada barra ~35px + padding)
-        const barHeight = 35;
+        // ALTURA CALCULADA BASEADA NO NÚMERO DE BARRAS (barras mais finas com mais espaçamento)
+        const barHeight = 25; // REDUZIDO de 35 para 25px
         const totalBars = processedData.data.length;
         const calculatedHeight = Math.max(containerHeight, totalBars * barHeight + 40);
 
@@ -353,7 +354,7 @@ function initializeBarChart() {
         const yScale = d3.scaleBand()
             .domain(processedData.data.map(d => d.category))
             .range([0, chartHeight])
-            .padding(0.1);
+            .padding(0.4); // AUMENTADO de 0.1 para 0.4 (mais espaçamento)
 
         // APENAS EIXO Y (removido eixo X completamente) - AGORA SEM TICKS
         mainGroup.append("g")
