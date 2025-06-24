@@ -198,23 +198,22 @@ function initializeBarChart() {
             .sort((a, b) => b.value - a.value);
 
         // --- LÓGICA DE COR DINÂMICA E CORRETA ---
-        // 1. Definimos nossa paleta de 15 cores.
+        // 1. Definimos nossa paleta de 15 cores, do vermelho (valores baixos) ao verde (valores altos).
         const colorRange = [
             "#DE432A", "#E8773D", "#EE9E4A", "#F0A84D", "#F7D15B", "#F5C958", "#F8D95E", 
             "#D9EC6B", "#C1E16C", "#CEE76C", "#ACDD6D", "#99CD6D", "#63B46E", "#4EA96F", "#329C70"
-        ].reverse(); // Invertemos para que valores maiores recebam as cores verdes.
+        ]; // CORREÇÃO: O método .reverse() foi removido.
 
         // 2. Criamos uma escala de quantis.
         // O D3 ordena os valores do domínio (domain) e os divide em grupos (quantis)
         // com a mesma quantidade de itens. Cada grupo é mapeado para uma cor no range.
-        // Esta abordagem é robusta a outliers e se adapta a qualquer filtro.
         const colorScale = d3.scaleQuantile()
             .domain(chartData.map(d => d.value))
             .range(colorRange);
 
         processedData = {
             data: chartData,
-            colorScale: colorScale, // Armazenamos a escala para usar na renderização
+            colorScale: colorScale,
             columnLabels: {
                 category: columns[0].label,
                 value: columns[1].label
@@ -269,7 +268,6 @@ function initializeBarChart() {
             .attr("y", d => yScale(d.category))
             .attr("width", d => xScale(d.value))
             .attr("height", yScale.bandwidth())
-            // A cor de cada barra é definida pela escala de quantis dinâmica.
             .attr("fill", d => processedData.colorScale(d.value))
             .on("mouseenter", showTooltip)
             .on("mouseleave", hideTooltip)
