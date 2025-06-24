@@ -1,13 +1,14 @@
 <!DOCTYPE html>
 <!--
-Adaptado para SAS Visual Analytics.
-Gráfico de barras horizontal com cores dinâmicas usando uma escala de quantis,
-que se adapta aos filtros e distribui as cores de forma equilibrada.
+Versão Final: Gráfico de barras horizontal para SAS VA
+Lógica de cores 100% dinâmica e robusta usando d3.scaleQuantile.
+Esta abordagem agrupa os dados por ranking, tornando-a resistente a valores extremos
+e garantindo consistência com filtros.
 -->
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Gráfico de Barras Horizontal para SAS VA</title>
+    <title>Gráfico de Barras Horizontal para SAS VA (Quantil)</title>
     <!-- Import D3.js -->
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 
@@ -112,12 +113,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
 function initializeBarChart() {
     const SVG_CONTAINER_ID = "chart-container";
-    let VA_RESULT_NAME;
-    let vaMessage;
     let processedData;
     let lastRenderTime = 0;
     const renderDelay = 250;
-    let svg, mainGroup;
     const tooltip = d3.select("#tooltip");
 
     const SAMPLE_MESSAGE = {
@@ -133,9 +131,6 @@ function initializeBarChart() {
             { label: "Percentual de escolas ano atual", type: "number", format: { name: "BEST", precision: 2 } }
         ]
     };
-
-    // **[MUDANÇA]** A função getBarColor foi removida.
-    // Usaremos uma escala D3 (colorScale) criada dinamicamente.
 
     function formatPercentage(value) {
         return d3.format(".2f")(value) + "%";
@@ -189,9 +184,6 @@ function initializeBarChart() {
     }
 
     function onDataReceived(messageFromVA) {
-        vaMessage = messageFromVA;
-        VA_RESULT_NAME = messageFromVA.resultName;
-
         if (!messageFromVA.data || messageFromVA.data.length === 0) {
             processedData = null;
             d3.select(`#${SVG_CONTAINER_ID}`).selectAll("*").remove();
@@ -205,40 +197,39 @@ function initializeBarChart() {
             .map(row => ({ category: row[0], value: parseFloat(row[1]) || 0 }))
             .sort((a, b) => b.value - a.value);
 
-        // **[NOVA ABORDAGEM DINÂMICA]**
-        // Cria uma escala de quantis. Esta escala agrupa os dados em N grupos
-        // (quantis) com aproximadamente o mesmo número de pontos de dados,
-        // tornando-a robusta a valores extremos e ideal para filtros.
+        // --- LÓGICA DE COR DINÂMICA E CORRETA ---
+        // 1. Definimos nossa paleta de 15 cores.
         const colorRange = [
-            "#DE432A", "#E8773D", "#EE9E4A", "#F0A84D", "#F7D15B",
-            "#F5C958", "#F8D95E", "#D9EC6B", "#C1E16C", "#CEE76C",
-            "#ACDD6D", "#99CD6D", "#63B46E", "#4EA96F", "#329C70"
-        ];
+            "#DE432A", "#E8773D", "#EE9E4A", "#F0A84D", "#F7D15B", "#F5C958", "#F8D95E", 
+            "#D9EC6B", "#C1E16C", "#CEE76C", "#ACDD6D", "#99CD6D", "#63B46E", "#4EA96F", "#329C70"
+        ].reverse(); // Invertemos para que valores maiores recebam as cores verdes.
 
-        // O domínio da escala são todos os valores de dados atuais.
-        // O range é a nossa paleta de cores. D3 faz a mágica.
+        // 2. Criamos uma escala de quantis.
+        // O D3 ordena os valores do domínio (domain) e os divide em grupos (quantis)
+        // com a mesma quantidade de itens. Cada grupo é mapeado para uma cor no range.
+        // Esta abordagem é robusta a outliers e se adapta a qualquer filtro.
         const colorScale = d3.scaleQuantile()
             .domain(chartData.map(d => d.value))
             .range(colorRange);
 
         processedData = {
             data: chartData,
-            colorScale: colorScale, // Armazena a escala para ser usada na renderização
+            colorScale: colorScale, // Armazenamos a escala para usar na renderização
             columnLabels: {
                 category: columns[0].label,
                 value: columns[1].label
             }
         };
 
-        console.log("Dados processados com escala de quantis dinâmica.");
         renderChart();
     }
 
     function renderChart() {
         if (!processedData) return;
 
-        const containerWidth = document.body.clientWidth;
-        const containerHeight = document.body.clientHeight;
+        const container = document.getElementById(SVG_CONTAINER_ID);
+        const containerWidth = container.clientWidth;
+        const containerHeight = container.clientHeight;
         
         const barHeight = 25;
         const totalBars = processedData.data.length;
@@ -250,12 +241,12 @@ function initializeBarChart() {
         const chartWidth = containerWidth - margin.left - margin.right;
         const chartHeight = calculatedHeight - margin.top - margin.bottom;
 
-        svg = d3.select(`#${SVG_CONTAINER_ID}`)
+        const svg = d3.select(`#${SVG_CONTAINER_ID}`)
             .append("svg")
             .attr("width", containerWidth)
             .attr("height", calculatedHeight);
 
-        mainGroup = svg.append("g")
+        const mainGroup = svg.append("g")
             .attr("transform", `translate(${margin.left},${margin.top})`);
 
         const xScale = d3.scaleLinear()
@@ -278,7 +269,7 @@ function initializeBarChart() {
             .attr("y", d => yScale(d.category))
             .attr("width", d => xScale(d.value))
             .attr("height", yScale.bandwidth())
-            // **[MUDANÇA]** A cor agora é definida pela escala de quantis dinâmica.
+            // A cor de cada barra é definida pela escala de quantis dinâmica.
             .attr("fill", d => processedData.colorScale(d.value))
             .on("mouseenter", showTooltip)
             .on("mouseleave", hideTooltip)
