@@ -2,7 +2,7 @@
 <!--
 Adaptado para SAS Visual Analytics baseado EXATAMENTE no código KPI Card funcional.
 Gráfico de barras horizontal com cores dinâmicas e limite de 15 itens.
-VERSÃO FINAL: Sem eixo X, rótulos em formato de porcentagem, SEM TICKS no eixo Y
+VERSÃO MODIFICADA: Fundo transparente, margens zeradas e fonte aumentada
 -->
 <html>
 <head>
@@ -25,14 +25,28 @@ VERSÃO FINAL: Sem eixo X, rótulos em formato de porcentagem, SEM TICKS no eixo
 </head>
 <body>
 <style type="text/css">
-    html, body, svg {
+    html, body {
         margin: 0;
         padding: 0;
         width: 100%;
         height: 100%;
         overflow: hidden;
         font-family: 'Avenir Next', 'Avenir', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-        background-color: #f5f5f5;
+        background-color: transparent; /* FUNDO TRANSPARENTE */
+    }
+
+    #chart-container {
+        width: 100%;
+        height: 100%;
+        overflow-y: auto; /* HABILITA ROLAGEM VERTICAL */
+        overflow-x: hidden;
+    }
+
+    svg {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        background-color: transparent;
     }
 
     .data-bar {
@@ -46,7 +60,7 @@ VERSÃO FINAL: Sem eixo X, rótulos em formato de porcentagem, SEM TICKS no eixo
 
     .y-axis text {
         font-family: 'Avenir Next', sans-serif;
-        font-size: 8.25pt;
+        font-size: 14px; /* FONTE AUMENTADA */
         font-weight: normal;
         fill: black;
     }
@@ -62,7 +76,7 @@ VERSÃO FINAL: Sem eixo X, rótulos em formato de porcentagem, SEM TICKS no eixo
 
     .value-label {
         font-family: 'Avenir Next', sans-serif;
-        font-size: 10px;
+        font-size: 14px; /* FONTE AUMENTADA */
         font-weight: 600;
         fill: #333;
     }
@@ -73,7 +87,7 @@ VERSÃO FINAL: Sem eixo X, rótulos em formato de porcentagem, SEM TICKS no eixo
         color: white;
         padding: 8px 12px;
         border-radius: 4px;
-        font-size: 12px;
+        font-size: 14px; /* FONTE AUMENTADA */
         font-weight: 500;
         font-family: 'Avenir Next', sans-serif;
         pointer-events: none;
@@ -250,7 +264,7 @@ function initializeBarChart() {
                         "O Gráfico de Barras Horizontal espera que as colunas sejam atribuídas nesta ordem:\n" +
                         " 1. Categoria (string) - Ex: Município, Região, etc.\n" +
                         " 2. Valor (número) - Ex: Porcentagem, Quantidade, etc.\n\n" +
-                        "Serão exibidos apenas os 15 primeiros itens ordenados por valor."
+                        "Todas as categorias serão exibidas com rolagem vertical."
                     );
                 }
                 return;
@@ -268,7 +282,7 @@ function initializeBarChart() {
         const columns = messageFromVA.columns;
         const allData = messageFromVA.data;
         
-        // Converte dados limitando aos 15 primeiros
+        // Converte TODOS os dados (sem limite de 15)
         const chartData = allData
             .map(function(row) {
                 return {
@@ -278,8 +292,7 @@ function initializeBarChart() {
             })
             .sort(function(a, b) { 
                 return b.value - a.value; 
-            })
-            .slice(0, 15);
+            });
 
         const limits = calculateDynamicLimits(chartData);
         
@@ -302,26 +315,32 @@ function initializeBarChart() {
             return;
         }
 
-        const width = document.body.clientWidth;
-        const height = document.body.clientHeight;
+        const containerWidth = document.body.clientWidth;
+        const containerHeight = document.body.clientHeight;
+        
+        // ALTURA CALCULADA BASEADA NO NÚMERO DE BARRAS (cada barra ~35px + padding)
+        const barHeight = 35;
+        const totalBars = processedData.data.length;
+        const calculatedHeight = Math.max(containerHeight, totalBars * barHeight + 40);
 
         d3.select("#" + SVG_CONTAINER_ID).selectAll("*").remove();
 
-        // MARGENS AJUSTADAS (removido espaço do bottom para eixo X)
+        // MARGENS AJUSTADAS
         const margin = {
-            top: 20,
-            right: 80, // Aumentado para acomodar os rótulos de porcentagem
-            bottom: 20, // Reduzido já que não há eixo X
+            top: 10,
+            right: 80,
+            bottom: 10,
             left: 120
         };
 
-        const chartWidth = width - margin.left - margin.right;
-        const chartHeight = height - margin.top - margin.bottom;
+        const chartWidth = containerWidth - margin.left - margin.right;
+        const chartHeight = calculatedHeight - margin.top - margin.bottom;
 
         svg = d3.select("#" + SVG_CONTAINER_ID)
             .append("svg")
-            .attr("width", width)
-            .attr("height", height);
+            .attr("width", containerWidth)
+            .attr("height", calculatedHeight) // ALTURA DINÂMICA
+            .style("background-color", "transparent");
 
         mainGroup = svg.append("g")
             .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
