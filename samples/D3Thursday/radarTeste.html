@@ -269,6 +269,7 @@ document.addEventListener("DOMContentLoaded", function() {
   let OLD_METADATA; // Metadata from previous render to track duplicate point
   let SELECTED_CATEGORY; // Currently selected category
   let LAST_TRANSITION_END = Date.now(); // Time of last transition used to time transition callbacks
+  let globalScale; // Make scale globally accessible
 
   // Static dimension variables
   const TRANS_TIME = 500; // Duration of major transitions
@@ -419,40 +420,40 @@ document.addEventListener("DOMContentLoaded", function() {
       .entries(VA_MESSAGE.data);
     const numMeasures = nestedData.length;
 
-    /******************************************************* MODIFICAÇÃO INICIADA (Versão 2) *******************************************************/
-    // O bloco de código a seguir foi reestruturado para usar uma escala global.
-    // 1. Calculamos o valor máximo GLOBAL em todo o conjunto de dados.
-    // 2. Criamos UMA ÚNICA escala linear D3, com o domínio de 0 até o máximo global + 15% de preenchimento (padding).
-    //    Isso garante que todos os eixos compartilhem a mesma escala, refletindo com precisão as magnitudes relativas.
-    // 3. Ao processar os dados, usamos esta escala global única para calcular a posição de cada ponto no gráfico ('scaledMeasure').
+    /******************************************************* MODIFICAÇÃO INICIADA (Versão 3 - Log Scale) *******************************************************/
+    // O bloco de código a seguir foi reestruturado para usar uma escala logarítmica global.
+    // 1. Calculamos o valor mínimo (maior que 0) e máximo GLOBAL em todo o conjunto de dados.
+    // 2. Criamos UMA ÚNICA escala LOGARÍTMICA D3. O domínio não pode começar em 0, então usamos o valor mínimo encontrado.
+    //    Isso expande a visibilidade para valores pequenos e comprime os valores grandes.
+    // 3. Ao processar os dados, usamos esta escala logarítmica para calcular a posição de cada ponto no gráfico ('scaledMeasure').
 
     OLD_METADATA = METADATA;
     DELTA_ANGLE = (2 * Math.PI) / numMeasures;
 
-    // Etapa 1: Calcular o máximo global.
+    // Etapa 1: Calcular o mínimo ( > 0) e o máximo global.
+    const globalMin = d3.min(VA_MESSAGE.data, d => (d[2] > 0 ? d[2] : null));
     const globalMax = d3.max(VA_MESSAGE.data, d => d[2]);
-    const paddedGlobalMax = globalMax * 1.15; // Adiciona 15% de preenchimento
+    const paddedGlobalMax = globalMax * 1.15; // Adiciona 15% de preenchimento ao máximo.
 
-    // Etapa 2: Criar uma única escala global.
-    const globalScale = d3.scaleLinear()
-        .domain([0, paddedGlobalMax])
-        .range([0, 1])
-        .clamp(true); // Garante que valores > paddedGlobalMax não excedam o raio.
+    // Etapa 2: Criar uma única escala logarítmica global.
+    globalScale = d3.scaleLog()
+        // O domínio não pode ser zero. Usamos o menor valor positivo como início.
+        .domain([globalMin, paddedGlobalMax])
+        .range([0, 1]) // O range permanece de 0 a 100% do raio.
+        .clamp(true); // Garante que valores fora do domínio sejam fixados nos limites do range.
 
     METADATA = {
       category: VA_MESSAGE.columns[0].label,
       metrics: {}
     };
 
-    // Popular metadados básicos (sem a escala individual)
+    // Popular metadados básicos
     for (let i = 0; i < numMeasures; i++) {
         const metricName = nestedData[i].key;
         METADATA.metrics[metricName] = {
             metric: metricName,
             angle: i * DELTA_ANGLE,
-            format: translateFormat(VA_MESSAGE.data[i][3]),
-            // A propriedade 'maximum' individual não é mais usada para escalar, mas pode ser útil para outras coisas.
-            maximum: d3.max(VA_MESSAGE.data, d => (d[1] === metricName ? d[2] : Number.MIN_VALUE))
+            format: translateFormat(VA_MESSAGE.data[i][3])
         };
     }
 
@@ -462,7 +463,7 @@ document.addEventListener("DOMContentLoaded", function() {
       .key(function(d) { return d[0]; })
       .entries(VA_MESSAGE.data);
 
-    // Etapa 3: Reestruturar os dados usando a nova escala GLOBAL
+    // Etapa 3: Reestruturar os dados usando a nova escala GLOBAL LOGARÍTMICA
     DATA = dataGroupedByCategory.map(function(categoryGroup) {
         const datum = {
             category: categoryGroup.key,
@@ -473,14 +474,15 @@ document.addEventListener("DOMContentLoaded", function() {
                 const metric = {
                     metric: metricName,
                     measure: measureValue,
-                    scaledMeasure: globalScale(measureValue) // Usa a escala global para todos
+                    // Se o valor for 0 ou negativo, a escala o levará para a posição 0.
+                    scaledMeasure: measureValue > 0 ? globalScale(measureValue) : 0 
                 };
                 return metric;
             })
         };
         return datum;
     });
-    /******************************************************* MODIFICAÇÃO FINALIZADA (Versão 2) *******************************************************/
+    /******************************************************* MODIFICAÇÃO FINALIZADA (Versão 3) *******************************************************/
 
     // Assign data variables for legend
     LEG.title = ""; // Define o título como uma string vazia
@@ -623,14 +625,9 @@ document.addEventListener("DOMContentLoaded", function() {
         return -RADIUS * Math.cos(d.angle);
       });
 
-    // Create grid circles
-    GRID_CIRCLES = G_GRID.selectAll(".grid-circle").data([
-      0.2,
-      0.4,
-      0.6,
-      0.8,
-      1
-    ]);
+    // MODIFICATION: Create grid circles based on the new logarithmic scale's ticks.
+    const gridCircleData = globalScale.ticks(5);
+    GRID_CIRCLES = G_GRID.selectAll(".grid-circle").data(gridCircleData);
 
     GRID_CIRCLES.enter()
       .append("circle")
@@ -639,10 +636,10 @@ document.addEventListener("DOMContentLoaded", function() {
       .attr("stroke", "#E4E4E4")
       .attr("cx", 0)
       .attr("cy", 0)
-      .merge(GRID_CIRCLES)
       .attr("r", function(d) {
-        return d * RADIUS;
+        return (d > 0 ? globalScale(d) : 0) * RADIUS;
       });
+
 
     // Create measure labels
     MEASURE_LABELS = G_CHART_AREA.selectAll(".measure-label").data(
@@ -855,13 +852,26 @@ document.addEventListener("DOMContentLoaded", function() {
       .style("opacity", 0)
       .remove();
 
-    // Update grid circles
-    GRID_CIRCLES = G_GRID.selectAll(".grid-circle");
+    // MODIFICATION: Update grid circles with a full data join pattern for dynamic ticks
+    const gridCircleData = globalScale.ticks(5);
+    GRID_CIRCLES = G_GRID.selectAll(".grid-circle").data(gridCircleData);
 
-    GRID_CIRCLES.transition()
-      .duration(TRANS_TIME)
+    GRID_CIRCLES.exit()
+      .transition().duration(TRANS_TIME)
+      .attr("r", 0).remove();
+      
+    GRID_CIRCLES.enter()
+      .append("circle")
+      .classed("grid-circle", true)
+      .attr("fill", "none")
+      .attr("stroke", "#E4E4E4")
+      .attr("cx", 0)
+      .attr("cy", 0)
+      .attr("r", 0)
+      .merge(GRID_CIRCLES) // Merge enter and update selections
+      .transition().duration(TRANS_TIME)
       .attr("r", function(d) {
-        return d * RADIUS;
+        return (d > 0 ? globalScale(d) : 0) * RADIUS;
       });
 
     // Update measure labels
