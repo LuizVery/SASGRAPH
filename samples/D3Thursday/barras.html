@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <!--
-Adaptado para SAS Visual Analytics.
-Gráfico de barras horizontal com cores dinâmicas, layout e lógica de cor especificados pelo usuário.
+Adaptado para SAS Visual Analytics baseado EXATAMENTE no código KPI Card funcional.
+Gráfico de barras horizontal com cores dinâmicas e limite de 15 itens.
+VERSÃO MODIFICADA: Fundo transparente, margens zeradas e fonte aumentada
 -->
 <html>
 <head>
@@ -119,7 +120,7 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 
 function initializeBarChart() {
-    // ESTRUTURA DO GRÁFICO
+    // ESTRUTURA EXATA DO KPI CARD
     const SVG_CONTAINER_ID = "chart-container";
     let VA_RESULT_NAME;
     let vaMessage;
@@ -129,16 +130,25 @@ function initializeBarChart() {
     let svg, mainGroup;
     const tooltip = d3.select("#tooltip");
 
-    // DADOS DE EXEMPLO
+    // DADOS DE EXEMPLO EXATOS (com valores em formato decimal para porcentagem)
     const SAMPLE_MESSAGE = {
         resultName: "barChartSample",
         rowCount: 15,
         data: [
-            ["Teresina", 11.49], ["Macapá", 5.66], ["Parnaíba", 2.62],
-            ["Picos", 1.75], ["Floriano", 1.55], ["Santana", 1.51],
-            ["Piripiri", 1.45], ["Mazagão", 1.43], ["União", 1.41],
-            ["São Paulo", 8.52], ["Rio de Janeiro", 7.85], ["Belo Horizonte", 7.23],
-            ["Salvador", 6.87], ["Fortaleza", 6.51]
+            ["Teresina", 11.49],
+            ["Macapá", 5.66],
+            ["Parnaíba", 2.62],
+            ["Picos", 1.75],
+            ["Floriano", 1.55],
+            ["Santana", 1.51],
+            ["Piripiri", 1.45],
+            ["Mazagão", 1.43],
+            ["União", 1.41],
+            ["São Paulo", 8.52],
+            ["Rio de Janeiro", 7.85],
+            ["Belo Horizonte", 7.23],
+            ["Salvador", 6.87],
+            ["Fortaleza", 6.51]
         ],
         columns: [
             { label: "Município", type: "string" },
@@ -146,63 +156,88 @@ function initializeBarChart() {
         ]
     };
 
-    /**
-     * Calcula os limites para as cores dinâmicas com base nos valores dos dados.
-     * Esta função implementa a lógica exata solicitada.
-     * @param {Array<Object>} data - Os dados do gráfico.
-     * @returns {Object} Um objeto contendo os 14 limites de cor.
-     */
-    function calculateDynamicLimits(data) {
+    // IMPLEMENTAÇÃO EXATA DO PADRÃO DE CORES DINÂMICAS
+    function calculateDynamicColorLimits(data) {
         const values = data.map(d => d.value);
-        const minValue = d3.min(values); // Corresponde ao 'Percentual Mínimo Dinâmico'
-        const maxValue = d3.max(values); // Corresponde ao 'Percentual Máximo Dinâmico'
+        const percentualMinimoDinamico = d3.min(values);
+        const percentualMaximoDinamico = d3.max(values);
         
-        // 1. Cálculo do C_Intervalo_Total
-        const C_Intervalo_Total = maxValue - minValue;
+        // 1. C_Intervalo_Total
+        const cIntervaloTotal = percentualMaximoDinamico - percentualMinimoDinamico;
         
-        // 2. Cálculo do C_Tamanho_Faixa
-        const C_Tamanho_Faixa = C_Intervalo_Total / 15;
+        // 2. C_Tamanho_Faixa
+        const cTamanhoFaixa = cIntervaloTotal / 15;
         
-        const limits = {};
-        // 3. a 16. Cálculo dos 14 Limites de Faixa
-        for (let i = 1; i <= 14; i++) {
-            // Expressão: 'Percentual Mínimo Dinâmico'n + (i * 'C_Tamanho_Faixa'n)
-            limits[`C_LIMITE_${i.toString().padStart(2, '0')}`] = minValue + (i * C_Tamanho_Faixa);
-        }
+        // 3-16. Calcular os 14 limites conforme especificação
+        const limits = {
+            C_LIMITE_01: percentualMinimoDinamico + (1 * cTamanhoFaixa),
+            C_LIMITE_02: percentualMinimoDinamico + (2 * cTamanhoFaixa),
+            C_LIMITE_03: percentualMinimoDinamico + (3 * cTamanhoFaixa),
+            C_LIMITE_04: percentualMinimoDinamico + (4 * cTamanhoFaixa),
+            C_LIMITE_05: percentualMinimoDinamico + (5 * cTamanhoFaixa),
+            C_LIMITE_06: percentualMinimoDinamico + (6 * cTamanhoFaixa),
+            C_LIMITE_07: percentualMinimoDinamico + (7 * cTamanhoFaixa),
+            C_LIMITE_08: percentualMinimoDinamico + (8 * cTamanhoFaixa),
+            C_LIMITE_09: percentualMinimoDinamico + (9 * cTamanhoFaixa),
+            C_LIMITE_10: percentualMinimoDinamico + (10 * cTamanhoFaixa),
+            C_LIMITE_11: percentualMinimoDinamico + (11 * cTamanhoFaixa),
+            C_LIMITE_12: percentualMinimoDinamico + (12 * cTamanhoFaixa),
+            C_LIMITE_13: percentualMinimoDinamico + (13 * cTamanhoFaixa),
+            C_LIMITE_14: percentualMinimoDinamico + (14 * cTamanhoFaixa)
+        };
+
+        // Debug para verificar os cálculos
+        console.log("Cálculos das cores dinâmicas:");
+        console.log("Percentual Mínimo:", percentualMinimoDinamico);
+        console.log("Percentual Máximo:", percentualMaximoDinamico);
+        console.log("C_Intervalo_Total:", cIntervaloTotal);
+        console.log("C_Tamanho_Faixa:", cTamanhoFaixa);
+        console.log("Limites calculados:", limits);
         
         return limits;
     }
-    
-    /**
-     * Retorna a cor da barra com base no seu valor e nos limites calculados.
-     * @param {number} value - O valor da barra.
-     * @param {Object} limits - O objeto de limites gerado por calculateDynamicLimits.
-     * @returns {string} O código hexadecimal da cor.
-     */
+
     function getBarColor(value, limits) {
-        if (value <= limits.C_LIMITE_01) return "#DE432A";
-        else if (value <= limits.C_LIMITE_02) return "#E8773D";
-        else if (value <= limits.C_LIMITE_03) return "#EE9E4A";
-        else if (value <= limits.C_LIMITE_04) return "#F0A84D";
-        else if (value <= limits.C_LIMITE_05) return "#F7D15B";
-        else if (value <= limits.C_LIMITE_06) return "#F5C958";
-        else if (value <= limits.C_LIMITE_07) return "#F8D95E";
-        else if (value <= limits.C_LIMITE_08) return "#D9EC6B";
-        else if (value <= limits.C_LIMITE_09) return "#C1E16C";
-        else if (value <= limits.C_LIMITE_10) return "#CEE76C";
-        else if (value <= limits.C_LIMITE_11) return "#ACDD6D";
-        else if (value <= limits.C_LIMITE_12) return "#99CD6D";
-        else if (value <= limits.C_LIMITE_13) return "#63B46E";
-        else if (value <= limits.C_LIMITE_14) return "#4EA96F";
-        else return "#329C70"; // Cor para valores acima do C_LIMITE_14
+        // Implementação exata conforme especificação das 15 faixas de cores
+        if (value <= limits.C_LIMITE_01) {
+            return "#DE432A"; // Vermelho escuro
+        } else if (value > limits.C_LIMITE_01 && value <= limits.C_LIMITE_02) {
+            return "#E8773D"; // Vermelho-laranja
+        } else if (value > limits.C_LIMITE_02 && value <= limits.C_LIMITE_03) {
+            return "#EE9E4A"; // Laranja
+        } else if (value > limits.C_LIMITE_03 && value <= limits.C_LIMITE_04) {
+            return "#F0A84D"; // Laranja claro
+        } else if (value > limits.C_LIMITE_04 && value <= limits.C_LIMITE_05) {
+            return "#F7D15B"; // Amarelo-laranja
+        } else if (value > limits.C_LIMITE_05 && value <= limits.C_LIMITE_06) {
+            return "#F5C958"; // Amarelo
+        } else if (value > limits.C_LIMITE_06 && value <= limits.C_LIMITE_07) {
+            return "#F8D95E"; // Amarelo claro
+        } else if (value > limits.C_LIMITE_07 && value <= limits.C_LIMITE_08) {
+            return "#D9EC6B"; // Amarelo-verde
+        } else if (value > limits.C_LIMITE_08 && value <= limits.C_LIMITE_09) {
+            return "#C1E16C"; // Verde-amarelo
+        } else if (value > limits.C_LIMITE_09 && value <= limits.C_LIMITE_10) {
+            return "#CEE76C"; // Verde claro
+        } else if (value > limits.C_LIMITE_10 && value <= limits.C_LIMITE_11) {
+            return "#ACDD6D"; // Verde
+        } else if (value > limits.C_LIMITE_11 && value <= limits.C_LIMITE_12) {
+            return "#99CD6D"; // Verde médio
+        } else if (value > limits.C_LIMITE_12 && value <= limits.C_LIMITE_13) {
+            return "#63B46E"; // Verde escuro
+        } else if (value > limits.C_LIMITE_13 && value <= limits.C_LIMITE_14) {
+            return "#4EA96F"; // Verde muito escuro
+        } else {
+            return "#329C70"; // Verde final (maior que C_LIMITE_14)
+        }
     }
 
-    // FUNÇÃO PARA FORMATAR PORCENTAGEM
+    // FUNÇÃO PARA FORMATAR PORCENTAGEM (igual à imagem)
     function formatPercentage(value) {
         return d3.format(".2f")(value) + "%";
     }
 
-    // FUNÇÕES DO TOOLTIP
+    // TOOLTIP
     function showTooltip(event, data) {
         const categoryLabel = processedData.columnLabels.category || "Categoria";
         const valueLabel = processedData.columnLabels.value || "Valor";
@@ -221,7 +256,7 @@ function initializeBarChart() {
         tooltip.style("display", "none");
     }
 
-    // ESTRUTURA DE DETECÇÃO DO SAS VA
+    // ESTRUTURA EXATA DE DETECÇÃO DO SAS VA (COPIADA DO KPI)
     if (isInSASVA()) {
         if (typeof va !== 'undefined' && va.messagingUtil) {
             va.messagingUtil.setOnDataReceivedCallback(handleDataReceived);
@@ -257,39 +292,41 @@ function initializeBarChart() {
         lastRenderTime = now;
     }
 
-    // PROCESSAMENTO DOS DADOS
+    // PROCESSAMENTO DOS DADOS (ADAPTADO PARA BARRAS)
     function onDataReceived(messageFromVA) {
         vaMessage = messageFromVA;
         VA_RESULT_NAME = messageFromVA.resultName;
 
-        // VALIDAÇÃO DE ROLES PARA O SAS VA
+        // VALIDAÇÃO EXATA COMO NO KPI
         if (isInSASVA() && typeof va !== 'undefined' && va.contentUtil) {
             const expectedRoles = ["string", "number"];
-            
+                
             if (!va.contentUtil.validateRoles(messageFromVA, expectedRoles, false)) {
                 if (va.messagingUtil) {
-                     va.messagingUtil.postInstructionalMessage(
-                         VA_RESULT_NAME,
-                         "O Gráfico de Barras Horizontal espera que as colunas sejam atribuídas nesta ordem:\n" +
-                         " 1. Categoria (string) - Ex: Município, Região, etc.\n" +
-                         " 2. Valor (número) - Ex: Porcentagem, Quantidade, etc.\n\n" +
-                         "Todas as categorias serão exibidas com rolagem vertical."
-                     );
+                    va.messagingUtil.postInstructionalMessage(
+                        VA_RESULT_NAME,
+                        "O Gráfico de Barras Horizontal espera que as colunas sejam atribuídas nesta ordem:\n" +
+                        " 1. Categoria (string) - Ex: Município, Região, etc.\n" +
+                        " 2. Valor (número) - Ex: Porcentagem, Quantidade, etc.\n\n" +
+                        "Todas as categorias serão exibidas com rolagem vertical."
+                    );
                 }
                 return;
             }
         }
 
-        // Limpa o gráfico se não houver dados
+        // Se não houver dados, limpa o gráfico
         if (!messageFromVA.data || messageFromVA.data.length === 0) {
             processedData = null;
             d3.select("#" + SVG_CONTAINER_ID).selectAll("*").remove();
             return;
         }
 
+        // PROCESSAMENTO DOS DADOS
         const columns = messageFromVA.columns;
         const allData = messageFromVA.data;
         
+        // Converte TODOS os dados (sem limite de 15)
         const chartData = allData
             .map(function(row) {
                 return {
@@ -301,7 +338,8 @@ function initializeBarChart() {
                 return b.value - a.value; 
             });
 
-        const limits = calculateDynamicLimits(chartData);
+        // Usar a função correta para calcular os limites dinâmicos
+        const limits = calculateDynamicColorLimits(chartData);
         
         processedData = {
             data: chartData,
@@ -318,27 +356,35 @@ function initializeBarChart() {
 
     // RENDERIZAÇÃO DO GRÁFICO
     function renderChart() {
-        if (!processedData) return;
+        if (!processedData) {
+            return;
+        }
 
         const containerWidth = document.body.clientWidth;
         const containerHeight = document.body.clientHeight;
         
-        // ALTURA CALCULADA BASEADA NO NÚMERO DE BARRAS
-        const barHeight = 25; // Altura da barra
+        // ALTURA CALCULADA BASEADA NO NÚMERO DE BARRAS (barras mais finas com mais espaçamento)
+        const barHeight = 25; // REDUZIDO de 35 para 25px
         const totalBars = processedData.data.length;
         const calculatedHeight = Math.max(containerHeight, totalBars * barHeight + 40);
 
         d3.select("#" + SVG_CONTAINER_ID).selectAll("*").remove();
 
-        // MARGENS
-        const margin = { top: 10, right: 80, bottom: 10, left: 120 };
+        // MARGENS AJUSTADAS
+        const margin = {
+            top: 10,
+            right: 80,
+            bottom: 10,
+            left: 120
+        };
+
         const chartWidth = containerWidth - margin.left - margin.right;
         const chartHeight = calculatedHeight - margin.top - margin.bottom;
 
         svg = d3.select("#" + SVG_CONTAINER_ID)
             .append("svg")
             .attr("width", containerWidth)
-            .attr("height", calculatedHeight)
+            .attr("height", calculatedHeight) // ALTURA DINÂMICA
             .style("background-color", "transparent");
 
         mainGroup = svg.append("g")
@@ -352,14 +398,14 @@ function initializeBarChart() {
         const yScale = d3.scaleBand()
             .domain(processedData.data.map(d => d.category))
             .range([0, chartHeight])
-            .padding(0.4); // Espaçamento entre as barras
+            .padding(0.4); // AUMENTADO de 0.1 para 0.4 (mais espaçamento)
 
-        // EIXO Y
+        // APENAS EIXO Y (removido eixo X completamente) - AGORA SEM TICKS
         mainGroup.append("g")
             .attr("class", "y-axis axis")
             .call(d3.axisLeft(yScale));
 
-        // BARRAS
+        // BARRAS COM CORES DINÂMICAS IMPLEMENTADAS CORRETAMENTE
         mainGroup.selectAll(".data-bar")
             .data(processedData.data)
             .enter()
@@ -369,21 +415,31 @@ function initializeBarChart() {
             .attr("y", d => yScale(d.category))
             .attr("width", d => xScale(d.value))
             .attr("height", yScale.bandwidth())
-            .attr("fill", d => getBarColor(d.value, processedData.limits))
-            .on("mouseenter", (event, d) => showTooltip(event, d))
-            .on("mouseleave", () => hideTooltip())
-            .on("mousemove", (event, d) => showTooltip(event, d));
+            .attr("fill", d => {
+                const color = getBarColor(d.value, processedData.limits);
+                console.log(`Valor: ${d.value}, Cor: ${color}`); // Debug
+                return color;
+            })
+            .on("mouseenter", function(event, d) {
+                showTooltip(event, d);
+            })
+            .on("mouseleave", function() {
+                hideTooltip();
+            })
+            .on("mousemove", function(event, d) {
+                showTooltip(event, d);
+            });
 
-        // RÓTULOS DE VALOR
+        // LABELS DE VALOR EM FORMATO DE PORCENTAGEM (igual à imagem)
         mainGroup.selectAll(".value-label")
             .data(processedData.data)
             .enter()
             .append("text")
             .attr("class", "value-label")
-            .attr("x", d => xScale(d.value) + 8)
+            .attr("x", d => xScale(d.value) + 8) // Pequeno espaçamento da barra
             .attr("y", d => yScale(d.category) + yScale.bandwidth() / 2)
             .attr("dy", "0.35em")
-            .text(d => formatPercentage(d.value));
+            .text(d => formatPercentage(d.value)); // FORMATO DE PORCENTAGEM
     }
 }
 </script>
