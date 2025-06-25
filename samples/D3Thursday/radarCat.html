@@ -15,8 +15,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 
 ------------------------------------------------------------------
-Arquivo modificado para incluir o listener de mensagens do SAS VA 
-e outras boas práticas.
+Arquivo modificado para calcular a porcentagem de 'Sim' dentro 
+de cada categoria/métrica e para aceitar uma 4ª coluna de dados ('Resposta').
+Tooltip atualizada para corresponder ao formato da imagem.
 ------------------------------------------------------------------
 -->
 <html>
@@ -85,24 +86,63 @@ e outras boas práticas.
     font-family: 'Avenir Next', Arial, sans-serif;
     font-size: 1.1em;
     padding: 8px;
+    text-align: left;
   }
 </style>
 
 <script>
 "use strict";
 
+// Define D3 locale para o formato de números em Português (Brasil)
+const ptBR = {
+  "decimal": ",",
+  "thousands": ".",
+  "grouping": [3],
+  "currency": ["R$", " "],
+  "percent": "%",
+  "dateTime": "%d/%m/%Y %H:%M:%S",
+  "date": "%d/%m/%Y",
+  "time": "%H:%M:%S",
+  "periods": ["AM", "PM"],
+  "days": ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"],
+  "shortDays": ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"],
+  "months": ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"],
+  "shortMonths": ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
+};
+d3.formatDefaultLocale(ptBR);
+
+
 // ** INÍCIO DA SEÇÃO DE DADOS DE EXEMPLO **
-// Estes dados são usados para testar o gráfico fora do SAS Visual Analytics.
+// ATENÇÃO: A estrutura de dados foi alterada para 4 colunas:
+// [Categoria, Métrica, Resposta, Valor]
 const SAMPLE_MESSAGE = {
-    version: "1", resultName: "dd55", rowCount: 30, availableRowCount: 30,
+    version: "1", resultName: "dd55", rowCount: 60, availableRowCount: 60,
     data: [
-        ["Rural", "IN_AREA_VERDE_F", 30], ["Rural", "IN_AUDITORIO_F", 5], ["Rural", "IN_BANHEIRO_EI_F", 20], ["Rural", "IN_BANHEIRO_PNE_F", 40], ["Rural", "IN_BIBLIOTECA_SALA_LEITURA_F", 25], ["Rural", "IN_EQUIP_LOUSA_DIGITAL_F", 10], ["Rural", "IN_EQUIP_MULTIMIDIA_F", 60], ["Rural", "IN_INTERNET_F", 70], ["Rural", "IN_LABORATORIO_INFORMATICA_F", 50], ["Rural", "IN_ALIMENTACAO_F", 90],
-        ["Urbana", "IN_AREA_VERDE_F", 60], ["Urbana", "IN_AUDITORIO_F", 30], ["Urbana", "IN_BANHEIRO_EI_F", 80], ["Urbana", "IN_BANHEIRO_PNE_F", 75], ["Urbana", "IN_BIBLIOTECA_SALA_LEITURA_F", 85], ["Urbana", "IN_EQUIP_LOUSA_DIGITAL_F", 40], ["Urbana", "IN_EQUIP_MULTIMIDIA_F", 90], ["Urbana", "IN_INTERNET_F", 95], ["Urbana", "IN_LABORATORIO_INFORMATICA_F", 90], ["Urbana", "IN_ALIMENTACAO_F", 98],
-        ["Estadual", "IN_AREA_VERDE_F", 80], ["Estadual", "IN_AUDITORIO_F", 70], ["Estadual", "IN_BANHEIRO_EI_F", 90], ["Estadual", "IN_BANHEIRO_PNE_F", 85], ["Estadual", "IN_BIBLIOTECA_SALA_LEITURA_F", 95], ["Estadual", "IN_EQUIP_LOUSA_DIGITAL_F", 60], ["Estadual", "IN_EQUIP_MULTIMIDIA_F", 98], ["Estadual", "IN_INTERNET_F", 99], ["Estadual", "IN_LABORATORIO_INFORMATICA_F", 92], ["Estadual", "IN_ALIMENTACAO_F", 100]
+        ["Rural", "IN_AREA_VERDE_F", "Sim", 27], ["Rural", "IN_AREA_VERDE_F", "Não", 73],
+        ["Rural", "IN_AUDITORIO_F", "Sim", 5], ["Rural", "IN_AUDITORIO_F", "Não", 95],
+        ["Rural", "IN_BANHEIRO_PNE_F", "Sim", 40],["Rural", "IN_BANHEIRO_PNE_F", "Não", 60],
+        ["Rural", "IN_BIBLIOTECA_SALA_LEITURA_F", "Sim", 25],["Rural", "IN_BIBLIOTECA_SALA_LEITURA_F", "Não", 75],
+        ["Rural", "IN_INTERNET_F", "Sim", 70],["Rural", "IN_INTERNET_F", "Não", 30],
+        ["Rural", "IN_ALIMENTACAO_F", "Sim", 90],["Rural", "IN_ALIMENTACAO_F", "Não", 10],
+
+        ["Urbana", "IN_AREA_VERDE_F", "Sim", 60], ["Urbana", "IN_AREA_VERDE_F", "Não", 40],
+        ["Urbana", "IN_AUDITORIO_F", "Sim", 30], ["Urbana", "IN_AUDITORIO_F", "Não", 70],
+        ["Urbana", "IN_BANHEIRO_PNE_F", "Sim", 75], ["Urbana", "IN_BANHEIRO_PNE_F", "Não", 25],
+        ["Urbana", "IN_BIBLIOTECA_SALA_LEITURA_F", "Sim", 85], ["Urbana", "IN_BIBLIOTECA_SALA_LEITURA_F", "Não", 15],
+        ["Urbana", "IN_INTERNET_F", "Sim", 95], ["Urbana", "IN_INTERNET_F", "Não", 5],
+        ["Urbana", "IN_ALIMENTACAO_F", "Sim", 98], ["Urbana", "IN_ALIMENTACAO_F", "Não", 2],
+
+        ["Estadual", "IN_AREA_VERDE_F", "Sim", 80], ["Estadual", "IN_AREA_VERDE_F", "Não", 20],
+        ["Estadual", "IN_AUDITORIO_F", "Sim", 70], ["Estadual", "IN_AUDITORIO_F", "Não", 30],
+        ["Estadual", "IN_BANHEIRO_PNE_F", "Sim", 85], ["Estadual", "IN_BANHEiro_PNE_F", "Não", 15],
+        ["Estadual", "IN_BIBLIOTECA_SALA_LEITURA_F", "Sim", 95], ["Estadual", "IN_BIBLIOTECA_SALA_LEITURA_F", "Não", 5],
+        ["Estadual", "IN_INTERNET_F", "Sim", 99], ["Estadual", "IN_INTERNET_F", "Não", 1],
+        ["Estadual", "IN_ALIMENTACAO_F", "Sim", 100], ["Estadual", "IN_ALIMENTACAO_F", "Não", 0],
     ],
     columns: [
         { name: "category", label: "Localização", type: "string" },
         { name: "metric", label: "Métrica", type: "string" },
+        { name: "answer", label: "Resposta", type: "string" },
         { name: "measure", label: "Valor", type: "number", usage: "quantitative"}
     ]
 };
@@ -111,6 +151,7 @@ const SAMPLE_MESSAGE = {
 
 /******************************************************* Declare variáveis *******************************************************/
 const SVG_ID = "radar";
+const POSITIVE_ANSWER = "Sim"; // Defina qual é a resposta positiva
 const OPACITY = { fill: { focus: 0.25, default: 0.1, unfocus: 0.05 }, stroke: { focus: 1, default: 1, unfocus: 0.3 }};
 const PALETTE = ["#004D40", "#4CAF50", "#AED581", "#689F38", "#CDDC39", "#8BC34A"];
 
@@ -122,13 +163,8 @@ let SVG, G_CHART_AREA, G_GRID, G_LEGEND, TIP;
 let vaMessageReceived = false;
 
 /*************************************************** Setup Callback Functions ***************************************************/
-
-// ** ADIÇÃO CRÍTICA: Listener para mensagens do SAS VA **
-// Esta função é o ponto de entrada principal quando o gráfico está dentro do SAS VA.
 window.addEventListener("message", onMessageReceived);
 
-// Fallback para testar fora do SAS VA.
-// Se nenhuma mensagem do VA for recebida após um curto período, usa os dados de exemplo.
 setTimeout(() => {
     if (!vaMessageReceived) {
         console.warn("Nenhuma mensagem do SAS VA foi recebida. Usando dados de exemplo para renderização.");
@@ -136,7 +172,6 @@ setTimeout(() => {
     }
 }, 500);
 
-// Função que processa a mensagem recebida do SAS VA
 function onMessageReceived(event) {
     if (event && event.data && event.data.resultName) {
         vaMessageReceived = true;
@@ -146,68 +181,61 @@ function onMessageReceived(event) {
 
 /****************************************************** Callback Functions ******************************************************/
 function onDataReceived(messageFromVA) {
-    // Validação para garantir que há dados para processar
     if (!messageFromVA || !messageFromVA.data || messageFromVA.data.length === 0) {
         console.error("Mensagem recebida do SAS VA está vazia ou mal formatada.");
-        // Opcional: mostrar uma mensagem de erro na tela
-        d3.select("body").html("<h1>Sem dados para exibir</h1><p>Verifique as atribuições de função de dados no SAS VA.</p>");
+        d3.select("body").html("<h1>Sem dados para exibir</h1><p>Verifique as atribuições de função de dados no SAS VA. A estrutura esperada é [Categoria, Métrica, Resposta, Valor].</p>");
         return;
     }
 
     VA_MESSAGE = messageFromVA;
     VA_RESULT_NAME = messageFromVA.resultName;
 
-    // Calcular totais por métrica para converter em porcentagem
-    const metricTotals = {};
-    
-    // Primeiro, calcular o total para cada métrica
-    VA_MESSAGE.data.forEach(row => {
-        const metric = row[1];
-        const value = row[2];
-        if (!metricTotals[metric]) {
-            metricTotals[metric] = 0;
-        }
-        metricTotals[metric] += value;
+    const groupedData = d3.nest()
+        .key(d => d[0])
+        .key(d => d[1])
+        .entries(VA_MESSAGE.data);
+
+    const processedDataWithPercentage = [];
+    groupedData.forEach(categoryGroup => {
+        categoryGroup.values.forEach(metricGroup => {
+            const total = d3.sum(metricGroup.values, d => d[3]);
+            const simEntry = metricGroup.values.find(d => d[2] === POSITIVE_ANSWER);
+            const simValue = simEntry ? simEntry[3] : 0;
+            const percentage = total > 0 ? (simValue / total) : 0;
+            
+            processedDataWithPercentage.push([
+                categoryGroup.key,
+                metricGroup.key,
+                percentage,
+                simValue
+            ]);
+        });
     });
 
-    // Converter dados para porcentagem
-    const processedData = VA_MESSAGE.data.map(row => {
-        const category = row[0];
-        const metric = row[1];
-        const value = row[2];
-        const percentage = metricTotals[metric] > 0 ? (value / metricTotals[metric]) : 0;
-        return [category, metric, percentage, value]; // Adiciona o valor original no final
-    });
-
-    const nestedData = d3.nest().key(d => d[1]).entries(processedData);
-    const numMeasures = nestedData.length;
-
+    const uniqueMetrics = [...new Set(processedDataWithPercentage.map(d => d[1]))];
+    const numMeasures = uniqueMetrics.length;
     const DELTA_ANGLE = (2 * Math.PI) / numMeasures;
 
-    // Define a escala global. Usar 0.001 como mínimo para escala logarítmica evita erros com 0.
-    const globalMin = 0.001; 
-    const globalMax = d3.max(processedData, d => d[2]) || 1;
-    
-    globalScale = d3.scaleLog().domain([globalMin, globalMax]).range([0, 1]).clamp(true);
+    globalScale = d3.scaleLinear().domain([0, 1]).range([0, 1]).clamp(true);
 
     METADATA = { category: VA_MESSAGE.columns[0].label, metrics: {} };
-    nestedData.forEach((metric, i) => {
-        METADATA.metrics[metric.key] = {
-            metric: metric.key,
+    uniqueMetrics.forEach((metric, i) => {
+        METADATA.metrics[metric] = {
+            metric: metric,
             angle: i * DELTA_ANGLE,
-            format: d3.format(".1%") // Formato padrão para porcentagem
+            format: d3.format(".1%")
         };
     });
-
-    const dataGroupedByCategory = d3.nest().key(d => d[0]).entries(processedData);
+    
+    const dataGroupedByCategory = d3.nest().key(d => d[0]).entries(processedDataWithPercentage);
     DATA = dataGroupedByCategory.map(categoryGroup => ({
         category: categoryGroup.key,
         id: "id-" + categoryGroup.key.replace(/[\W]/g, "_"),
         metrics: categoryGroup.values.map(d => ({
             metric: d[1],
-            measure: d[2], // Porcentagem
-            originalValue: d[3], // Valor original
-            scaledMeasure: d[2] > 0 ? globalScale(d[2]) : 0
+            measure: d[2],
+            originalValue: d[3],
+            scaledMeasure: globalScale(d[2])
         }))
     }));
 
@@ -224,7 +252,7 @@ function onDataReceived(messageFromVA) {
 function drawElements() {
     if (!DATA) return;
     
-    d3.select("body").select("svg").remove(); // Limpa SVG anterior se houver
+    d3.select("body").select("svg").remove();
     SVG = d3.select("body").append("svg").attr("id", SVG_ID).on("click", legendDeselectAll);
     G_LEGEND = SVG.append("g").classed("g-legend", true);
     G_CHART_AREA = SVG.append("g").classed("g-chart-area", true);
@@ -232,14 +260,12 @@ function drawElements() {
 
     TIP = d3.tip().attr("class", "d3-tip").offset([-8, 0])
       .html(d => `<table class='d3-tip-content'>
-                    <tr><td>${METADATA.category}:</td><td style='text-align:right; padding-left: 10px;'>${d.category}</td></tr>
-                    <tr><td>${d.metric.replace(/_/g, ' ')}:</td><td style='text-align:right; padding-left: 10px;'>${d.originalValue}</td></tr>
-                    <tr><td>Porcentagem:</td><td style='text-align:right; padding-left: 10px;'>${METADATA.metrics[d.metric].format(d.measure)}</td></tr>
+                    <tr><td style='padding-right: 15px;'>Parâmetro</td><td>${d.metric.replace(/_/g, ' ')}</td></tr>
+                    <tr><td style='padding-right: 15px;'>${d.category}</td><td>${METADATA.metrics[d.metric].format(d.measure)}</td></tr>
                   </table>`);
     SVG.call(TIP);
     
     updateElements();
-    // Adiciona listener de redimensionamento da janela
     d3.select(window).on('resize', updateElements);
 }
 
@@ -258,9 +284,7 @@ function updateElements() {
     const chartCenterY = chartAreaHeight / 2;
     
     const vizDiameter = Math.min(WIDTH, chartAreaHeight);
-    
-    const labelAreaRatio = 0.35; // Aumenta a área para os labels
-    
+    const labelAreaRatio = 0.35;
     RADIUS = (vizDiameter / 2) * (1 - labelAreaRatio);
     if (RADIUS < 10) RADIUS = 10;
     
@@ -317,27 +341,12 @@ function drawMeasureLabels(maxLabelWidth, baseFontSize) {
         let textAnchor;
         let textX;
         
-        if (angleDeg > 10 && angleDeg < 170) {
-            textAnchor = "start";
-            p3.x += calloutHorizontalLength;
-            textX = p3.x + (baseFontSize * 0.4);
-        } else if (angleDeg > 190 && angleDeg < 350) {
-            textAnchor = "end";
-            p3.x -= calloutHorizontalLength;
-            textX = p3.x - (baseFontSize * 0.4);
-        } else {
-            textAnchor = "middle";
-            textX = p3.x;
-        }
+        if (angleDeg > 10 && angleDeg < 170) { textAnchor = "start"; p3.x += calloutHorizontalLength; textX = p3.x + (baseFontSize * 0.4); } 
+        else if (angleDeg > 190 && angleDeg < 350) { textAnchor = "end"; p3.x -= calloutHorizontalLength; textX = p3.x - (baseFontSize * 0.4); } 
+        else { textAnchor = "middle"; textX = p3.x; }
 
-        group.select(".label-line")
-            .transition().duration(TRANS_TIME)
-            .attr("points", `${p1.x},${p1.y} ${p2.x},${p2.y} ${p3.x},${p2.y}`);
-
-        group.select(".measure-label")
-            .style("text-anchor", textAnchor)
-            .text(d.metric.replace(/_/g, ' '))
-            .call(wrapAndPosition, maxLabelWidth, baseFontSize, textX, p2.y);
+        group.select(".label-line").transition().duration(TRANS_TIME).attr("points", `${p1.x},${p1.y} ${p2.x},${p2.y} ${p3.x},${p2.y}`);
+        group.select(".measure-label").style("text-anchor", textAnchor).text(d.metric.replace(/_/g, ' ')).call(wrapAndPosition, maxLabelWidth, baseFontSize, textX, p2.y);
     });
 }
 
@@ -369,9 +378,10 @@ function drawDataPathsAndPoints() {
     points.exit().transition().duration(TRANS_TIME).attr("r", 0).remove();
     points.enter().append("circle").classed("data-point", true)
         .attr("r", 0)
-        // Correção para `d3.event`
-        .on("mouseover", function(d) { TIP.show(d, this); })
-        .on("mouseout", function(d) { TIP.hide(d, this); })
+        // ** CORREÇÃO DA TOOLTIP **
+        // A forma correta de chamar a tooltip com esta versão da biblioteca
+        .on("mouseover", TIP.show)
+        .on("mouseout", TIP.hide)
         .merge(points)
         .attr("fill", d => getStrokeColor(d.category))
         .transition().duration(TRANS_TIME)
@@ -383,29 +393,18 @@ function drawDataPathsAndPoints() {
 }
 
 /******************************************************* Helper Functions *******************************************************/
-
 function wrapAndPosition(texts, width, baseFontSize, x, y) {
     texts.each(function() {
-        var text = d3.select(this),
-            words = text.text().split(/\s+/).reverse(),
-            word,
-            line = [],
-            lineNumber = 0,
-            lineHeight = 1.1,
+        var text = d3.select(this), words = text.text().split(/\s+/).reverse(), word, line = [], lineNumber = 0, lineHeight = 1.1,
             tspan = text.text(null).append("tspan").attr("x", x).attr("dy", "0em");
-        
         while (word = words.pop()) {
             line.push(word);
             tspan.text(line.join(" "));
             if (tspan.node().getComputedTextLength() > width && line.length > 1) {
-                line.pop();
-                tspan.text(line.join(" "));
-                line = [word];
-                tspan = text.append("tspan").attr("x", x).attr("dy", lineHeight + "em").text(word);
-                lineNumber++;
+                line.pop(); tspan.text(line.join(" ")); line = [word];
+                tspan = text.append("tspan").attr("x", x).attr("dy", lineHeight + "em").text(word); lineNumber++;
             }
         }
-        
         const verticalShift = y - ((lineNumber * baseFontSize * lineHeight) / 2);
         text.attr("y", verticalShift);
     });
@@ -415,89 +414,49 @@ function calculateLegendLayout(baseFontSize) {
     if (!DATA) return { height: 0, data: [], elPos: [] };
     const legendData = DATA.map(d => ({ key: d.category, id: d.id }));
     const tempSvg = d3.select("body").append("svg").style("visibility", "hidden").style("position", "absolute");
-    
-    const rectWidth = baseFontSize;
-    const rectPad = baseFontSize * 0.4;
-    const textPad = baseFontSize * 0.8;
-    const rowPad = baseFontSize * 0.5;
-
-    const textWidths = legendData.map(d => {
-        return tempSvg.append("text").style("font-size", baseFontSize + "px").text(d.key).node().getComputedTextLength();
-    });
+    const rectWidth = baseFontSize, rectPad = baseFontSize * 0.4, textPad = baseFontSize * 0.8, rowPad = baseFontSize * 0.5;
+    const textWidths = legendData.map(d => tempSvg.append("text").style("font-size", baseFontSize + "px").text(d.key).node().getComputedTextLength());
     const textHeight = baseFontSize;
     tempSvg.remove();
-
-    const rows = [];
-    const rowSums = [];
-    let row = 0;
+    const rows = [], rowSums = []; let row = 0;
     for (let i = 0; i < textWidths.length; i++) {
-        let rowSum = textWidths[i] + rectWidth + rectPad + textPad;
-        rows.push(row);
+        let rowSum = textWidths[i] + rectWidth + rectPad + textPad; rows.push(row);
         while (i + 1 < textWidths.length && rowSum + textWidths[i + 1] + rectWidth + rectPad + textPad <= WIDTH) {
-            i++;
-            rowSum += textWidths[i] + rectWidth + rectPad + textPad;
-            rows.push(row);
+            i++; rowSum += textWidths[i] + rectWidth + rectPad + textPad; rows.push(row);
         }
-        rowSums.push(rowSum);
-        row++;
+        rowSums.push(rowSum); row++;
     }
-    
     const elPos = [];
     for (let i = 0; i < legendData.length; i++) {
-        const x = (i === 0 || rows[i-1] !== rows[i]) 
-            ? (WIDTH / 2) - (rowSums[rows[i]] / 2) 
-            : elPos[i-1].x + textWidths[i-1] + rectWidth + rectPad + textPad;
+        const x = (i === 0 || rows[i-1] !== rows[i]) ? (WIDTH / 2) - (rowSums[rows[i]] / 2) : elPos[i-1].x + textWidths[i-1] + rectWidth + rectPad + textPad;
         const y = rows[i] * (textHeight + rowPad);
         elPos.push({x, y});
     }
-
     const legendHeight = (elPos.length > 0 ? elPos[elPos.length-1].y + textHeight + rowPad : 0);
-
     return { data: legendData, elPos, height: legendHeight, rectWidth, rectPad, textPad };
 }
 
 function drawLegend(legendLayout) {
-    G_LEGEND.attr("transform", `translate(0, ${HEIGHT - legendLayout.height - 10})`); // Adiciona um pequeno padding
-
+    G_LEGEND.attr("transform", `translate(0, ${HEIGHT - legendLayout.height - 10})`);
     let entries = G_LEGEND.selectAll(".g-legend-entry").data(legendLayout.data, d => d.id);
     entries.exit().remove();
     const newEntries = entries.enter().append("g").classed("g-legend-entry", true);
-    
     newEntries.append("rect").classed("legend-rect", true);
     newEntries.append("text").classed("legend-text", true);
-    
     entries = newEntries.merge(entries)
-        // Correção para `d3.event`
         .on("click", (event, d) => legendSelect(event, d))
         .classed("selected", d => d.key === SELECTED_CATEGORY);
-
     entries.transition().duration(TRANS_TIME).attr("transform", (d, i) => `translate(${legendLayout.elPos[i].x}, ${legendLayout.elPos[i].y})`);
-    entries.select(".legend-rect").attr("width", legendLayout.rectWidth).attr("height", legendLayout.rectWidth)
-        .attr("stroke", d => getStrokeColor(d.key))
-        .attr("fill", d => getStrokeColor(d.key));
+    entries.select(".legend-rect").attr("width", legendLayout.rectWidth).attr("height", legendLayout.rectWidth).attr("stroke", d => getStrokeColor(d.key)).attr("fill", d => getStrokeColor(d.key));
     entries.select(".legend-text").attr("x", legendLayout.rectWidth + legendLayout.rectPad).attr("y", legendLayout.rectWidth / 2).text(d => d.key);
 }
 
-function getStrokeColor(category) {
-    return colorScale(category);
-}
-
-function getOpacity(category, opacitySet) {
-    return !SELECTED_CATEGORY ? opacitySet.default : (category === SELECTED_CATEGORY ? opacitySet.focus : opacitySet.unfocus);
-}
-
-function legendDeselectAll() {
-    SELECTED_CATEGORY = null;
-    updateElements();
-}
-
+function getStrokeColor(category) { return colorScale(category); }
+function getOpacity(category, opacitySet) { return !SELECTED_CATEGORY ? opacitySet.default : (category === SELECTED_CATEGORY ? opacitySet.focus : opacitySet.unfocus); }
+function legendDeselectAll() { SELECTED_CATEGORY = null; updateElements(); }
 function legendSelect(event, datum) {
-    // A seleção alternará: se clicar no já selecionado, deseleciona. Senão, seleciona o novo.
     SELECTED_CATEGORY = SELECTED_CATEGORY === datum.key ? null : datum.key;
-    if (event) {
-        // Impede que o clique na legenda se propague para o SVG (que deselecionaria tudo)
-        event.stopPropagation();
-    }
+    if (event) { event.stopPropagation(); }
     updateElements();
 }
 
