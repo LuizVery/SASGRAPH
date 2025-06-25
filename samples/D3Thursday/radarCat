@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<!--
+Copyright 2018 SAS Institute Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<html>
+<head>
+  <!-- Import D3.js -->
+  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.16.0/d3.min.js"></script>
+
+  <!-- Import d3-tip -->
+  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/d3-tip/0.9.1/d3-tip.min.js"></script>
+</head>
+<body>
+<style type="text/css">
+  html, body, svg {
+    overflow: hidden;
+    margin: 0px;
+    width: 100%;
+    height: 100%;
+  }
+  text {
+    font-family: Arial, Helvetica, sans-serif;
+  }
+  .legend-title {
+    font-weight: bold;
+    text-anchor: middle;
+    dominant-baseline: hanging;
+    font-size: 0.9em;
+  }
+  .legend-text {
+    dominant-baseline: central;
+    font-size: 1em;
+  }
+  .legend-rect {
+    stroke-width: 1;
+  }
+  .g-legend-entry {
+    cursor: pointer;
+  }
+  .g-legend-entry.selected .legend-text {
+    font-weight: bold;
+  }
+  .g-legend-entry.selected .legend-rect {
+    stroke-width: 2px;
+  }
+  .data-path {
+    pointer-events: none;
+    stroke-width: 2;
+  }
+  .measure-label {
+    text-transform: uppercase;
+  }
+  .label-line {
+      stroke: #777;
+      stroke-width: 1px;
+      fill: none;
+  }
+  .d3-tip {
+    pointer-events: none !important;
+    background: white;
+    position: relative;
+    border: 1px solid #C4C4C4;
+    border-radius: 2px;
+    font-family: 'Avenir Next', Arial, sans-serif;
+    font-size: 1.1em;
+    padding: 8px;
+  }
+</style>
+
+<script>
+"use strict";
+
+document.addEventListener("DOMContentLoaded", function() {
+  /******************************************************* Declare variables *******************************************************/
+  const SVG_ID = "radar";
+  const SAMPLE_MESSAGE = {
+    version: "1", resultName: "dd55", rowCount: 18, availableRowCount: 18,
+    data: [
+      // Dados em valores absolutos - serão convertidos para porcentagem
+      // Formato: [Categoria, Métrica, Valor] - sem necessidade de coluna de formato
+      ["Rural", "IN_AREA_VERDE_F", 30],["Rural", "IN_AUDITORIO_F", 5],["Rural", "IN_BANHEIRO_EI_F", 20],["Rural", "IN_BANHEIRO_PNE_F", 40],["Rural", "IN_BIBLIOTECA_SALA_LEITURA_F", 25],["Rural", "IN_EQUIP_LOUSA_DIGITAL_F", 10],["Rural", "IN_EQUIP_MULTIMIDIA_F", 60],["Rural", "IN_INTERNET_F", 70],["Rural", "IN_LABORATORIO_INFORMATICA_F", 50],["Rural", "IN_ALIMENTACAO_F", 90],
+      ["Urbana", "IN_AREA_VERDE_F", 60],["Urbana", "IN_AUDITORIO_F", 30],["Urbana", "IN_BANHEIRO_EI_F", 80],["Urbana", "IN_BANHEIRO_PNE_F", 75],["Urbana", "IN_BIBLIOTECA_SALA_LEITURA_F", 85],["Urbana", "IN_EQUIP_LOUSA_DIGITAL_F", 40],["Urbana", "IN_EQUIP_MULTIMIDIA_F", 90],["Urbana", "IN_INTERNET_F", 95],["Urbana", "IN_LABORATORIO_INFORMATICA_F", 90],["Urbana", "IN_ALIMENTACAO_F", 98],
+      ["Estadual", "IN_AREA_VERDE_F", 80],["Estadual", "IN_AUDITORIO_F", 70],["Estadual", "IN_BANHEIRO_EI_F", 90],["Estadual", "IN_BANHEIRO_PNE_F", 85],["Estadual", "IN_BIBLIOTECA_SALA_LEITURA_F", 95],["Estadual", "IN_EQUIP_LOUSA_DIGITAL_F", 60],["Estadual", "IN_EQUIP_MULTIMIDIA_F", 98],["Estadual", "IN_INTERNET_F", 99],["Estadual", "IN_LABORATORIO_INFORMATICA_F", 92],["Estadual", "IN_ALIMENTACAO_F", 100]
+    ],
+    columns: [
+      { name: "bi173", label: "Type", type: "string" },
+      { name: "bi174", label: "Metric", type: "string" },
+      { name: "bi175", label: "Measure", type: "number", usage: "quantitative"}
+    ]
+  };
+  const OPACITY = { fill: { focus: 0, default: 0, unfocus: 0 }, stroke: { focus: 1, default: 1, unfocus: 0.3 }};
+  const GREEN_PALETTE = ["#004D40", "#4CAF50", "#AED581", "#689F38", "#CDDC39"];
+  
+  let VA_MESSAGE, VA_RESULT_NAME, DATA, METADATA = [], OLD_METADATA, SELECTED_CATEGORY, globalScale, colorScale;
+  let LAST_TRANSITION_END = Date.now();
+  const TRANS_TIME = 500;
+  
+  let WIDTH, HEIGHT, RADIUS, OLD_RADIUS, DELTA_ANGLE;
+  let SVG, G_CHART_AREA, G_GRID, G_LEGEND, TIP = d3.tip();
+
+  /*************************************************** Setup Callback Functions ***************************************************/
+  onDataReceived(SAMPLE_MESSAGE);
+
+  /****************************************************** Callback Functions ******************************************************/
+  function onDataReceived(messageFromVA) {
+    VA_MESSAGE = messageFromVA;
+    VA_RESULT_NAME = messageFromVA.resultName;
+
+    // Calcular totais por métrica para converter em porcentagem
+    const metricTotals = {};
+    
+    // Primeiro, calcular o total para cada métrica
+    VA_MESSAGE.data.forEach(row => {
+      const metric = row[1];
+      const value = row[2];
+      
+      if (!metricTotals[metric]) {
+        metricTotals[metric] = 0;
+      }
+      metricTotals[metric] += value;
+    });
+
+    // Converter dados para porcentagem
+    const processedData = VA_MESSAGE.data.map(row => {
+      const category = row[0];
+      const metric = row[1];
+      const value = row[2];
+      
+      // Calcular porcentagem
+      const percentage = metricTotals[metric] > 0 ? value / metricTotals[metric] : 0;
+      
+      return [category, metric, percentage];
+    });
+
+    const nestedData = d3.nest().key(d => d[1]).entries(processedData);
+    const numMeasures = nestedData.length;
+
+    OLD_METADATA = METADATA;
+    DELTA_ANGLE = (2 * Math.PI) / numMeasures;
+
+    const globalMin = d3.min(processedData, d => (d[2] > 0 ? d[2] : null)) || 0.01;
+    const globalMax = d3.max(processedData, d => d[2]) || 1;
+    
+    globalScale = d3.scaleLog().domain([globalMin, globalMax * 1.05]).range([0, 1]).clamp(true);
+
+    METADATA = { category: VA_MESSAGE.columns[0].label, metrics: {} };
+    nestedData.forEach((metric, i) => {
+      METADATA.metrics[metric.key] = {
+        metric: metric.key,
+        angle: i * DELTA_ANGLE,
+        format: d3.format(".1%") // Formato padrão para porcentagem
+      };
+    });
+
+    const dataGroupedByCategory = d3.nest().key(d => d[0]).entries(processedData);
+    DATA = dataGroupedByCategory.map(categoryGroup => ({
+      category: categoryGroup.key,
+      id: "id-" + categoryGroup.key.replace(/[\W]/g, "_"),
+      metrics: categoryGroup.values.map(d => ({
+        metric: d[1],
+        measure: d[2],
+        originalValue: VA_MESSAGE.data.find(row => row[0] === d[0] && row[1] === d[1])[2], // Valor original
+        scaledMeasure: d[2] > 0 ? globalScale(d[2]) : 0
+      }))
+    }));
+
+    const categories = DATA.map(d => d.category);
+    colorScale = d3.scaleOrdinal(GREEN_PALETTE).domain(categories);
+    
+    if (!SVG) {
+      drawElements();
+    } else {
+      updateElements();
+    }
+  }
+
+  function drawElements() {
+    if (!DATA) return;
+    
+    SVG = d3.select("body").append("svg").attr("id", SVG_ID).on("click", legendDeselectAll);
+    G_LEGEND = SVG.append("g").classed("g-legend", true);
+    G_CHART_AREA = SVG.append("g").classed("g-chart-area", true);
+    G_GRID = G_CHART_AREA.append("g").classed("g-grid", true);
+
+    TIP = d3.tip().attr("class", "d3-tip").offset([-8, 0])
+      .html(d => `<table class='d3-tip-content'>
+                    <tr><td>${METADATA.category}:</td><td>${d.category}</td></tr>
+                    <tr><td>${d.metric}:</td><td>Valor: ${d.originalValue}</td></tr>
+                    <tr><td>Porcentagem:</td><td>${METADATA.metrics[d.metric].format(d.measure)}</td></tr>
+                  </table>`);
+    SVG.call(TIP);
+    
+    updateElements();
+  }
+
+  function updateElements() {
+    if (!DATA) return;
+
+    WIDTH = document.body.clientWidth;
+    HEIGHT = document.body.clientHeight;
+    const baseFontSize = Math.max(11, Math.min(16, WIDTH / 65, HEIGHT / 50));
+    SVG.style("font-size", baseFontSize + "px");
+
+    const legendLayout = calculateLegendLayout(baseFontSize);
+    drawLegend(legendLayout);
+
+    const chartAreaHeight = HEIGHT - legendLayout.height;
+    const chartCenterY = chartAreaHeight / 2;
+    
+    const vizDiameter = Math.min(WIDTH, chartAreaHeight);
+    
+    const labelAreaRatio = 0.35;
+    
+    OLD_RADIUS = RADIUS;
+    RADIUS = (vizDiameter / 2) * (1 - labelAreaRatio);
+    if (RADIUS < 10) RADIUS = 10;
+    
+    const maxLabelWidth = (vizDiameter / 2) * labelAreaRatio - (baseFontSize * 3); 
+
+    G_CHART_AREA.transition().duration(TRANS_TIME).attr("transform", `translate(${WIDTH / 2}, ${chartCenterY})`);
+    
+    drawGrid();
+    drawMeasureLabels(maxLabelWidth, baseFontSize);
+    drawDataPathsAndPoints();
+  }
+
+  function drawGrid() {
+      let gridLines = G_GRID.selectAll(".grid-line").data(Object.values(METADATA.metrics), d => d.metric);
+      gridLines.exit().transition().duration(TRANS_TIME).style("opacity", 0).remove();
+      gridLines.enter().append("line").classed("grid-line", true).attr("stroke", "#C4C4C4")
+        .merge(gridLines)
+        .transition().duration(TRANS_TIME)
+        .attr("x1", 0).attr("y1", 0)
+        .attr("x2", d => RADIUS * Math.sin(d.angle))
+        .attr("y2", d => -RADIUS * Math.cos(d.angle));
+        
+      const gridCircleData = [0.2, 0.4, 0.6, 0.8, 1.0];
+      let gridCircles = G_GRID.selectAll(".grid-circle").data(gridCircleData);
+      gridCircles.exit().transition().duration(TRANS_TIME).attr("r", 0).remove();
+      gridCircles.enter().append("circle").classed("grid-circle", true).attr("fill", "none").attr("stroke", "#E4E4E4").attr("r", 0)
+        .merge(gridCircles)
+        .transition().duration(TRANS_TIME)
+        .attr("r", d => d * RADIUS);
+  }
+  
+  function drawMeasureLabels(maxLabelWidth, baseFontSize) {
+      let labelGroups = G_CHART_AREA.selectAll(".label-group").data(Object.values(METADATA.metrics), d => d.metric);
+      labelGroups.exit().transition().duration(TRANS_TIME).style("opacity", 0).remove();
+      
+      const newLabelGroups = labelGroups.enter().append("g").classed("label-group", true);
+      newLabelGroups.append("polyline").classed("label-line", true);
+      newLabelGroups.append("text").classed("measure-label", true);
+
+      labelGroups = newLabelGroups.merge(labelGroups);
+
+      labelGroups.each(function(d) {
+          const group = d3.select(this);
+          const angle = d.angle;
+          const angleDeg = angle * 180 / Math.PI;
+
+          const calloutRadialLength = baseFontSize * 1.8;
+          const calloutHorizontalLength = baseFontSize * 1.8;
+
+          const p1 = { x: RADIUS * Math.sin(angle), y: -RADIUS * Math.cos(angle) };
+          const p2 = { x: (RADIUS + calloutRadialLength) * Math.sin(angle), y: -(RADIUS + calloutRadialLength) * Math.cos(angle) };
+          let p3 = { x: p2.x, y: p2.y };
+          
+          let textAnchor = "middle";
+          let textX;
+          
+          if (angleDeg > 10 && angleDeg < 170) {
+              textAnchor = "start";
+              p3.x += calloutHorizontalLength;
+              textX = p3.x + (baseFontSize * 0.4);
+          } else if (angleDeg > 190 && angleDeg < 350) {
+              textAnchor = "end";
+              p3.x -= calloutHorizontalLength;
+              textX = p3.x - (baseFontSize * 0.4);
+          } else { 
+              textAnchor = "middle";
+              textX = p3.x;
+          }
+
+          group.select(".label-line")
+              .transition().duration(TRANS_TIME)
+              .attr("points", `${p1.x},${p1.y} ${p2.x},${p2.y} ${p3.x},${p2.y}`);
+
+          const textLabel = group.select(".measure-label")
+              .style("text-anchor", textAnchor)
+              .text(d.metric.replace(/_/g, ' '))
+              .call(wrapAndPosition, maxLabelWidth, baseFontSize, textX, p2.y);
+      });
+  }
+
+  function drawDataPathsAndPoints() {
+      const line = d3.lineRadial()
+        .angle(d => METADATA.metrics[d.metric].angle)
+        .radius(d => d.scaledMeasure * RADIUS)
+        .curve(d3.curveLinearClosed);
+
+      let paths = G_CHART_AREA.selectAll(".data-path").data(DATA, d => d.id);
+      paths.exit().transition().duration(TRANS_TIME).style("opacity", 0).remove();
+      paths.enter().append("path").classed("data-path", true)
+        .attr("fill", "none")
+        .attr("stroke", d => getStrokeColor(d.category)).attr("stroke-width", 2)
+        .merge(paths)
+        .transition().duration(TRANS_TIME)
+        .attr("fill-opacity", d => getOpacity(d.category, OPACITY.fill))
+        .attr("stroke-opacity", d => getOpacity(d.category, OPACITY.stroke))
+        .attr("d", d => line(d.metrics));
+
+      let pointGroups = G_CHART_AREA.selectAll(".point-group").data(DATA, d => d.id);
+      pointGroups.exit().remove();
+      
+      const newPointGroups = pointGroups.enter().append("g").classed("point-group", true);
+      pointGroups = newPointGroups.merge(pointGroups);
+
+      let points = pointGroups.selectAll(".data-point").data(d => d.metrics.map(m => ({...m, category: d.category})));
+      points.exit().transition().duration(TRANS_TIME).attr("r", 0).remove();
+      points.enter().append("circle").classed("data-point", true)
+        .attr("r", 0)
+        .on("mouseover", d => { TIP.show(d, d3.event.target); })
+        .on("mouseout", TIP.hide)
+        .merge(points)
+        .attr("fill", d => getStrokeColor(d.category))
+        .transition().duration(TRANS_TIME)
+        .attr("r", 4)
+        .attr("fill-opacity", d => getOpacity(d.category, OPACITY.stroke))
+        .attr("cx", d => d.scaledMeasure * RADIUS * Math.sin(METADATA.metrics[d.metric].angle))
+        .attr("cy", d => -d.scaledMeasure * RADIUS * Math.cos(METADATA.metrics[d.metric].angle));
+  }
+  
+  /******************************************************* Helper Functions *******************************************************/
+
+  function wrapAndPosition(texts, width, baseFontSize, x, y) {
+    texts.each(function() {
+        var text = d3.select(this),
+            words = text.text().split(/\s+/).reverse(),
+            word,
+            line = [],
+            lineNumber = 0,
+            lineHeight = 1.1,
+            tspan = text.text(null).append("tspan").attr("x", x).attr("dy", "0em");
+        
+        while (word = words.pop()) {
+            line.push(word);
+            tspan.text(line.join(" "));
+            if (tspan.node().getComputedTextLength() > width && line.length > 1) {
+                line.pop();
+                tspan.text(line.join(" "));
+                line = [word];
+                tspan = text.append("tspan").attr("x", x).attr("dy", lineHeight + "em").text(word);
+                lineNumber++;
+            }
+        }
+        
+        const verticalShift = y - ((lineNumber * baseFontSize * lineHeight) / 2);
+        text.attr("y", verticalShift);
+    });
+  }
+
+  function calculateLegendLayout(baseFontSize) {
+      if (!DATA) return { height: 0, data: [], elPos: [] };
+      const legendData = DATA.map(d => ({ key: d.category, id: d.id }));
+      const tempSvg = d3.select("body").append("svg").style("visibility", "hidden").style("position", "absolute");
+      
+      const rectWidth = baseFontSize;
+      const rectPad = baseFontSize * 0.4;
+      const textPad = baseFontSize * 0.4;
+      const rowPad = baseFontSize * 0.25;
+
+      const textWidths = legendData.map(d => {
+        return tempSvg.append("text").style("font-size", baseFontSize + "px").text(d.key).node().getComputedTextLength();
+      });
+      const textHeight = baseFontSize;
+      tempSvg.remove();
+
+      const rows = [];
+      const rowSums = [];
+      let row = 0;
+      for (let i = 0; i < textWidths.length; i++) {
+        let rowSum = textWidths[i] + rectWidth + rectPad + textPad;
+        rows.push(row);
+        while (i + 1 < textWidths.length && rowSum + textWidths[i + 1] + rectWidth + rectPad + textPad <= WIDTH) {
+          i++;
+          rowSum += textWidths[i] + rectWidth + rectPad + textPad;
+          rows.push(row);
+        }
+        rowSums.push(rowSum);
+        row++;
+      }
+      
+      const elPos = [];
+      for (let i = 0; i < legendData.length; i++) {
+        const x = (i === 0 || rows[i-1] !== rows[i]) 
+            ? (WIDTH / 2) - (rowSums[rows[i]] / 2) 
+            : elPos[i-1].x + textWidths[i-1] + rectWidth + rectPad + textPad;
+        const y = rows[i] * (textHeight + rowPad);
+        elPos.push({x, y});
+      }
+
+      const legendHeight = (elPos.length > 0 ? elPos[elPos.length-1].y + textHeight + rowPad : 0);
+
+      return { data: legendData, elPos, height: legendHeight, rectWidth, rectPad, textPad };
+  }
+  
+  function drawLegend(legendLayout) {
+      G_LEGEND.attr("transform", `translate(0, ${HEIGHT - legendLayout.height})`);
+
+      let entries = G_LEGEND.selectAll(".g-legend-entry").data(legendLayout.data, d => d.id);
+      entries.exit().remove();
+      const newEntries = entries.enter().append("g").classed("g-legend-entry", true);
+      
+      newEntries.append("rect").classed("legend-rect", true);
+      newEntries.append("text").classed("legend-text", true);
+      
+      entries = newEntries.merge(entries)
+          .on("click", (d) => legendSelect(d))
+          .classed("selected", d => d.key === SELECTED_CATEGORY);
+
+      entries.transition().duration(TRANS_TIME).attr("transform", (d, i) => `translate(${legendLayout.elPos[i].x}, ${legendLayout.elPos[i].y})`);
+      entries.select(".legend-rect").attr("width", legendLayout.rectWidth).attr("height", legendLayout.rectWidth)
+        .attr("stroke", d => getStrokeColor(d.key))
+        .attr("fill", d => getStrokeColor(d.key));
+      entries.select(".legend-text").attr("x", legendLayout.rectWidth + legendLayout.rectPad).attr("y", legendLayout.rectWidth / 2).text(d => d.key);
+  }
+
+  function getStrokeColor(category) {
+      return colorScale(category);
+  }
+
+  function getOpacity(category, opacitySet) {
+    return !SELECTED_CATEGORY ? opacitySet.default : (category === SELECTED_CATEGORY ? opacitySet.focus : opacitySet.unfocus);
+  }
+
+  function translateFormat(formatString) {
+    if (!formatString) return d3.format(",.2f");
+    if (formatString.indexOf(".") == formatString.length - 1) formatString += 0;
+    if (formatString.includes("PERCENT")) return d3.format(".1%");
+    if (formatString.includes("DOLLAR")) return d3.format("$,.0f");
+    return d3.format(",.2f");
+  }
+
+  function legendDeselectAll() {
+    SELECTED_CATEGORY = null;
+    updateElements();
+  }
+
+  function legendSelect(datum) {
+    SELECTED_CATEGORY = SELECTED_CATEGORY === datum.key ? null : datum.key;
+    if (d3.event) {
+        d3.event.stopPropagation();
+    }
+    updateElements();
+  }
+  
+});
+</script>
+</body>
+</html>
