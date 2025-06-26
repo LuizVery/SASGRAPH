@@ -29,6 +29,7 @@
     width: 100%;
     border-collapse: collapse;
     font-size: 14px;
+    table-layout: fixed; /* Importante para que a medição de largura funcione corretamente */
   }
 
   th, td {
@@ -36,6 +37,7 @@
     text-align: left;
     vertical-align: middle;
     border-bottom: 1px solid #ddd;
+    word-wrap: break-word; /* Fallback para palavras muito longas */
   }
 
   thead th {
@@ -43,7 +45,6 @@
     background-color: #f2f2f2;
     border-right: 1px solid #ccc;
     text-align: center;
-    /* Adicionado para centralizar verticalmente o texto quebrado */
     vertical-align: middle; 
   }
   
@@ -51,7 +52,6 @@
     border-right: none;
   }
 
-  /* Célula da primeira coluna (Ano) */
   td.year-cell {
       font-weight: bold;
       text-align: center;
@@ -83,7 +83,7 @@
   }
 
   .bar-text {
-    position: relative; /* Para ficar acima da barra */
+    position: relative;
     padding-left: 5px;
     color: #333;
     font-weight: 500;
@@ -97,9 +97,8 @@
 "use strict";
 
 // ** INÍCIO DA SEÇÃO DE DADOS DE EXEMPLO **
-// Usado para testar o HTML fora do SAS VA.
 const SAMPLE_MESSAGE = {
-    version: "1", resultName: "d3Table", rowCount: 14,
+    version: "1", resultName: "d3Table",
     data: [
         [2010, "Federal", 0.98],
         [2010, "Estadual", 1.43],
@@ -109,14 +108,6 @@ const SAMPLE_MESSAGE = {
         [2011, "Estadual", 0.45],
         [2011, "Privada com fins", 0.55],
         [2011, "Privada sem fins", 0.41],
-        [2012, "Federal", 1.00],
-        [2012, "Estadual", 1.53],
-        [2012, "Privada com fins", 0.58],
-        [2012, "Privada sem fins", 0.74],
-        [2013, "Federal", 0.63],
-        [2013, "Estadual", 0.98],
-        [2013, "Privada com fins", 0.73],
-        [2013, "Privada sem fins", 0.71],
     ],
     columns: [
         { name: "year", label: "Ano", type: "number" },
@@ -129,10 +120,8 @@ const SAMPLE_MESSAGE = {
 let vaMessageReceived = false;
 
 /*************************************************** Setup Callback Functions ***************************************************/
-// Listener para receber dados do SAS Visual Analytics
 window.addEventListener("message", onMessageReceived);
 
-// Fallback para testar localmente com dados de exemplo
 setTimeout(() => {
     if (!vaMessageReceived) {
         console.warn("Nenhuma mensagem do SAS VA foi recebida. Usando dados de exemplo.");
@@ -154,7 +143,6 @@ function onDataReceived(message) {
         return;
     }
 
-    // Identifica os índices das colunas pelos seus rótulos
     const yearIndex = message.columns.findIndex(c => c.label === "Ano");
     const categoryIndex = message.columns.findIndex(c => c.label === "Categoria");
     const valueIndex = message.columns.findIndex(c => c.label === "Valor");
@@ -164,25 +152,29 @@ function onDataReceived(message) {
         return;
     }
     
-    // Processa os dados brutos para um formato aninhado, ideal para a tabela
+    // ** LÓGICA DE PROCESSAMENTO DE DADOS CORRIGIDA **
+    // 1. Mapeia os dados brutos para um formato de objeto limpo.
+    const cleanData = message.data.map(d => ({
+        year: d[yearIndex],
+        category: d[categoryIndex],
+        value: d[valueIndex]
+    }));
+
+    // 2. Agrupa os dados limpos por ano. Usar .entries() é mais robusto.
     const nestedData = d3.nest()
-        .key(d => d[yearIndex])
-        .object(message.data.map(d => ({
-            year: d[yearIndex],
-            category: d[categoryIndex],
-            value: d[valueIndex]
-        })));
-    
-    // Transforma o objeto aninhado num array de fácil utilização
-    const tableData = Object.keys(nestedData).map(year => {
-        const rowData = { year: year };
-        nestedData[year].forEach(item => {
+        .key(d => d.year)
+        .entries(cleanData);
+
+    // 3. Transforma os dados agrupados no formato final para a tabela.
+    const tableData = nestedData.map(group => { // group é um objeto { key: "2010", values: [...] }
+        const rowData = { year: group.key }; // A chave (key) é o ano.
+        group.values.forEach(item => {
             rowData[item.category] = item.value;
         });
         return rowData;
-    }).sort((a, b) => a.year - b.year); // Ordena por ano
+    }).sort((a, b) => a.year - b.year);
 
-    // Obtém uma lista única de todas as categorias para os cabeçalhos
+
     const categories = [...new Set(message.data.map(d => d[categoryIndex]))];
     
     drawTable(tableData, categories);
@@ -191,14 +183,12 @@ function onDataReceived(message) {
 
 // Função para desenhar a tabela
 function drawTable(data, categories) {
-    // Limpa o conteúdo anterior
     d3.select("#table-container").html("");
 
     const table = d3.select("#table-container").append("table");
     const thead = table.append("thead");
     const tbody = table.append("tbody");
 
-    // Cria os cabeçalhos da tabela
     const headers = ["Ano", ...categories];
     const headerRow = thead.append("tr")
         .selectAll("th")
@@ -207,31 +197,26 @@ function drawTable(data, categories) {
         .append("th")
         .text(d => d);
         
-    // A quebra de texto é chamada depois de um pequeno timeout
-    // para garantir que a tabela e os estilos CSS foram renderizados,
-    // permitindo uma medição de largura correta.
     setTimeout(() => {
         headerRow.each(function() {
             const th = d3.select(this);
-            const availableWidth = this.getBoundingClientRect().width - 16; // Subtrai o padding (8px de cada lado)
+            // clientWidth é a largura visível da célula.
+            const availableWidth = this.clientWidth - 16; // Subtrai o padding
             if (availableWidth > 0) {
                 wrapText(th, availableWidth);
             }
         });
     }, 100);
 
-    // Cria as linhas de dados da tabela
     const rows = tbody.selectAll("tr")
         .data(data)
         .enter()
         .append("tr");
 
-    // Adiciona a célula do ano
     rows.append("td")
         .attr("class", "year-cell")
         .text(d => d.year);
 
-    // Adiciona as células de dados com as barras
     categories.forEach(category => {
         rows.append("td")
             .attr("class", "data-cell")
@@ -255,70 +240,48 @@ function drawTable(data, categories) {
     });
 }
 
-// ** LÓGICA DE QUEBRA DE TEXTO CORRIGIDA PARA HTML **
-// Cria um SVG oculto, uma única vez, para medir o texto de forma eficiente.
+// Lógica de quebra de texto para HTML
 const measureSvg = d3.select("body").append("svg")
-    .style("position", "absolute")
-    .style("visibility", "hidden")
-    .attr("width", 0)
-    .attr("height", 0);
+    .style("position", "absolute").style("visibility", "hidden")
+    .attr("width", 0).attr("height", 0);
 const measureText = measureSvg.append("text");
 
 function wrapText(textElement, width) {
     const originalText = textElement.text();
-    const words = originalText.split(/\s+/);
+    const words = originalText.split(/\s+/).reverse();
     
-    // Limpa o texto original para reconstruí-lo
-    textElement.text(null);
-    
-    // Copia o estilo da fonte do elemento da tabela para o medidor SVG
+    if (words.length <= 1) return;
+
     const computedStyle = window.getComputedStyle(textElement.node());
     measureText
         .style('font-size', computedStyle.fontSize)
         .style('font-family', computedStyle.fontFamily)
         .style('font-weight', computedStyle.fontWeight);
 
-    let line = '';
-    let lineCount = 0;
+    let word;
+    let line = [];
+    let lines = [];
 
-    for (let i = 0; i < words.length; i++) {
-        const testLine = line + (line ? ' ' : '') + words[i];
-        measureText.text(testLine);
-        const textWidth = measureText.node().getComputedTextLength();
-
-        if (textWidth > width && i > 0) {
-            textElement.append('tspan')
-                .attr('x', 0)
-                .attr('dy', (lineCount > 0 ? '1.1em' : '0'))
-                .text(line);
-            line = words[i];
-            lineCount++;
-        } else {
-            line = testLine;
+    while (word = words.pop()) {
+        line.push(word);
+        measureText.text(line.join(" "));
+        if (measureText.node().getComputedTextLength() > width && line.length > 1) {
+            line.pop();
+            lines.push(line.join(" "));
+            line = [word];
         }
     }
+    lines.push(line.join(" "));
     
-    textElement.append('tspan')
-        .attr('x', 0)
-        .attr('dy', (lineCount > 0 ? '1.1em' : '0'))
-        .text(line);
-    
-    // Para que o texto quebrado fique centralizado verticalmente na célula
-    const textHeight = textElement.node().getBoundingClientRect().height;
-    const cellHeight = textElement.node().parentNode.getBoundingClientRect().height;
-    if(cellHeight > textHeight) {
-       textElement.style('transform', `translateY(${(cellHeight - textHeight) / 2}px)`);
-    }
+    textElement.html(lines.join("<br>"));
 }
 
-// Redesenha a tabela quando a janela é redimensionada para aplicar a quebra de texto
 window.addEventListener('resize', () => {
     if (window.SAS_LAST_MESSAGE) {
         onDataReceived(window.SAS_LAST_MESSAGE);
     }
 });
 
-// Guarda a última mensagem para poder ser usada no redimensionamento
 window.addEventListener("message", (event) => {
     if (event && event.data && event.data.resultName) {
         window.SAS_LAST_MESSAGE = event.data;
