@@ -20,6 +20,8 @@ Arquivo modificado para:
 2. Identificar colunas de categoria (flags) como qualquer coluna de texto
    adicional, além das três colunas de função obrigatórias.
 3. Adicionar uma mensagem de erro de verificação mais clara.
+4. Melhorar o destaque visual ao selecionar um item na legenda.
+5. Corrigir o erro "event.stopPropagation is not a function".
 ------------------------------------------------------------------
 -->
 <html>
@@ -67,7 +69,6 @@ Arquivo modificado para:
   }
   .data-path {
     pointer-events: none;
-    stroke-width: 2px;
   }
   .measure-label {
     text-transform: uppercase;
@@ -134,7 +135,7 @@ const SAMPLE_MESSAGE = {
 /******************************************************* Declare variáveis *******************************************************/
 const SVG_ID = "radar";
 const POSITIVE_ANSWER = "Sim";
-const OPACITY = { fill: { focus: 0.3, default: 0.1, unfocus: 0.05 }, stroke: { focus: 1, default: 1, unfocus: 0.2 }};
+const OPACITY = { fill: { focus: 0.25, default: 0.1, unfocus: 0 }, stroke: { focus: 1, default: 1, unfocus: 0.15 }};
 const PALETTE = ["#004D40", "#4CAF50", "#AED581", "#689F38", "#CDDC39", "#8BC34A", "#F9A825", "#FFC107"];
 
 let DATA, METADATA = [], SELECTED_CATEGORY, globalScale, colorScale;
@@ -188,7 +189,6 @@ function onDataReceived(messageFromVA) {
     });
 
     if (colIndices.metric === -1 || colIndices.answer === -1 || colIndices.value === -1 || colIndices.flagCategories.length === 0) {
-        // ** MENSAGEM DE ERRO ATUALIZADA PARA VERIFICAÇÃO **
         d3.select("body").html(`<h1>Erro de Configuração (Versão Corrigida)</h1><p>Verifique as Funções de Dados:</p><ul><li>Uma coluna com o rótulo '${METRIC_COL_LABEL}'</li><li>Uma coluna com o rótulo '${ANSWER_COL_LABEL}'</li><li>Uma coluna com o rótulo '${VALUE_COL_LABEL}'</li><li>Pelo menos uma coluna de texto adicional para as categorias (ex: Anos Iniciais, Ensino Médio, etc.)</li></ul><p><b>Se este erro persistir, o ficheiro HTML pode não ter sido atualizado corretamente no SAS.</b></p>`);
         return;
     }
@@ -373,7 +373,7 @@ function drawDataPathsAndPoints() {
         .angle(d => METADATA.metrics[d.metric].angle)
         .radius(d => d.scaledMeasure * RADIUS)
         .curve(d3.curveLinearClosed)
-        .defined(d => METADATA.metrics[d.metric] != null); // Não desenha linha para pontos em falta
+        .defined(d => METADATA.metrics[d.metric] != null);
 
     let paths = G_CHART_AREA.selectAll(".data-path").data(DATA, d => d.id);
     paths.exit().transition().duration(TRANS_TIME).style("opacity", 0).remove();
@@ -382,7 +382,7 @@ function drawDataPathsAndPoints() {
         .transition().duration(TRANS_TIME)
         .attr("fill", d => getStrokeColor(d.category))
         .attr("stroke", d => getStrokeColor(d.category))
-        .attr("stroke-width", 2)
+        .attr("stroke-width", d => !SELECTED_CATEGORY ? 2 : (d.category === SELECTED_CATEGORY ? 3.5 : 1.5))
         .attr("fill-opacity", d => getOpacity(d.category, OPACITY.fill))
         .attr("stroke-opacity", d => getOpacity(d.category, OPACITY.stroke))
         .attr("d", d => line(d.metrics));
@@ -402,7 +402,7 @@ function drawDataPathsAndPoints() {
         .merge(points)
         .attr("fill", d => getStrokeColor(d.category))
         .transition().duration(TRANS_TIME)
-        .attr("r", 4.5)
+        .attr("r", d => !SELECTED_CATEGORY ? 4.5 : (d.category === SELECTED_CATEGORY ? 5.5 : 3))
         .style("cursor", "pointer")
         .attr("fill-opacity", d => getOpacity(d.category, OPACITY.stroke))
         .attr("cx", d => d.scaledMeasure * RADIUS * Math.sin(METADATA.metrics[d.metric].angle))
@@ -458,7 +458,10 @@ function drawLegend(legendLayout) {
     newEntries.append("rect").classed("legend-rect", true);
     newEntries.append("text").classed("legend-text", true);
     entries = newEntries.merge(entries)
-        .on("click", (event, d) => legendSelect(event, d))
+        // ** CORREÇÃO DO EVENTO DE CLIQUE **
+        .on("click", function(d) {
+             legendSelect(d, d3.event);
+        })
         .classed("selected", d => d.key === SELECTED_CATEGORY);
     entries.transition().duration(TRANS_TIME).attr("transform", (d, i) => `translate(${legendLayout.elPos[i].x}, ${legendLayout.elPos[i].y})`);
     entries.select(".legend-rect").attr("width", legendLayout.rectWidth).attr("height", legendLayout.rectWidth).attr("stroke", d => getStrokeColor(d.key)).attr("fill", d => getStrokeColor(d.key));
@@ -468,9 +471,13 @@ function drawLegend(legendLayout) {
 function getStrokeColor(category) { return colorScale(category); }
 function getOpacity(category, opacitySet) { return !SELECTED_CATEGORY ? opacitySet.default : (category === SELECTED_CATEGORY ? opacitySet.focus : opacitySet.unfocus); }
 function legendDeselectAll() { SELECTED_CATEGORY = null; updateElements(); }
-function legendSelect(event, datum) {
+
+// ** CORREÇÃO DO EVENTO DE CLIQUE **
+function legendSelect(datum, event) {
     SELECTED_CATEGORY = SELECTED_CATEGORY === datum.key ? null : datum.key;
-    if (event) { event.stopPropagation(); }
+    if (event) {
+        event.stopPropagation();
+    }
     updateElements();
 }
 
