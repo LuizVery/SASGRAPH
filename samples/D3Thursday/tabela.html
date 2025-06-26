@@ -205,7 +205,7 @@ function drawTable(data, categories) {
         .data(headers)
         .enter()
         .append("th")
-        .text(d => d)
+        .text(d => d);
         
     // A quebra de texto é chamada depois de um pequeno timeout
     // para garantir que a tabela e os estilos CSS foram renderizados,
@@ -259,38 +259,56 @@ function drawTable(data, categories) {
 // Cria um SVG oculto, uma única vez, para medir o texto de forma eficiente.
 const measureSvg = d3.select("body").append("svg")
     .style("position", "absolute")
-    .style("top", "-9999px")
-    .style("left", "-9999px")
-    .style("visibility", "hidden");
+    .style("visibility", "hidden")
+    .attr("width", 0)
+    .attr("height", 0);
 const measureText = measureSvg.append("text");
 
 function wrapText(textElement, width) {
     const originalText = textElement.text();
-    const words = originalText.split(/\s+/).reverse();
+    const words = originalText.split(/\s+/);
     
-    if (words.length <= 1) return; // Não faz nada se houver uma ou nenhuma palavra
-
-    let word;
-    let line = [];
-    let finalHtml = "";
-
+    // Limpa o texto original para reconstruí-lo
+    textElement.text(null);
+    
     // Copia o estilo da fonte do elemento da tabela para o medidor SVG
-    measureText.style("font", window.getComputedStyle(textElement.node()).font);
+    const computedStyle = window.getComputedStyle(textElement.node());
+    measureText
+        .style('font-size', computedStyle.fontSize)
+        .style('font-family', computedStyle.fontFamily)
+        .style('font-weight', computedStyle.fontWeight);
 
-    while (word = words.pop()) {
-        line.push(word);
-        measureText.text(line.join(" "));
-        // Se o texto medido no SVG for maior que a largura disponível
-        if (measureText.node().getComputedTextLength() > width && line.length > 1) {
-            line.pop();
-            finalHtml += line.join(" ") + "<br>";
-            line = [word];
+    let line = '';
+    let lineCount = 0;
+
+    for (let i = 0; i < words.length; i++) {
+        const testLine = line + (line ? ' ' : '') + words[i];
+        measureText.text(testLine);
+        const textWidth = measureText.node().getComputedTextLength();
+
+        if (textWidth > width && i > 0) {
+            textElement.append('tspan')
+                .attr('x', 0)
+                .attr('dy', (lineCount > 0 ? '1.1em' : '0'))
+                .text(line);
+            line = words[i];
+            lineCount++;
+        } else {
+            line = testLine;
         }
     }
-    finalHtml += line.join(" ");
-
-    // Atualiza o HTML da célula do cabeçalho com o texto quebrado
-    textElement.html(finalHtml);
+    
+    textElement.append('tspan')
+        .attr('x', 0)
+        .attr('dy', (lineCount > 0 ? '1.1em' : '0'))
+        .text(line);
+    
+    // Para que o texto quebrado fique centralizado verticalmente na célula
+    const textHeight = textElement.node().getBoundingClientRect().height;
+    const cellHeight = textElement.node().parentNode.getBoundingClientRect().height;
+    if(cellHeight > textHeight) {
+       textElement.style('transform', `translateY(${(cellHeight - textHeight) / 2}px)`);
+    }
 }
 
 // Redesenha a tabela quando a janela é redimensionada para aplicar a quebra de texto
