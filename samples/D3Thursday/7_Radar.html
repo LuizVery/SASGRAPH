@@ -16,8 +16,9 @@ limitations under the License.
 
 ------------------------------------------------------------------
 Arquivo modificado para:
-1. Corrigir a lógica de processamento de dados para a estrutura de "flags".
-2. Agregar os dados corretamente antes de calcular a percentagem.
+1. Remover a regra de nome de coluna "IN_".
+2. Identificar colunas de categoria (flags) como qualquer coluna de texto
+   adicional, além das três colunas de função obrigatórias.
 ------------------------------------------------------------------
 -->
 <html>
@@ -122,8 +123,8 @@ const SAMPLE_MESSAGE = {
         { name: "METRICA_VAR", label: "Métrica", type: "string" },
         { name: "RESPOSTA_VAR", label: "Resposta", type: "string" },
         { name: "VALOR_VAR", label: "Valor", type: "number", usage: "quantitative"},
-        { name: "IN_FUND_AI_F", label: "Anos Iniciais", type: "string" },
-        { name: "IN_MED_F", label: "Ensino Médio", type: "string" }
+        { name: "ANOS_INICIAIS_FLAG", label: "Anos Iniciais", type: "string" },
+        { name: "ENSINO_MEDIO_FLAG", label: "Ensino Médio", type: "string" }
     ]
 };
 // ** FIM DA SEÇÃO DE DADOS DE EXEMPLO **
@@ -172,47 +173,44 @@ function onDataReceived(messageFromVA) {
 
     let colIndices = { flagCategories: [], metric: -1, answer: -1, value: -1 };
     
+    // ** LÓGICA DE IDENTIFICAÇÃO DE COLUNAS CORRIGIDA **
     messageFromVA.columns.forEach((col, i) => {
-        if (col.label === METRIC_COL_LABEL) colIndices.metric = i;
-        else if (col.label === ANSWER_COL_LABEL) colIndices.answer = i;
-        else if (col.label === VALUE_COL_LABEL) colIndices.value = i;
-        else if (col.name.startsWith("IN_")) {
+        // Identifica colunas de função pelo rótulo
+        if (col.label === METRIC_COL_LABEL) {
+            colIndices.metric = i;
+        } else if (col.label === ANSWER_COL_LABEL) {
+            colIndices.answer = i;
+        } else if (col.label === VALUE_COL_LABEL) {
+            colIndices.value = i;
+        } 
+        // Qualquer outra coluna de texto é considerada uma flag de categoria
+        else if (col.type === 'string') {
             colIndices.flagCategories.push(i);
         }
     });
 
     if (colIndices.metric === -1 || colIndices.answer === -1 || colIndices.value === -1 || colIndices.flagCategories.length === 0) {
-        d3.select("body").html(`<h1>Erro de configuração</h1><p>Certifique-se de que as colunas corretas estão atribuídas:</p><ul><li>Uma coluna com o rótulo '${METRIC_COL_LABEL}'</li><li>Uma coluna com o rótulo '${ANSWER_COL_LABEL}'</li><li>Uma coluna com o rótulo '${VALUE_COL_LABEL}'</li><li>Pelo menos uma coluna de categoria cujo nome comece com 'IN_'</li></ul>`);
+        d3.select("body").html(`<h1>Erro de configuração</h1><p>Certifique-se de que as colunas corretas estão atribuídas:</p><ul><li>Uma coluna com o rótulo '${METRIC_COL_LABEL}'</li><li>Uma coluna com o rótulo '${ANSWER_COL_LABEL}'</li><li>Uma coluna com o rótulo '${VALUE_COL_LABEL}'</li><li>Pelo menos uma coluna de categoria/flag adicional</li></ul>`);
         return;
     }
-
-    // ** LÓGICA DE PROCESSAMENTO DE DADOS CORRIGIDA **
-
-    // 1. Inicializa um objeto para armazenar os dados agregados para cada flag.
+    
     const processedResults = {};
     colIndices.flagCategories.forEach(flagIndex => {
         const flagLabel = messageFromVA.columns[flagIndex].label;
-        processedResults[flagLabel] = {}; // Cada flag terá um objeto para suas métricas.
+        processedResults[flagLabel] = {};
     });
 
-    // 2. Itera sobre os dados brutos UMA VEZ para agregar os valores.
     messageFromVA.data.forEach(row => {
         const metricName = row[colIndices.metric];
         const answer = row[colIndices.answer];
         const value = row[colIndices.value];
 
-        // Para cada linha, verifica a qual categoria (flag) ela pertence.
         colIndices.flagCategories.forEach(flagIndex => {
-            // Se o valor na coluna da flag for "Sim", processa esta linha para essa categoria.
             if (row[flagIndex] === POSITIVE_ANSWER) {
                 const flagLabel = messageFromVA.columns[flagIndex].label;
-
-                // Inicializa o objeto para esta métrica se for a primeira vez.
                 if (!processedResults[flagLabel][metricName]) {
                     processedResults[flagLabel][metricName] = { simValue: 0, totalValue: 0 };
                 }
-
-                // Agrega os valores.
                 processedResults[flagLabel][metricName].totalValue += value;
                 if (answer === POSITIVE_ANSWER) {
                     processedResults[flagLabel][metricName].simValue += value;
@@ -221,7 +219,6 @@ function onDataReceived(messageFromVA) {
         });
     });
 
-    // 3. Formata os resultados agregados no formato final que o D3 espera.
     const finalProcessedData = [];
     for (const flagLabel in processedResults) {
         const categoryData = {
@@ -233,11 +230,10 @@ function onDataReceived(messageFromVA) {
         for (const metricName in processedResults[flagLabel]) {
             const metricData = processedResults[flagLabel][metricName];
             const percentage = metricData.totalValue > 0 ? (metricData.simValue / metricData.totalValue) : 0;
-
             categoryData.metrics.push({
                 metric: metricName,
-                measure: percentage, // A percentagem calculada
-                originalValue: metricData.simValue, // O valor absoluto de "Sim"
+                measure: percentage,
+                originalValue: metricData.simValue,
             });
         }
         
@@ -247,7 +243,6 @@ function onDataReceived(messageFromVA) {
     }
 
     DATA = finalProcessedData;
-
     const allMetricsInData = [...new Set(DATA.flatMap(d => d.metrics.map(m => m.metric)))];
     const numMeasures = allMetricsInData.length;
 
@@ -483,3 +478,4 @@ function legendSelect(event, datum) {
 </script>
 </body>
 </html>
+
