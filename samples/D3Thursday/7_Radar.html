@@ -16,9 +16,9 @@ limitations under the License.
 
 ------------------------------------------------------------------
 Arquivo modificado para:
-1. Suportar múltiplas colunas de categoria dinamicamente.
-2. Melhorar o destaque visual ao selecionar uma categoria na legenda.
-3. Identificar colunas pelos rótulos, não pela posição.
+1. Suportar colunas de categoria que funcionam como "flags" (Sim/Não).
+2. Processar os dados de acordo com a lógica de flags.
+3. Identificar colunas pelos rótulos para maior flexibilidade.
 ------------------------------------------------------------------
 -->
 <html>
@@ -66,6 +66,7 @@ Arquivo modificado para:
   }
   .data-path {
     pointer-events: none;
+    stroke-width: 2px;
   }
   .measure-label {
     text-transform: uppercase;
@@ -106,24 +107,26 @@ d3.formatDefaultLocale(ptBR);
 
 
 // ** INÍCIO DA SEÇÃO DE DADOS DE EXEMPLO **
-// ATENÇÃO: A estrutura de dados agora suporta múltiplas colunas de categoria.
-// Os rótulos das colunas são importantes para a identificação.
+// ATENÇÃO: A estrutura de dados foi alterada para refletir a lógica de "flags".
 const SAMPLE_MESSAGE = {
-    version: "1", resultName: "dd55", rowCount: 60, availableRowCount: 60,
+    version: "1", resultName: "dd55", rowCount: 8, availableRowCount: 8,
     data: [
-        ["Rural", "Pública", "IN_AREA_VERDE_F", "Sim", 27], ["Rural", "Pública", "IN_AREA_VERDE_F", "Não", 73],
-        ["Rural", "Pública", "IN_INTERNET_F", "Sim", 70],["Rural", "Pública", "IN_INTERNET_F", "Não", 30],
-        ["Urbana", "Pública", "IN_AREA_VERDE_F", "Sim", 60], ["Urbana", "Pública", "IN_AREA_VERDE_F", "Não", 40],
-        ["Urbana", "Pública", "IN_INTERNET_F", "Sim", 95], ["Urbana", "Pública", "IN_INTERNET_F", "Não", 5],
-        ["Urbana", "Privada", "IN_AREA_VERDE_F", "Sim", 80], ["Urbana", "Privada", "IN_AREA_VERDE_F", "Não", 20],
-        ["Urbana", "Privada", "IN_INTERNET_F", "Sim", 99], ["Urbana", "Privada", "IN_INTERNET_F", "Não", 1],
+        // Métrica, Resposta, Valor, Flag Rural, Flag Urbana
+        ["IN_INTERNET_F", "Sim", 700, "Sim", "Não"],
+        ["IN_INTERNET_F", "Não", 300, "Sim", "Não"],
+        ["IN_INTERNET_F", "Sim", 9500, "Não", "Sim"],
+        ["IN_INTERNET_F", "Não", 500, "Não", "Sim"],
+        ["IN_BIBLIOTECA_F", "Sim", 250, "Sim", "Não"],
+        ["IN_BIBLIOTECA_F", "Não", 750, "Sim", "Não"],
+        ["IN_BIBLIOTECA_F", "Sim", 8500, "Não", "Sim"],
+        ["IN_BIBLIOTECA_F", "Não", 1500, "Não", "Sim"],
     ],
     columns: [
-        { name: "location", label: "Localização", type: "string" },
-        { name: "dependency", label: "Dependência", type: "string" },
         { name: "metric", label: "Métrica", type: "string" },
         { name: "answer", label: "Resposta", type: "string" },
-        { name: "measure", label: "Valor", type: "number", usage: "quantitative"}
+        { name: "measure", label: "Valor", type: "number", usage: "quantitative"},
+        { name: "is_rural", label: "É Rural", type: "string" },
+        { name: "is_urban", label: "É Urbana", type: "string" }
     ]
 };
 // ** FIM DA SEÇÃO DE DADOS DE EXEMPLO **
@@ -161,78 +164,90 @@ function onMessageReceived(event) {
 
 /****************************************************** Callback Functions ******************************************************/
 function onDataReceived(messageFromVA) {
-    if (!messageFromVA || !messageFromVA.data || messageFromVA.data.length === 0) {
-        console.error("Mensagem recebida do SAS VA está vazia ou mal formatada.");
-        d3.select("body").html("<h1>Sem dados para exibir</h1><p>Verifique as atribuições de função de dados no SAS VA.</p>");
+    if (!messageFromVA || !messageFromVA.data || !messageFromVA.data.length === 0) {
+        d3.select("body").html("<h1>Sem dados para exibir</h1>");
         return;
     }
 
-    // ** LÓGICA DE IDENTIFICAÇÃO DE COLUNAS DINÂMICA **
     const METRIC_COL_LABEL = "Métrica";
     const ANSWER_COL_LABEL = "Resposta";
     const VALUE_COL_LABEL = "Valor";
 
-    let colIndices = { categories: [], metric: -1, answer: -1, value: -1 };
-    let categoryColumnLabels = [];
-
+    let colIndices = { flagCategories: [], metric: -1, answer: -1, value: -1 };
+    
     messageFromVA.columns.forEach((col, i) => {
         if (col.label === METRIC_COL_LABEL) colIndices.metric = i;
         else if (col.label === ANSWER_COL_LABEL) colIndices.answer = i;
         else if (col.label === VALUE_COL_LABEL) colIndices.value = i;
-        else {
-            colIndices.categories.push(i);
-            categoryColumnLabels.push(col.label);
+        else if (col.type === 'string') { // Considera outras colunas de texto como flags
+            colIndices.flagCategories.push(i);
         }
     });
 
-    if (colIndices.metric === -1 || colIndices.answer === -1 || colIndices.value === -1 || colIndices.categories.length === 0) {
-        d3.select("body").html(`<h1>Erro de configuração</h1><p>Certifique-se de que as colunas com os rótulos '${METRIC_COL_LABEL}', '${ANSWER_COL_LABEL}', '${VALUE_COL_LABEL}' e pelo menos uma coluna de categoria estão atribuídas.</p>`);
+    if (colIndices.metric === -1 || colIndices.answer === -1 || colIndices.value === -1 || colIndices.flagCategories.length === 0) {
+        d3.select("body").html(`<h1>Erro de configuração</h1><p>Certifique-se de que as colunas com os rótulos '${METRIC_COL_LABEL}', '${ANSWER_COL_LABEL}', '${VALUE_COL_LABEL}' e pelo menos uma coluna de categoria (flag) estão atribuídas.</p>`);
         return;
     }
 
-    const getCategoryKey = (row) => colIndices.categories.map(i => row[i]).filter(Boolean).join(' - ');
+    const allUniqueMetrics = [...new Set(messageFromVA.data.map(row => row[colIndices.metric]))];
+    const finalProcessedData = [];
 
-    const groupedData = d3.nest()
-        .key(getCategoryKey)
-        .key(d => d[colIndices.metric])
-        .entries(messageFromVA.data);
+    colIndices.flagCategories.forEach(flagIndex => {
+        const flagName = messageFromVA.columns[flagIndex].label;
 
-    const processedDataWithPercentage = [];
-    groupedData.forEach(categoryGroup => {
-        categoryGroup.values.forEach(metricGroup => {
-            const total = d3.sum(metricGroup.values, d => d[colIndices.value]);
-            const simEntry = metricGroup.values.find(d => d[colIndices.answer] === POSITIVE_ANSWER);
-            const simValue = simEntry ? simEntry[colIndices.value] : 0;
-            const percentage = total > 0 ? (simValue / total) : 0;
-            
-            processedDataWithPercentage.push([
-                categoryGroup.key, metricGroup.key, percentage, simValue
-            ]);
+        const categoryData = {
+            category: flagName,
+            id: "id-" + flagName.replace(/[\W]/g, "_"),
+            metrics: []
+        };
+
+        allUniqueMetrics.forEach(metricName => {
+            const relevantRows = messageFromVA.data.filter(row =>
+                row[flagIndex] === POSITIVE_ANSWER && row[colIndices.metric] === metricName
+            );
+
+            if (relevantRows.length > 0) {
+                const totalValue = d3.sum(relevantRows, d => d[colIndices.value]);
+                const simValue = d3.sum(
+                    relevantRows.filter(d => d[colIndices.answer] === POSITIVE_ANSWER),
+                    d => d[colIndices.value]
+                );
+
+                const percentage = totalValue > 0 ? (simValue / totalValue) : 0;
+
+                categoryData.metrics.push({
+                    metric: metricName,
+                    measure: percentage,
+                    originalValue: simValue,
+                });
+            }
         });
+
+        if (categoryData.metrics.length > 0) {
+            finalProcessedData.push(categoryData);
+        }
     });
 
-    const uniqueMetrics = [...new Set(processedDataWithPercentage.map(d => d[1]))];
-    const numMeasures = uniqueMetrics.length;
+    DATA = finalProcessedData;
+    const allMetricsInData = [...new Set(DATA.flatMap(d => d.metrics.map(m => m.metric)))];
+    const numMeasures = allMetricsInData.length;
     const DELTA_ANGLE = (2 * Math.PI) / numMeasures;
 
     globalScale = d3.scaleLinear().domain([0, 1]).range([0, 1]).clamp(true);
 
-    METADATA = { category: categoryColumnLabels.join(' / '), metrics: {} };
-    uniqueMetrics.forEach((metric, i) => {
+    DATA.forEach(cat => {
+        cat.metrics.forEach(m => {
+            m.scaledMeasure = globalScale(m.measure);
+        });
+    });
+
+    METADATA = { metrics: {} };
+    allMetricsInData.forEach((metric, i) => {
         METADATA.metrics[metric] = {
             metric: metric, angle: i * DELTA_ANGLE, format: d3.format(".1%")
         };
     });
     
-    const dataGroupedByCategory = d3.nest().key(d => d[0]).entries(processedDataWithPercentage);
-    DATA = dataGroupedByCategory.map(categoryGroup => ({
-        category: categoryGroup.key,
-        id: "id-" + categoryGroup.key.replace(/[\W]/g, "_"),
-        metrics: categoryGroup.values.map(d => ({
-            metric: d[1], measure: d[2], originalValue: d[3], scaledMeasure: globalScale(d[2])
-        }))
-    }));
-
     const categories = DATA.map(d => d.category);
     colorScale = d3.scaleOrdinal(PALETTE).domain(categories);
     
@@ -339,7 +354,8 @@ function drawDataPathsAndPoints() {
     const line = d3.lineRadial()
         .angle(d => METADATA.metrics[d.metric].angle)
         .radius(d => d.scaledMeasure * RADIUS)
-        .curve(d3.curveLinearClosed);
+        .curve(d3.curveLinearClosed)
+        .defined(d => METADATA.metrics[d.metric] != null); // Don't draw line to missing points
 
     let paths = G_CHART_AREA.selectAll(".data-path").data(DATA, d => d.id);
     paths.exit().transition().duration(TRANS_TIME).style("opacity", 0).remove();
@@ -348,8 +364,7 @@ function drawDataPathsAndPoints() {
         .transition().duration(TRANS_TIME)
         .attr("fill", d => getStrokeColor(d.category))
         .attr("stroke", d => getStrokeColor(d.category))
-        // ** DESTAQUE APRIMORADO **
-        .attr("stroke-width", d => !SELECTED_CATEGORY ? 2 : (d.category === SELECTED_CATEGORY ? 4 : 1.5))
+        .attr("stroke-width", 2)
         .attr("fill-opacity", d => getOpacity(d.category, OPACITY.fill))
         .attr("stroke-opacity", d => getOpacity(d.category, OPACITY.stroke))
         .attr("d", d => line(d.metrics));
