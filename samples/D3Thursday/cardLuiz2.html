@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <!--
     Autor: Adaptado para SAS Visual Analytics
-    Versão: 3.0 - KPI List Card
+    Versão: 3.2 - KPI List Card
     Descrição: Um objeto de conteúdo de dados para exibir uma lista de KPIs.
                Projetado para aceitar uma série de medidas, usando os nomes das medidas como rótulos.
                O layout utiliza Flexbox para um design limpo e responsivo.
+    Melhoria: Adicionada mensagem de instrução se nenhum dado for recebido do SAS VA.
+    Correção: Removida justificação de conteúdo após receber dados para garantir a renderização correta.
 -->
 <html>
 <head>
@@ -46,6 +48,10 @@
         padding: 20px;
         box-sizing: border-box;
     }
+    
+    .centered {
+        justify-content: center; /* Centraliza a mensagem de instrução */
+    }
 
     /* Estilo para cada linha de KPI */
     .kpi-row {
@@ -54,6 +60,7 @@
         align-items: center;
         padding: 10px 0;
         border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        flex-shrink: 0; /* Impede que as linhas encolham */
     }
     
     /* Remove a borda do último item para um visual mais limpo */
@@ -65,16 +72,25 @@
         font-size: 1em;
         font-weight: 600;
         opacity: 0.9;
+        padding-right: 15px; /* Espaço entre o rótulo e o valor */
     }
 
     .kpi-value {
         font-size: 1.1em;
         font-weight: 700;
     }
+    
+    .instructional-message {
+        text-align: center;
+        font-size: 1.1em;
+        font-weight: 600;
+        opacity: 0.9;
+        padding: 20px;
+    }
 
 </style>
 
-<div id="card-container">
+<div id="card-container" class="centered">
     <!-- O conteúdo será gerado dinamicamente aqui -->
 </div>
 
@@ -87,6 +103,7 @@ function initializeKPICard() {
      *******************************************************/
     const CONTAINER_ID = "card-container";
     let VA_RESULT_NAME;
+    let dataReceived = false; // Flag para verificar se os dados chegaram
     
     // Define a formatação de números para o padrão brasileiro (ponto como separador de milhar)
     const ptBR = d3.formatLocale({
@@ -102,7 +119,6 @@ function initializeKPICard() {
      *******************************************************/
     const SAMPLE_MESSAGE = {
         resultName: "kpiListSample",
-        // A nova estrutura de dados tem apenas uma linha com várias medidas
         data: [
             [194000957, 7399058254, 109837420, 7542043, 1870661, 1049604, 286833, 829107, 184048]
         ],
@@ -123,9 +139,26 @@ function initializeKPICard() {
      * FUNÇÕES DE CALLBACK DO SAS VA                       *
      *******************************************************/
     if (typeof va !== 'undefined' && va.messagingUtil) {
-        va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
+        va.messagingUtil.setOnDataReceivedCallback(message => {
+            dataReceived = true; // Marca que os dados foram recebidos
+            onDataReceived(message);
+        });
+
+        // Adiciona um timeout para verificar se os dados chegaram.
+        // Se não, exibe uma mensagem para o utilizador.
+        setTimeout(() => {
+            if (!dataReceived) {
+                const container = d3.select("#" + CONTAINER_ID);
+                container.html("") // Limpa qualquer conteúdo
+                         .classed("centered", true) // Garante que a mensagem esteja centrada
+                         .append("div")
+                         .attr("class", "instructional-message")
+                         .html("Para começar, por favor atribua uma ou mais medidas às Funções de Dados.");
+            }
+        }, 1500);
+
     } else {
-        // Se estiver fora do VA, usa os dados de exemplo
+        // Se estiver fora do VA, usa os dados de exemplo imediatamente
         onDataReceived(SAMPLE_MESSAGE);
     }
 
@@ -136,11 +169,12 @@ function initializeKPICard() {
         VA_RESULT_NAME = messageFromVA.resultName;
 
         if (!messageFromVA.data || messageFromVA.data.length === 0 || messageFromVA.columns.length === 0) {
-            d3.select("#" + CONTAINER_ID).html("<p>Por favor, atribua uma ou mais medidas.</p>");
+            d3.select("#" + CONTAINER_ID)
+              .html("<p class='instructional-message'>Por favor, atribua uma ou mais medidas.</p>")
+              .classed("centered", true);
             return;
         }
 
-        // A nova lógica lê os nomes das colunas e os valores da primeira linha.
         const columnLabels = messageFromVA.columns.map(c => c.label);
         const firstRowValues = messageFromVA.data[0];
         
@@ -150,6 +184,9 @@ function initializeKPICard() {
                 value: firstRowValues[index]
             };
         });
+        
+        // Log para depuração, visível na consola do navegador (F12)
+        console.log("Dados processados para renderização:", kpiList);
         
         renderCard(kpiList);
     }
@@ -161,6 +198,9 @@ function initializeKPICard() {
     function renderCard(kpiList) {
         const container = d3.select("#" + CONTAINER_ID);
         container.html(""); // Limpa o conteúdo anterior
+
+        // CORREÇÃO: Remove a classe de centralização para alinhar a lista ao topo
+        container.classed("centered", false);
 
         // Itera sobre a lista de KPIs e cria uma linha para cada um
         kpiList.forEach(kpi => {
