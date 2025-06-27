@@ -1,17 +1,15 @@
 <!DOCTYPE html>
 <!--
     Autor: Adaptado para SAS Visual Analytics
-    Versão: 3.2 - KPI List Card
-    Descrição: Um objeto de conteúdo de dados para exibir uma lista de KPIs.
-               Projetado para aceitar uma série de medidas, usando os nomes das medidas como rótulos.
-               O layout utiliza Flexbox para um design limpo e responsivo.
-    Melhoria: Adicionada mensagem de instrução se nenhum dado for recebido do SAS VA.
-    Correção: Removida justificação de conteúdo após receber dados para garantir a renderização correta.
+    Versão: 4.0 - KPI Specific Matrix
+    Descrição: Um objeto de conteúdo de dados para exibir um resumo de KPIs num formato de matriz específico.
+               A lógica agrupa e calcula totais com base numa ordem predefinida de medidas.
+               O layout utiliza CSS Grid para uma estrutura robusta e fiel ao design de referência.
 -->
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>KPI List Card para SAS VA</title>
+    <title>KPI Specific Matrix para SAS VA</title>
     <!-- Import D3.js (usado para formatação de números) -->
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 
@@ -34,7 +32,7 @@
         padding: 0;
         width: 100%;
         height: 100%;
-        overflow-y: auto; /* Permite scroll se os itens não couberem */
+        overflow: hidden; 
         font-family: 'Avenir Next', 'Avenir', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
         background-color: #f5f5f5;
         color: white;
@@ -48,36 +46,55 @@
         padding: 20px;
         box-sizing: border-box;
     }
-    
-    .centered {
-        justify-content: center; /* Centraliza a mensagem de instrução */
-    }
 
-    /* Estilo para cada linha de KPI */
-    .kpi-row {
+    /* Secção superior para KPIs gerais */
+    .header-kpis {
         display: flex;
         justify-content: space-between;
-        align-items: center;
-        padding: 10px 0;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-        flex-shrink: 0; /* Impede que as linhas encolham */
+        padding-bottom: 10px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+        flex-wrap: wrap;
+        gap: 10px 20px;
     }
-    
-    /* Remove a borda do último item para um visual mais limpo */
-    .kpi-row:last-child {
-        border-bottom: none;
-    }
-
-    .kpi-label {
+    .kpi-item {
         font-size: 1em;
         font-weight: 600;
-        opacity: 0.9;
-        padding-right: 15px; /* Espaço entre o rótulo e o valor */
     }
 
-    .kpi-value {
-        font-size: 1.1em;
+    /* Grelha principal para a matriz de dados */
+    .data-grid {
+        display: grid;
+        grid-template-columns: 1.5fr 1fr 1fr; /* 3 colunas: Rótulo, Medida 1, Medida 2 */
+        gap: 12px 10px; 
+        padding-top: 10px;
+        flex-grow: 1;
+    }
+
+    /* Estilos para as células da grelha */
+    .grid-cell {
+        font-size: 0.95em;
+        display: flex;
+        align-items: center;
+    }
+    .grid-header {
         font-weight: 700;
+        opacity: 0.9;
+        justify-content: center; /* Centraliza cabeçalhos */
+    }
+    .grid-label {
+        font-weight: 600;
+    }
+    .grid-value {
+        font-weight: 700;
+        justify-content: flex-end; /* Alinha valores à direita */
+    }
+    
+    /* Linha de total com destaque */
+    .total-row > .grid-cell {
+        font-weight: 700;
+        border-top: 1px solid rgba(255, 255, 255, 0.5);
+        padding-top: 8px;
+        margin-top: 4px; 
     }
     
     .instructional-message {
@@ -86,11 +103,12 @@
         font-weight: 600;
         opacity: 0.9;
         padding: 20px;
+        margin: auto;
     }
 
 </style>
 
-<div id="card-container" class="centered">
+<div id="card-container">
     <!-- O conteúdo será gerado dinamicamente aqui -->
 </div>
 
@@ -103,35 +121,28 @@ function initializeKPICard() {
      *******************************************************/
     const CONTAINER_ID = "card-container";
     let VA_RESULT_NAME;
-    let dataReceived = false; // Flag para verificar se os dados chegaram
     
-    // Define a formatação de números para o padrão brasileiro (ponto como separador de milhar)
     const ptBR = d3.formatLocale({
         decimal: ",",
         thousands: ".",
         grouping: [3],
         currency: ["R$", ""]
     });
-    const formatNumber = ptBR.format(",.0f"); // Formato para inteiros com separador
+    const formatNumber = ptBR.format(",.0f");
 
     /*******************************************************
      * DADOS DE EXEMPLO (PARA DEBUG)                       *
      *******************************************************/
     const SAMPLE_MESSAGE = {
-        resultName: "kpiListSample",
+        resultName: "kpiMatrixSample",
         data: [
             [194000957, 7399058254, 109837420, 7542043, 1870661, 1049604, 286833, 829107, 184048]
         ],
         columns: [
-            { label: "População", type: "number" },
-            { label: "PIB", type: "number" },
-            { label: "PIB per capita", type: "number" },
-            { label: "Matrículas Ens.Médio Regular", type: "number" },
-            { label: "Concluintes Ens.Médio Regular", type: "number" },
-            { label: "Matrículas EJA Ens. Médio", type: "number" },
-            { label: "Concluintes EJA Ens. Médio", type: "number" },
-            { label: "Matrículas Profissionalizante", type: "number" },
-            { label: "Concluintes Profissionalizante", type: "number" }
+            { label: "População", type: "number" }, { label: "PIB", type: "number" }, { label: "PIB Per Capita", type: "number" },
+            { label: "MAT_ENS_MEDIO", type: "number" }, { label: "CONC_ENS_MEDIO", type: "number" },
+            { label: "MAT_EJA_ENS_MEDIO", type: "number" }, { label: "CONC_EJA", type: "number" },
+            { label: "MAT_ED_PROF", type: "number" }, { label: "CONC_ED_PROFISSIONAL", type: "number" }
         ]
     };
 
@@ -139,26 +150,8 @@ function initializeKPICard() {
      * FUNÇÕES DE CALLBACK DO SAS VA                       *
      *******************************************************/
     if (typeof va !== 'undefined' && va.messagingUtil) {
-        va.messagingUtil.setOnDataReceivedCallback(message => {
-            dataReceived = true; // Marca que os dados foram recebidos
-            onDataReceived(message);
-        });
-
-        // Adiciona um timeout para verificar se os dados chegaram.
-        // Se não, exibe uma mensagem para o utilizador.
-        setTimeout(() => {
-            if (!dataReceived) {
-                const container = d3.select("#" + CONTAINER_ID);
-                container.html("") // Limpa qualquer conteúdo
-                         .classed("centered", true) // Garante que a mensagem esteja centrada
-                         .append("div")
-                         .attr("class", "instructional-message")
-                         .html("Para começar, por favor atribua uma ou mais medidas às Funções de Dados.");
-            }
-        }, 1500);
-
+        va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
     } else {
-        // Se estiver fora do VA, usa os dados de exemplo imediatamente
         onDataReceived(SAMPLE_MESSAGE);
     }
 
@@ -168,52 +161,93 @@ function initializeKPICard() {
     function onDataReceived(messageFromVA) {
         VA_RESULT_NAME = messageFromVA.resultName;
 
-        if (!messageFromVA.data || messageFromVA.data.length === 0 || messageFromVA.columns.length === 0) {
-            d3.select("#" + CONTAINER_ID)
-              .html("<p class='instructional-message'>Por favor, atribua uma ou mais medidas.</p>")
-              .classed("centered", true);
+        if (typeof va !== 'undefined' && va.contentUtil) {
+            if (messageFromVA.columns.length < 9) {
+                va.messagingUtil.postInstructionalMessage(VA_RESULT_NAME,
+                    "Dados insuficientes. Atribua exatamente 9 medidas na ordem correta para construir a matriz."
+                );
+                return;
+            }
+        }
+
+        if (!messageFromVA.data || messageFromVA.data.length === 0) {
+            d3.select("#" + CONTAINER_ID).html("<p class='instructional-message'>Sem dados para exibir.</p>");
             return;
         }
 
-        const columnLabels = messageFromVA.columns.map(c => c.label);
-        const firstRowValues = messageFromVA.data[0];
+        const dataRow = messageFromVA.data[0];
         
-        const kpiList = columnLabels.map((label, index) => {
-            return {
-                label: label,
-                value: firstRowValues[index]
-            };
-        });
+        // --- Processa os dados para o formato do nosso cartão ---
+        const processedData = {
+            headerKpis: [
+                { label: "População", value: dataRow[0] },
+                { label: "PIB", value: dataRow[1] },
+                { label: "PIB per capita", value: dataRow[2] }
+            ],
+            tableData: {
+                headers: ["Matrículas", "Concluintes"],
+                rows: [
+                    { label: "Ens.Médio Regular", values: [dataRow[3], dataRow[4]] },
+                    { label: "EJA Ens. Médio", values: [dataRow[5], dataRow[6]] }
+                ],
+                // A linha de profissionalizante é separada e não entra no total
+                footerRow: { label: "Profissionalizante", values: [dataRow[7], dataRow[8]] }
+            }
+        };
+
+        // Calcula os totais com base nas linhas da tabela
+        const totalMatriculas = d3.sum(processedData.tableData.rows, d => d.values[0]);
+        const totalConcluintes = d3.sum(processedData.tableData.rows, d => d.values[1]);
+        processedData.tableData.totalRow = { label: "TOTAL", values: [totalMatriculas, totalConcluintes] };
         
-        // Log para depuração, visível na consola do navegador (F12)
-        console.log("Dados processados para renderização:", kpiList);
-        
-        renderCard(kpiList);
+        renderCard(processedData);
     }
 
     /**
      * Renderiza ou atualiza o card no DOM.
-     * @param {Array} kpiList - Uma lista de objetos {label, value}.
      */
-    function renderCard(kpiList) {
+    function renderCard(data) {
         const container = d3.select("#" + CONTAINER_ID);
         container.html(""); // Limpa o conteúdo anterior
 
-        // CORREÇÃO: Remove a classe de centralização para alinhar a lista ao topo
-        container.classed("centered", false);
-
-        // Itera sobre a lista de KPIs e cria uma linha para cada um
-        kpiList.forEach(kpi => {
-            const kpiRow = container.append("div").attr("class", "kpi-row");
-            
-            kpiRow.append("span")
-                  .attr("class", "kpi-label")
-                  .text(kpi.label);
-
-            kpiRow.append("span")
-                  .attr("class", "kpi-value")
-                  .text(formatNumber(kpi.value));
+        // --- Renderiza o Cabeçalho ---
+        const header = container.append("div").attr("class", "header-kpis");
+        data.headerKpis.forEach(kpi => {
+            header.append("div")
+                  .attr("class", "kpi-item")
+                  .text(`${kpi.label}: ${formatNumber(kpi.value)}`);
         });
+
+        // --- Renderiza a Grelha de Dados ---
+        const grid = container.append("div").attr("class", "data-grid");
+
+        // Cabeçalho da grelha ("Matrículas", "Concluintes")
+        grid.append("div"); // Célula vazia
+        grid.append("div").attr("class", "grid-cell grid-header").text(data.tableData.headers[0]);
+        grid.append("div").attr("class", "grid-cell grid-header").text(data.tableData.headers[1]);
+        
+        // Linhas de dados (Ens. Médio e EJA)
+        data.tableData.rows.forEach(row => {
+            grid.append("div").attr("class", "grid-cell grid-label").text(row.label);
+            grid.append("div").attr("class", "grid-cell grid-value").text(formatNumber(row.values[0]));
+            grid.append("div").attr("class", "grid-cell grid-value").text(formatNumber(row.values[1]));
+        });
+        
+        // Linha de Total
+        const totalRow = grid.append("div")
+                             .attr("class", "total-row")
+                             .style("grid-column", "1 / -1") // Faz a div da linha ocupar todo o espaço
+                             .append("div")
+                             .attr("class", "data-grid"); // Cria uma sub-grelha para alinhar
+
+        totalRow.append("div").attr("class", "grid-cell grid-label").text(data.tableData.totalRow.label);
+        totalRow.append("div").attr("class", "grid-cell grid-value").text(formatNumber(data.tableData.totalRow.values[0]));
+        totalRow.append("div").attr("class", "grid-cell grid-value").text(formatNumber(data.tableData.totalRow.values[1]));
+        
+        // Linha de Rodapé (Profissionalizante)
+        grid.append("div").attr("class", "grid-cell grid-label").text(data.tableData.footerRow.label);
+        grid.append("div").attr("class", "grid-cell grid-value").text(formatNumber(data.tableData.footerRow.values[0]));
+        grid.append("div").attr("class", "grid-cell grid-value").text(formatNumber(data.tableData.footerRow.values[1]));
     }
 }
 
