@@ -140,21 +140,21 @@ function initializeKPICard() {
             // Para milhões
             const millions = value / 1000000;
             if (millions >= 100) {
-                return Math.round(millions) + "M"; // 100M, 150M, etc.
+                return Math.round(millions) + "Mi"; // 100Mi, 150Mi, etc.
             } else if (millions >= 10) {
-                return d3.format(".1f")(millions).replace(/\.0$/, "") + "M"; // 10.1M, 15.7M, etc.
+                return d3.format(".1f")(millions).replace(/\.0$/, "") + "Mi"; // 10.1Mi, 15.7Mi, etc.
             } else {
-                return d3.format(".2f")(millions).replace(/\.00$/, "").replace(/0$/, "") + "M"; // 1.25M, 9.8M, etc.
+                return d3.format(".2f")(millions).replace(/\.00$/, "").replace(/0$/, "") + "Mi"; // 1.25Mi, 9.8Mi, etc.
             }
         } else if (value >= 1000) {
             // Para milhares
             const thousands = value / 1000;
             if (thousands >= 100) {
-                return Math.round(thousands) + "K"; // 100K, 150K, etc.
+                return Math.round(thousands) + "Mil"; // 100Mil, 150Mil, etc.
             } else if (thousands >= 10) {
-                return d3.format(".1f")(thousands).replace(/\.0$/, "") + "K"; // 10.1K, 15.7K, etc.
+                return d3.format(".1f")(thousands).replace(/\.0$/, "") + "Mil"; // 10.1Mil, 15.7Mil, etc.
             } else {
-                return d3.format(".2f")(thousands).replace(/\.00$/, "").replace(/0$/, "") + "K"; // 1.25K, 9.8K, etc.
+                return d3.format(".2f")(thousands).replace(/\.00$/, "").replace(/0$/, "") + "Mil"; // 1.2Mil, 9.8Mil, etc.
             }
         } else {
             // Para valores menores que 1000 - SEM casas decimais desnecessárias
