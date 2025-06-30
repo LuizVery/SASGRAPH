@@ -1,13 +1,12 @@
 <!DOCTYPE html>
 <!--
     Autor: Adaptado para SAS Visual Analytics
-    Versão: 1.2 - Auto-Sorting Funnel Chart
+    Versão: 1.3 - Auto-Sorting Funnel Chart
     Descrição: Um objeto de conteúdo de dados que exibe um gráfico de funil (pirâmide).
                Recebe uma série de medidas, classifica-as do maior para o menor,
                e as exibe com os seus respetivos nomes. Inclui um parâmestro de tema
                para alternar entre esquemas de cores (ex: Receita e Despesa).
-    Melhoria: Margem dinâmica para responsividade real e prevenção de corte de rótulos.
-              Fontes e cores ajustadas conforme solicitado.
+    Melhoria: Adicionada quebra de texto automática para rótulos longos e fontes ajustadas.
 -->
 <html>
 <head>
@@ -37,12 +36,12 @@
         height: 100%;
         overflow: hidden; 
         font-family: 'Avenir Next', 'Avenir', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-        background-color: transparent; /* CORREÇÃO: Fundo transparente */
+        background-color: transparent;
     }
 
     .bar-label {
         font-weight: 600;
-        fill: #000000; /* CORREÇÃO: Rótulos pretos */
+        fill: #000000;
         text-anchor: end;
     }
 
@@ -59,7 +58,7 @@
     
     .chart-subtitle {
         font-weight: 500;
-        fill: #000000; /* CORREÇÃO: Subtítulo preto */
+        fill: #000000;
         text-anchor: end;
     }
 
@@ -165,11 +164,10 @@ function initializeFunnelChart() {
         const barColor = isReceita ? "#086fad" : "#c7001e";
         const titleText = isReceita ? "Receita Média Anual" : "Despesa Média Anual";
 
-        // --- MELHORIA: Cálculo de Fontes Responsivas ---
+        // AJUSTE: Redução de 2px no tamanho das fontes
         const tempYScale = d3.scaleBand().domain(data.map(d => d.label)).range([0, height]).padding(0.25);
-        const barLabelFontSize = Math.min(Math.max(tempYScale.bandwidth() * 0.4, 10), 16);
+        const barLabelFontSize = Math.min(Math.max(tempYScale.bandwidth() * 0.4, 8), 14); // Era 10 e 16
 
-        // --- CORREÇÃO: Cálculo da Margem Esquerda Dinâmica ---
         let maxLabelWidth = 0;
         const tempSvg = d3.select("body").append("svg").attr("class", "temp-svg").style("visibility", "hidden");
         data.forEach(d => {
@@ -185,13 +183,13 @@ function initializeFunnelChart() {
             top: 40, 
             right: 40, 
             bottom: 20, 
-            left: maxLabelWidth + 20 // Adiciona um padding de 20px
+            // A margem agora tem um tamanho máximo para não ficar excessiva com textos curtos
+            left: Math.min(maxLabelWidth + 20, width * 0.4) 
         };
         
         const chartWidth = width - margin.left - margin.right;
         const chartHeight = height - margin.top - margin.bottom;
 
-        // Verifica se há espaço suficiente para desenhar o gráfico
         if (chartWidth < 50) {
             container.html("<p style='text-align:center; padding:10px;'>Espaço insuficiente para exibir o gráfico.</p>");
             return;
@@ -200,15 +198,13 @@ function initializeFunnelChart() {
         const chartGroup = svg.append("g")
             .attr("transform", `translate(${margin.left}, ${margin.top})`);
 
-        // --- Escalas D3 ---
         const maxValue = d3.max(data, d => d.value);
         const xScale = d3.scaleLinear().domain([0, maxValue]).range([0, chartWidth]);
         const yScale = d3.scaleBand().domain(data.map(d => d.label)).range([0, chartHeight]).padding(0.25);
         
-        const titleFontSize = Math.min(Math.max(height * 0.06, 14), 22);
-        const subtitleFontSize = Math.min(Math.max(height * 0.04, 10), 14);
+        const titleFontSize = Math.min(Math.max(height * 0.06, 12), 20); // Reduzido de 14 e 22
+        const subtitleFontSize = Math.min(Math.max(height * 0.04, 8), 12); // Reduzido de 10 e 14
 
-        // --- Títulos ---
         chartGroup.append("text")
             .attr("class", "chart-title")
             .attr("x", chartWidth / 2)
@@ -224,8 +220,6 @@ function initializeFunnelChart() {
             .attr("font-size", `${subtitleFontSize}px`)
             .text("R$ em milhares");
 
-
-        // --- Desenha as Barras do Funil ---
         chartGroup.selectAll(".bar")
             .data(data)
             .enter()
@@ -237,7 +231,6 @@ function initializeFunnelChart() {
             .attr("width", d => xScale(d.value))
             .attr("fill", (d, i) => i === 0 ? barColor : d3.color(barColor).brighter(0.5 + i * 0.2));
 
-        // --- Desenha os Rótulos das Categorias (à esquerda) ---
         chartGroup.selectAll(".bar-label")
             .data(data)
             .enter()
@@ -245,11 +238,10 @@ function initializeFunnelChart() {
             .attr("class", "bar-label")
             .attr("x", -10)
             .attr("y", d => yScale(d.label) + yScale.bandwidth() / 2)
-            .attr("dy", "0.35em")
             .attr("font-size", `${barLabelFontSize}px`)
-            .text(d => d.label);
+            .text(d => d.label)
+            .call(wrap, margin.left - 15); // MELHORIA: Chama a função de quebra de texto
 
-        // --- Desenha os Valores (sobre as barras) ---
         chartGroup.selectAll(".bar-value")
             .data(data)
             .enter()
@@ -263,6 +255,31 @@ function initializeFunnelChart() {
                 const textLength = formatCurrency(d.value).length * (barLabelFontSize * 0.6);
                 return xScale(d.value) > textLength + 10 ? formatCurrency(d.value) : "";
             });
+    }
+
+    // --- MELHORIA: Função para quebra de texto (text wrapping) ---
+    function wrap(text, width) {
+        text.each(function() {
+            var text = d3.select(this),
+                words = text.text().split(/\s+/).reverse(),
+                word,
+                line = [],
+                lineNumber = 0,
+                lineHeight = 1.1, // ems
+                y = text.attr("y"),
+                dy = parseFloat(text.attr("dy")) || 0,
+                tspan = text.text(null).append("tspan").attr("x", text.attr("x")).attr("y", y).attr("dy", dy + "em");
+            while (word = words.pop()) {
+                line.push(word);
+                tspan.text(line.join(" "));
+                if (tspan.node().getComputedTextLength() > width) {
+                    line.pop();
+                    tspan.text(line.join(" "));
+                    line = [word];
+                    tspan = text.append("tspan").attr("x", text.attr("x")).attr("y", y).attr("dy", ++lineNumber * lineHeight + dy + "em").text(word);
+                }
+            }
+        });
     }
 }
 
