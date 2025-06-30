@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<!--
+    Autor: Adaptado para SAS Visual Analytics
+    Versão: 1.0 - Auto-Sorting Funnel Chart
+    Descrição: Um objeto de conteúdo de dados que exibe um gráfico de funil (pirâmide).
+               Recebe uma série de medidas, classifica-as do maior para o menor,
+               e as exibe com os seus respetivos nomes. Inclui um parâmestro de tema
+               para alternar entre esquemas de cores (ex: Receita e Despesa).
+-->
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Funnel Chart para SAS VA</title>
+    <!-- Import D3.js -->
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+
+    <!-- Importar utilitários do SAS VA (apenas se disponível) -->
+    <script type="text/javascript">
+        if (typeof window !== 'undefined' && window.self !== window.top) {
+            try {
+                document.write('<script type="text/javascript" src="../../util/messagingUtil.js"><\/script>');
+                document.write('<script type="text/javascript" src="../../util/contentUtil.js"><\/script>');
+            } catch(e) {
+                console.log("Utilitários do SAS VA não disponíveis.");
+            }
+        }
+    </script>
+</head>
+<body>
+<style type="text/css">
+    html, body, #chart-container {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden; 
+        font-family: 'Avenir Next', 'Avenir', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        background-color: white;
+    }
+
+    .bar-label {
+        font-size: 14px;
+        font-weight: 600;
+        fill: #333;
+        text-anchor: end;
+    }
+
+    .bar-value {
+        font-size: 14px;
+        font-weight: 700;
+        fill: white;
+        text-anchor: middle;
+    }
+    
+    .chart-title {
+        font-size: 18px;
+        font-weight: 700;
+        text-anchor: middle;
+    }
+    
+    .chart-subtitle {
+        font-size: 12px;
+        font-weight: 500;
+        fill: #666;
+        text-anchor: end;
+    }
+
+</style>
+
+<div id="chart-container">
+    <!-- O SVG do gráfico será gerado aqui -->
+</div>
+
+<script>
+"use strict";
+
+function initializeFunnelChart() {
+    /*******************************************************
+     * DECLARAÇÃO DE VARIÁVEIS                             *
+     *******************************************************/
+    const CONTAINER_ID = "chart-container";
+    let VA_RESULT_NAME;
+    
+    const ptBR = d3.formatLocale({
+        decimal: ",",
+        thousands: ".",
+        grouping: [3],
+        currency: ["R$", ""]
+    });
+    const formatCurrency = ptBR.format("$,.0f");
+
+    /*******************************************************
+     * DADOS DE EXEMPLO (PARA DEBUG)                       *
+     *******************************************************/
+    const SAMPLE_MESSAGE = {
+        resultName: "funnelSample",
+        data: [
+            // Apenas uma linha com todas as medidas
+            [121223, 68319, 43955, 8950] 
+        ],
+        columns: [
+            { label: "TOTAL", type: "number" },
+            { label: "Transferências", type: "number" },
+            { label: "Própria", type: "number" },
+            { label: "Outras", type: "number" }
+        ],
+        parameters: [
+            { label: "Tema do Gráfico", value: "Receita", name: "themeParameter" }
+        ]
+    };
+
+    /*******************************************************
+     * FUNÇÕES DE CALLBACK DO SAS VA                       *
+     *******************************************************/
+    if (typeof va !== 'undefined' && va.messagingUtil) {
+        va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
+    } else {
+        onDataReceived(SAMPLE_MESSAGE);
+    }
+
+    /**
+     * Processa os dados recebidos do SAS VA e inicia a renderização.
+     */
+    function onDataReceived(messageFromVA) {
+        VA_RESULT_NAME = messageFromVA.resultName;
+
+        if (!messageFromVA.data || messageFromVA.data.length === 0 || messageFromVA.columns.length === 0) {
+            d3.select("#" + CONTAINER_ID).html("<p style='text-align:center; padding-top:20px;'>Por favor, atribua uma ou mais medidas para construir o funil.</p>");
+            return;
+        }
+
+        // Extrai o parâmetro de tema
+        let theme = 'Receita'; // Padrão
+        if (messageFromVA.parameters) {
+            const themeParam = messageFromVA.parameters.find(p => p.label === "Tema do Gráfico");
+            if (themeParam) {
+                theme = themeParam.value;
+            }
+        }
+        
+        // --- LÓGICA PRINCIPAL: Transforma colunas em linhas e ordena ---
+        const columnLabels = messageFromVA.columns.map(c => c.label);
+        const values = messageFromVA.data[0];
+        
+        let processedData = columnLabels.map((label, index) => ({
+            label: label,
+            value: values[index]
+        }));
+        
+        // Ordena os dados do maior para o menor valor para criar o efeito de funil
+        processedData.sort((a, b) => b.value - a.value);
+        
+        renderChart(processedData, theme);
+    }
+
+    /**
+     * Renderiza ou atualiza o gráfico no DOM.
+     */
+    function renderChart(data, theme) {
+        const container = d3.select("#" + CONTAINER_ID);
+        container.html(""); 
+
+        const { width, height } = container.node().getBoundingClientRect();
+        if (width === 0 || height === 0) return;
+
+        const svg = container.append("svg")
+            .attr("width", width)
+            .attr("height", height);
+
+        // --- Definições de Cores e Layout ---
+        const isReceita = theme.toLowerCase() === 'receita';
+        const barColor = isReceita ? "#086fad" : "#c7001e"; // Azul para receita, Vermelho para despesa
+        const titleText = isReceita ? "Receita Média Anual" : "Despesa Média Anual";
+
+        const margin = { top: 40, right: 40, bottom: 20, left: 120 };
+        const chartWidth = width - margin.left - margin.right;
+        const chartHeight = height - margin.top - margin.bottom;
+
+        const chartGroup = svg.append("g")
+            .attr("transform", `translate(${margin.left}, ${margin.top})`);
+
+        // --- Títulos ---
+        chartGroup.append("text")
+            .attr("class", "chart-title")
+            .attr("x", chartWidth / 2)
+            .attr("y", -margin.top / 2)
+            .attr("fill", barColor)
+            .text(titleText);
+
+        chartGroup.append("text")
+            .attr("class", "chart-subtitle")
+            .attr("x", chartWidth)
+            .attr("y", -margin.top / 2)
+            .text("R$ em milhares");
+
+        // --- Escalas D3 ---
+        const maxValue = d3.max(data, d => d.value);
+        const xScale = d3.scaleLinear().domain([0, maxValue]).range([0, chartWidth]);
+        const yScale = d3.scaleBand().domain(data.map(d => d.label)).range([0, chartHeight]).padding(0.2);
+
+        // --- Desenha as Barras do Funil ---
+        chartGroup.selectAll(".bar")
+            .data(data)
+            .enter()
+            .append("rect")
+            .attr("class", "bar")
+            .attr("y", d => yScale(d.label))
+            .attr("height", yScale.bandwidth())
+            // Lógica para centralizar a barra e criar o efeito de funil
+            .attr("x", d => (chartWidth - xScale(d.value)) / 2)
+            .attr("width", d => xScale(d.value))
+            .attr("fill", (d, i) => i === 0 ? barColor : d3.color(barColor).brighter(0.5 + i * 0.2)); // A primeira barra é mais escura
+
+        // --- Desenha os Rótulos das Categorias (à esquerda) ---
+        chartGroup.selectAll(".bar-label")
+            .data(data)
+            .enter()
+            .append("text")
+            .attr("class", "bar-label")
+            .attr("x", -10)
+            .attr("y", d => yScale(d.label) + yScale.bandwidth() / 2)
+            .attr("dy", "0.35em")
+            .text(d => d.label);
+
+        // --- Desenha os Valores (sobre as barras) ---
+        chartGroup.selectAll(".bar-value")
+            .data(data)
+            .enter()
+            .append("text")
+            .attr("class", "bar-value")
+            .attr("x", chartWidth / 2) // Centraliza o texto do valor
+            .attr("y", d => yScale(d.label) + yScale.bandwidth() / 2)
+            .attr("dy", "0.35em")
+            .text(d => formatCurrency(d.value));
+    }
+}
+
+// Inicia a lógica do card
+initializeFunnelChart();
+
+</script>
+</body>
+</html>
