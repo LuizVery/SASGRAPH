@@ -1,11 +1,12 @@
 <!DOCTYPE html>
 <!--
     Autor: Adaptado para SAS Visual Analytics
-    Versão: 1.0 - Auto-Sorting Funnel Chart
+    Versão: 1.1 - Auto-Sorting Funnel Chart
     Descrição: Um objeto de conteúdo de dados que exibe um gráfico de funil (pirâmide).
                Recebe uma série de medidas, classifica-as do maior para o menor,
                e as exibe com os seus respetivos nomes. Inclui um parâmestro de tema
                para alternar entre esquemas de cores (ex: Receita e Despesa).
+    Melhoria: Tamanhos de fonte responsivos para melhor adaptação a diferentes tamanhos de objeto.
 -->
 <html>
 <head>
@@ -39,27 +40,27 @@
     }
 
     .bar-label {
-        font-size: 14px;
+        /* font-size é agora definido dinamicamente no JS */
         font-weight: 600;
         fill: #333;
         text-anchor: end;
     }
 
     .bar-value {
-        font-size: 14px;
+        /* font-size é agora definido dinamicamente no JS */
         font-weight: 700;
         fill: white;
         text-anchor: middle;
     }
     
     .chart-title {
-        font-size: 18px;
+        /* font-size é agora definido dinamicamente no JS */
         font-weight: 700;
         text-anchor: middle;
     }
     
     .chart-subtitle {
-        font-size: 12px;
+        /* font-size é agora definido dinamicamente no JS */
         font-weight: 500;
         fill: #666;
         text-anchor: end;
@@ -129,7 +130,6 @@ function initializeFunnelChart() {
             return;
         }
 
-        // Extrai o parâmetro de tema
         let theme = 'Receita'; // Padrão
         if (messageFromVA.parameters) {
             const themeParam = messageFromVA.parameters.find(p => p.label === "Tema do Gráfico");
@@ -138,7 +138,6 @@ function initializeFunnelChart() {
             }
         }
         
-        // --- LÓGICA PRINCIPAL: Transforma colunas em linhas e ordena ---
         const columnLabels = messageFromVA.columns.map(c => c.label);
         const values = messageFromVA.data[0];
         
@@ -147,7 +146,6 @@ function initializeFunnelChart() {
             value: values[index]
         }));
         
-        // Ordena os dados do maior para o menor valor para criar o efeito de funil
         processedData.sort((a, b) => b.value - a.value);
         
         renderChart(processedData, theme);
@@ -167,9 +165,8 @@ function initializeFunnelChart() {
             .attr("width", width)
             .attr("height", height);
 
-        // --- Definições de Cores e Layout ---
         const isReceita = theme.toLowerCase() === 'receita';
-        const barColor = isReceita ? "#086fad" : "#c7001e"; // Azul para receita, Vermelho para despesa
+        const barColor = isReceita ? "#086fad" : "#c7001e";
         const titleText = isReceita ? "Receita Média Anual" : "Despesa Média Anual";
 
         const margin = { top: 40, right: 40, bottom: 20, left: 120 };
@@ -179,24 +176,33 @@ function initializeFunnelChart() {
         const chartGroup = svg.append("g")
             .attr("transform", `translate(${margin.left}, ${margin.top})`);
 
+        // --- Escalas D3 ---
+        const maxValue = d3.max(data, d => d.value);
+        const xScale = d3.scaleLinear().domain([0, maxValue]).range([0, chartWidth]);
+        const yScale = d3.scaleBand().domain(data.map(d => d.label)).range([0, chartHeight]).padding(0.25);
+        
+        // --- MELHORIA: Cálculo de Fontes Responsivas ---
+        const titleFontSize = Math.min(Math.max(height * 0.06, 14), 22);
+        const subtitleFontSize = Math.min(Math.max(height * 0.04, 10), 14);
+        const barLabelFontSize = Math.min(Math.max(yScale.bandwidth() * 0.4, 10), 16);
+
+
         // --- Títulos ---
         chartGroup.append("text")
             .attr("class", "chart-title")
             .attr("x", chartWidth / 2)
             .attr("y", -margin.top / 2)
             .attr("fill", barColor)
+            .attr("font-size", `${titleFontSize}px`)
             .text(titleText);
 
         chartGroup.append("text")
             .attr("class", "chart-subtitle")
             .attr("x", chartWidth)
             .attr("y", -margin.top / 2)
+            .attr("font-size", `${subtitleFontSize}px`)
             .text("R$ em milhares");
 
-        // --- Escalas D3 ---
-        const maxValue = d3.max(data, d => d.value);
-        const xScale = d3.scaleLinear().domain([0, maxValue]).range([0, chartWidth]);
-        const yScale = d3.scaleBand().domain(data.map(d => d.label)).range([0, chartHeight]).padding(0.2);
 
         // --- Desenha as Barras do Funil ---
         chartGroup.selectAll(".bar")
@@ -206,10 +212,9 @@ function initializeFunnelChart() {
             .attr("class", "bar")
             .attr("y", d => yScale(d.label))
             .attr("height", yScale.bandwidth())
-            // Lógica para centralizar a barra e criar o efeito de funil
             .attr("x", d => (chartWidth - xScale(d.value)) / 2)
             .attr("width", d => xScale(d.value))
-            .attr("fill", (d, i) => i === 0 ? barColor : d3.color(barColor).brighter(0.5 + i * 0.2)); // A primeira barra é mais escura
+            .attr("fill", (d, i) => i === 0 ? barColor : d3.color(barColor).brighter(0.5 + i * 0.2));
 
         // --- Desenha os Rótulos das Categorias (à esquerda) ---
         chartGroup.selectAll(".bar-label")
@@ -220,6 +225,7 @@ function initializeFunnelChart() {
             .attr("x", -10)
             .attr("y", d => yScale(d.label) + yScale.bandwidth() / 2)
             .attr("dy", "0.35em")
+            .attr("font-size", `${barLabelFontSize}px`)
             .text(d => d.label);
 
         // --- Desenha os Valores (sobre as barras) ---
@@ -228,10 +234,16 @@ function initializeFunnelChart() {
             .enter()
             .append("text")
             .attr("class", "bar-value")
-            .attr("x", chartWidth / 2) // Centraliza o texto do valor
+            // MELHORIA: Posiciona o valor no centro da sua barra, não no centro do gráfico
+            .attr("x", d => (chartWidth - xScale(d.value)) / 2 + (xScale(d.value) / 2))
             .attr("y", d => yScale(d.label) + yScale.bandwidth() / 2)
             .attr("dy", "0.35em")
-            .text(d => formatCurrency(d.value));
+            .attr("font-size", `${barLabelFontSize}px`)
+            .text(d => {
+                // Esconde o texto se a barra for muito pequena para o conter
+                const textLength = formatCurrency(d.value).length * (barLabelFontSize * 0.6); // Estima o tamanho do texto
+                return xScale(d.value) > textLength + 10 ? formatCurrency(d.value) : "";
+            });
     }
 }
 
