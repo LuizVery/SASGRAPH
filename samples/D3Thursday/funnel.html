@@ -167,4 +167,108 @@ function initializeFunnelChart() {
 
         // --- MELHORIA: Cálculo de Fontes Responsivas ---
         const tempYScale = d3.scaleBand().domain(data.map(d => d.label)).range([0, height]).padding(0.25);
-        const barLabelFontSize = M
+        const barLabelFontSize = Math.min(Math.max(tempYScale.bandwidth() * 0.4, 10), 16);
+
+        // --- CORREÇÃO: Cálculo da Margem Esquerda Dinâmica ---
+        let maxLabelWidth = 0;
+        const tempSvg = d3.select("body").append("svg").attr("class", "temp-svg").style("visibility", "hidden");
+        data.forEach(d => {
+            const textNode = tempSvg.append("text").attr("font-size", `${barLabelFontSize}px`).attr("font-weight", 600).text(d.label);
+            const textWidth = textNode.node().getBBox().width;
+            if (textWidth > maxLabelWidth) {
+                maxLabelWidth = textWidth;
+            }
+        });
+        tempSvg.remove();
+
+        const margin = { 
+            top: 40, 
+            right: 40, 
+            bottom: 20, 
+            left: maxLabelWidth + 20 // Adiciona um padding de 20px
+        };
+        
+        const chartWidth = width - margin.left - margin.right;
+        const chartHeight = height - margin.top - margin.bottom;
+
+        // Verifica se há espaço suficiente para desenhar o gráfico
+        if (chartWidth < 50) {
+            container.html("<p style='text-align:center; padding:10px;'>Espaço insuficiente para exibir o gráfico.</p>");
+            return;
+        }
+
+        const chartGroup = svg.append("g")
+            .attr("transform", `translate(${margin.left}, ${margin.top})`);
+
+        // --- Escalas D3 ---
+        const maxValue = d3.max(data, d => d.value);
+        const xScale = d3.scaleLinear().domain([0, maxValue]).range([0, chartWidth]);
+        const yScale = d3.scaleBand().domain(data.map(d => d.label)).range([0, chartHeight]).padding(0.25);
+        
+        const titleFontSize = Math.min(Math.max(height * 0.06, 14), 22);
+        const subtitleFontSize = Math.min(Math.max(height * 0.04, 10), 14);
+
+        // --- Títulos ---
+        chartGroup.append("text")
+            .attr("class", "chart-title")
+            .attr("x", chartWidth / 2)
+            .attr("y", -margin.top / 2)
+            .attr("fill", barColor)
+            .attr("font-size", `${titleFontSize}px`)
+            .text(titleText);
+
+        chartGroup.append("text")
+            .attr("class", "chart-subtitle")
+            .attr("x", chartWidth)
+            .attr("y", -margin.top / 2)
+            .attr("font-size", `${subtitleFontSize}px`)
+            .text("R$ em milhares");
+
+
+        // --- Desenha as Barras do Funil ---
+        chartGroup.selectAll(".bar")
+            .data(data)
+            .enter()
+            .append("rect")
+            .attr("class", "bar")
+            .attr("y", d => yScale(d.label))
+            .attr("height", yScale.bandwidth())
+            .attr("x", d => (chartWidth - xScale(d.value)) / 2)
+            .attr("width", d => xScale(d.value))
+            .attr("fill", (d, i) => i === 0 ? barColor : d3.color(barColor).brighter(0.5 + i * 0.2));
+
+        // --- Desenha os Rótulos das Categorias (à esquerda) ---
+        chartGroup.selectAll(".bar-label")
+            .data(data)
+            .enter()
+            .append("text")
+            .attr("class", "bar-label")
+            .attr("x", -10)
+            .attr("y", d => yScale(d.label) + yScale.bandwidth() / 2)
+            .attr("dy", "0.35em")
+            .attr("font-size", `${barLabelFontSize}px`)
+            .text(d => d.label);
+
+        // --- Desenha os Valores (sobre as barras) ---
+        chartGroup.selectAll(".bar-value")
+            .data(data)
+            .enter()
+            .append("text")
+            .attr("class", "bar-value")
+            .attr("x", d => (chartWidth - xScale(d.value)) / 2 + (xScale(d.value) / 2))
+            .attr("y", d => yScale(d.label) + yScale.bandwidth() / 2)
+            .attr("dy", "0.35em")
+            .attr("font-size", `${barLabelFontSize}px`)
+            .text(d => {
+                const textLength = formatCurrency(d.value).length * (barLabelFontSize * 0.6);
+                return xScale(d.value) > textLength + 10 ? formatCurrency(d.value) : "";
+            });
+    }
+}
+
+// Inicia a lógica do card
+initializeFunnelChart();
+
+</script>
+</body>
+</html>
