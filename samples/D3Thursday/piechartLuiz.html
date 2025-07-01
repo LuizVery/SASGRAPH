@@ -72,9 +72,7 @@ document.addEventListener("DOMContentLoaded", function() {
   // Static data variables
   const SVG_ID = "donut"; // ID of SVG element
 
-  // --- MODIFICATION ---
   // Sample data now uses multiple measure columns instead of a category and a measure.
-  // Each value in the data array corresponds to a column in the columns array.
   const SAMPLE_MESSAGE = {
     version: "1",
     resultName: "financials_q1",
@@ -92,13 +90,12 @@ document.addEventListener("DOMContentLoaded", function() {
   };
 
   // Mock VA object for standalone development.
-  // In a real SAS VA environment, this object is provided by the imported util scripts.
   const va = window.va || {
       messagingUtil: {
           setOnDataReceivedCallback: function(callback) {
-              // For standalone testing, we call the callback with sample data.
-              // In a real environment, SAS VA would trigger this.
               if (!inIframe()) {
+                // To test the "no data" scenario, uncomment the line below
+                // callback({ ...SAMPLE_MESSAGE, data: [[0, 0, 0, 0]] });
                 callback(SAMPLE_MESSAGE);
               }
           },
@@ -107,13 +104,11 @@ document.addEventListener("DOMContentLoaded", function() {
           },
           postInstructionalMessage: function(resultName, message) {
               console.error("Instructional Message:", { resultName, message });
-              const svg = d3.select("#" + SVG_ID);
-              if (!svg.empty()) {
-                  svg.remove();
-              }
+              d3.select("body").selectAll("svg").remove(); // Clear any existing SVG
               d3.select("body").append("div")
                 .style("margin", "20px")
                 .style("font-family", "sans-serif")
+                .style("color", "#555")
                 .html(message.replace(/\n/g, '<br/>'));
           }
       },
@@ -125,69 +120,49 @@ document.addEventListener("DOMContentLoaded", function() {
   };
 
   // Dynamic data variables
-  let VA_MESSAGE; // Data message to be received from VA
-  let VA_RESULT_NAME; // Result name required to send messages back to VA
-  let DATA; // Data to be parsed from VA data message
+  let VA_MESSAGE;
+  let VA_RESULT_NAME;
+  let DATA;
 
   // Static dimension variables
-  const TRANS_TIME = 500; // Duration of transitions
-  const EDGE_PADDING = 10; // Padding around exterior of donut
-  const RING_WIDTH_RATIO = 0.35; // Proportion of radius to use as donut width
+  const TRANS_TIME = 500;
+  const EDGE_PADDING = 10;
+  const RING_WIDTH_RATIO = 0.35;
 
   // Dynamic dimension variables
-  let WIDTH; // Width of SVG element
-  let HEIGHT; // Height of SVG element
-  let RADIUS; // Radius of pie/donut
+  let WIDTH;
+  let HEIGHT;
+  let RADIUS;
 
-  // Selection and d3 variables
-  const COLOR_SCALE = d3.scaleOrdinal(d3.schemeCategory10); // Using a different color scheme
-  let SVG; // SVG selection
-  let G_CHART_AREA; // Chart area group selection
-  let DATA_ARCS; // Data Arcs data-join
+  // D3 variables
+  const COLOR_SCALE = d3.scaleOrdinal(d3.schemeCategory10);
+  let SVG;
+  let G_CHART_AREA;
+  let DATA_ARCS;
 
   // Legend variables
   const LEG = {
-    topPad: 20,
-    titlePad: 5,
-    rowPad: 3,
-    rectWidth: 12,
-    rectPad: 5,
-    textPad: 5,
-    title: undefined,
-    data: undefined,
-    elPos: undefined,
-    height: undefined,
-    groupSelection: undefined,
-    titleDataJoin: undefined,
-    rectsDataJoin: undefined,
-    textsDataJoin: undefined
+    topPad: 20, titlePad: 5, rowPad: 3, rectWidth: 12, rectPad: 5, textPad: 5,
+    title: undefined, data: undefined, elPos: undefined, height: undefined,
+    groupSelection: undefined, titleDataJoin: undefined, rectsDataJoin: undefined, textsDataJoin: undefined
   };
 
   /*************************************************** Setup Callback Functions ***************************************************/
 
-  // Attach event for data message from VA
   va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
-
-  // Listen for resize event
   va.contentUtil.setupResizeListener(drawElements);
 
   /****************************************************** Callback Functions ******************************************************/
 
-  /**
-   * Processes the data message from VA.
-   * This function has been MODIFIED to handle a wide data format where each column is a measure.
-   * @param {object} messageFromVA - The data message from SAS Visual Analytics.
-   */
   function onDataReceived(messageFromVA) {
     if (!messageFromVA || !messageFromVA.data || messageFromVA.data.length === 0) {
+      va.messagingUtil.postInstructionalMessage(messageFromVA.resultName, "No data received.");
       return;
     }
 
     VA_MESSAGE = messageFromVA;
     VA_RESULT_NAME = messageFromVA.resultName;
 
-    // --- MODIFICATION START ---
-    // Validate that all columns are numeric measures.
     const allColsAreNumeric = VA_MESSAGE.columns.every(c => c.type === "number");
     if (!allColsAreNumeric) {
       va.messagingUtil.postInstructionalMessage(
@@ -197,30 +172,39 @@ document.addEventListener("DOMContentLoaded", function() {
       return;
     }
 
-    // Restructure data from a wide format (1 row, N measures) to an array of objects for D3.
     const measureValues = VA_MESSAGE.data[0];
     const measureColumns = VA_MESSAGE.columns;
     const total = d3.sum(measureValues);
+
+    // --- NEW MODIFICATION ---
+    // If the total of all measures is 0, there's nothing to graph. Display a message and stop.
+    if (total === 0) {
+      va.messagingUtil.postInstructionalMessage(
+        VA_RESULT_NAME,
+        "No data to display.<br/>The sum of all measures is zero."
+      );
+      return;
+    }
+    // --- END NEW MODIFICATION ---
+
     let startAngle = 0;
     DATA = [];
 
     for (let i = 0; i < measureColumns.length; i++) {
-      const value = measureValues[i];
+      const value = measureValues[i] || 0; // Treat null/undefined values as 0
       DATA.push({
-        category: measureColumns[i].label, // Use column label as the "category" for the slice.
+        category: measureColumns[i].label,
         measure: value,
-        selected: false, // Selection is now visual only.
+        selected: false,
         startAngle: startAngle,
         endAngle: startAngle + (value / total) * 2 * Math.PI,
-        index: i // This index now refers to the COLUMN index.
+        index: i
       });
       startAngle = DATA[i].endAngle;
     }
 
-    // Assign data for the legend.
-    LEG.title = "Measures Summary"; // Title is static as there's no single category column.
+    LEG.title = "Measures Summary";
     LEG.data = DATA.map(d => d.category);
-    // --- MODIFICATION END ---
 
     if (d3.select("#" + SVG_ID).empty()) {
       drawElements();
@@ -229,14 +213,13 @@ document.addEventListener("DOMContentLoaded", function() {
     }
   }
 
-  // Draw elements for first time and on resize event
   function drawElements() {
     if (!DATA) return;
 
     WIDTH = window.innerWidth;
     HEIGHT = window.innerHeight;
 
-    d3.select("body").selectAll("#" + SVG_ID).remove(); // Clear previous SVG on redraw
+    d3.select("body").selectAll("#" + SVG_ID).remove();
 
     SVG = d3.select("body")
       .append("svg")
@@ -275,7 +258,6 @@ document.addEventListener("DOMContentLoaded", function() {
       });
   }
 
-  // Redraw data dependent elements on data change
   function updateElements() {
     calculateLegendDimensions();
     updateLegend();
@@ -303,8 +285,6 @@ document.addEventListener("DOMContentLoaded", function() {
       .attr("fill", d => COLOR_SCALE(d.category))
       .on("click", selectElement)
       .each(function(d) {
-        const i = d3.interpolate(this._current, d);
-        this._current = i(0);
         const sibling = this.previousElementSibling || this.nextElementSibling;
         if (sibling && sibling._current) {
             this._current = {...sibling._current, startAngle: sibling._current.endAngle, endAngle: sibling._current.endAngle};
@@ -329,30 +309,15 @@ document.addEventListener("DOMContentLoaded", function() {
   /******************************************************* Helper Functions *******************************************************/
 
   function inIframe() {
-    try {
-      return window.self !== window.top;
-    } catch (e) {
-      return true;
-    }
+    try { return window.self !== window.top; } catch (e) { return true; }
   }
 
-  /**
-   * Deselects all elements visually.
-   * MODIFIED: Removed call to postSelectionMessage.
-   */
   function deselectAllElements() {
     d3.selectAll(".selectable").classed("selected", false);
-    // The call to va.messagingUtil.postSelectionMessage was removed because selections
-    // are row-based, and this chart's data is now column-based.
   }
 
-  /**
-   * Handles visual selection on an element.
-   * MODIFIED: Removed call to postSelectionMessage.
-   */
   function selectElement() {
     d3.event.stopPropagation();
-
     if (d3.event.ctrlKey) {
       d3.select(this).classed("selected", !d3.select(this).classed("selected"));
     } else {
@@ -360,18 +325,17 @@ document.addEventListener("DOMContentLoaded", function() {
       d3.selectAll(".selectable").classed("selected", false);
       d3.select(this).classed("selected", !isSelected);
     }
-    // The call to va.messagingUtil.postSelectionMessage was removed. The original code
-    // would send `{ row: d.index }`, but here `d.index` is a column index, not a row
-    // index, which is incompatible with the VA messaging API.
   }
 
+  /**
+   * This function was refactored for better stability and correctness in calculating legend rows.
+   */
   function calculateLegendDimensions() {
-    // Create dummy text elements to measure sizes
-    const tempSvg = d3.select("body").append("svg").style("visibility", "hidden");
+    if (!SVG || !LEG.data) return;
+
+    const tempSvg = d3.select("body").append("svg").style("visibility", "hidden").style("position", "absolute");
     let titleHeight = 0;
-    tempSvg.append("text").classed("legend-title", true).text("T").each(function() {
-      titleHeight = this.getBBox().height;
-    });
+    tempSvg.append("text").classed("legend-title", true).text("T").each(function() { titleHeight = this.getBBox().height; });
 
     const textWidths = [];
     let textHeight = 0;
@@ -386,35 +350,48 @@ document.addEventListener("DOMContentLoaded", function() {
 
     const rows = [];
     const rowSums = [];
-    let currentRow = 0;
-    for (let i = 0; i < textWidths.length; i++) {
-        let rowSum = 0;
-        let rowStartIndex = i;
-        while (i < textWidths.length && rowSum + textWidths[i] + LEG.rectWidth + LEG.rectPad + LEG.textPad < WIDTH) {
-            rowSum += textWidths[i] + LEG.rectWidth + LEG.rectPad + LEG.textPad;
-            rows[i] = currentRow;
-            i++;
-        }
-        rowSums.push(rowSum);
-        if (i < textWidths.length) {
-            rows[i] = currentRow;
-            i--;
-        }
-        currentRow++;
-    }
+    if (textWidths.length > 0) {
+        let currentRow = 0;
+        let currentRowWidth = 0;
+        let currentRowItemCount = 0;
 
+        for (let i = 0; i < textWidths.length; i++) {
+            const itemWidth = textWidths[i] + LEG.rectWidth + LEG.rectPad + LEG.textPad;
+            if (currentRowItemCount > 0 && currentRowWidth + itemWidth > WIDTH) {
+                rowSums.push(currentRowWidth - LEG.textPad);
+                currentRow++;
+                currentRowWidth = 0;
+                currentRowItemCount = 0;
+            }
+            rows.push(currentRow);
+            currentRowWidth += itemWidth;
+            currentRowItemCount++;
+        }
+        rowSums.push(currentRowWidth - LEG.textPad);
+    }
 
     LEG.elPos = [];
+    let lastRow = -1;
+    let currentX = 0;
     for (let i = 0; i < textWidths.length; i++) {
-      LEG.elPos.push({
-        x: i === 0 || rows[i] !== rows[i - 1] ?
-          WIDTH / 2 - rowSums[rows[i]] / 2 :
-          LEG.elPos[i - 1].x + textWidths[i - 1] + LEG.rectWidth + LEG.rectPad + LEG.textPad,
-        y: titleHeight + LEG.titlePad + rows[i] * (textHeight + LEG.rowPad)
-      });
+        const currentRow = rows[i];
+        if (currentRow !== lastRow) {
+            currentX = (WIDTH / 2) - (rowSums[currentRow] / 2);
+            lastRow = currentRow;
+        }
+        LEG.elPos.push({
+            x: currentX,
+            y: titleHeight + LEG.titlePad + currentRow * (textHeight + LEG.rowPad)
+        });
+        currentX += textWidths[i] + LEG.rectWidth + LEG.rectPad + LEG.textPad;
     }
 
-    LEG.height = LEG.elPos.length > 0 ? LEG.elPos[LEG.elPos.length - 1].y + textHeight + LEG.rowPad : titleHeight;
+    if (LEG.elPos.length > 0) {
+        const lastIndex = LEG.elPos.length - 1;
+        LEG.height = LEG.elPos[lastIndex].y + textHeight + LEG.rowPad;
+    } else {
+        LEG.height = titleHeight;
+    }
   }
 
   function drawLegend() {
