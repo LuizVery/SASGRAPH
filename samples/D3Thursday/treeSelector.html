@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <!--
     Autor: Adaptado para SAS Visual Analytics
-    Versão: 4.6 - Filtro Hierárquico com Layout Super Compacto
+    Versão: 4.7 - Filtro Hierárquico com Layout Micro
     Descrição: Um objeto de conteúdo de dados que exibe um filtro hierárquico avançado.
-    Melhoria: O layout foi ainda mais compactado para caber em contêineres muito pequenos.
+    Melhoria: O layout foi drasticamente compactado para caber em contêineres extremamente pequenos.
 -->
 <html lang="pt-BR">
 <head>
@@ -30,7 +30,7 @@
             overflow: hidden;
             font-family: 'Avenir Next', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
             background-color: white;
-            font-size: 12px; /* Fonte base ainda menor */
+            font-size: 11px; /* Fonte base micro */
         }
         .filter-panel {
             display: flex;
@@ -45,18 +45,18 @@
             border-bottom: 1px solid #e0e0e0;
         }
         .search-box {
-            padding: 4px; /* Super reduzido */
+            padding: 2px; /* Micro */
         }
         .search-input {
             width: 100%;
-            padding: 4px 8px; /* Super reduzido */
+            padding: 2px 6px; /* Micro */
             border: 1px solid #d0d0d0;
             border-radius: 3px;
-            font-size: 12px; /* Super reduzido */
+            font-size: 11px; /* Micro */
             outline: none;
         }
         .select-all-container {
-            padding: 4px 8px; /* Super reduzido */
+            padding: 2px 6px; /* Micro */
             border-top: 1px solid #e0e0e0;
             display: flex;
             align-items: center;
@@ -69,24 +69,24 @@
         .tree-view {
             flex-grow: 1;
             overflow-y: auto;
-            padding: 2px 0; /* Super reduzido */
+            padding: 1px 0; /* Micro */
         }
-        .node-content { display: flex; align-items: center; padding: 3px 8px; cursor: pointer; font-size: 12px; /* Super reduzido */ }
+        .node-content { display: flex; align-items: center; padding: 2px 6px; cursor: pointer; font-size: 11px; /* Micro */ }
         .node-content:hover { background-color: #f0f8ff; }
-        .expand-icon { width: 12px; height: 12px; margin-right: 4px; /* Super reduzido */ cursor: pointer; color: #666; display: flex; align-items: center; justify-content: center; font-size: 9px; /* Super reduzido */ flex-shrink: 0; }
+        .expand-icon { width: 10px; height: 10px; margin-right: 3px; /* Micro */ cursor: pointer; color: #666; display: flex; align-items: center; justify-content: center; font-size: 8px; /* Micro */ flex-shrink: 0; }
         .expand-icon.empty { visibility: hidden; }
-        .checkbox { width: 12px; height: 12px; /* Super reduzido */ border: 1.5px solid #6c757d; border-radius: 3px; margin-right: 6px; /* Super reduzido */ position: relative; flex-shrink: 0; }
+        .checkbox { width: 11px; height: 11px; /* Micro */ border: 1px solid #6c757d; border-radius: 2px; margin-right: 5px; /* Micro */ position: relative; flex-shrink: 0; }
         .checkbox.checked, .checkbox.indeterminate { background-color: #007acc; border-color: #007acc; }
-        .checkbox.checked::after { content: '✔'; color: white; font-size: 9px; /* Super reduzido */ position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
-        .checkbox.indeterminate::after { content: '—'; color: white; font-size: 9px; /* Super reduzido */ font-weight: bold; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+        .checkbox.checked::after { content: '✔'; color: white; font-size: 8px; /* Micro */ position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+        .checkbox.indeterminate::after { content: '—'; color: white; font-size: 8px; /* Micro */ font-weight: bold; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
         .node-text { flex: 1; user-select: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } /* Evita quebra de linha */
-        .children { padding-left: 16px; /* Super reduzido */ }
+        .children { padding-left: 12px; /* Micro */ }
         .filter-status {
             flex-shrink: 0;
-            padding: 4px 8px; /* Super reduzido */
+            padding: 2px 6px; /* Micro */
             background-color: #f8f9fa;
             border-top: 1px solid #e0e0e0;
-            font-size: 10px; /* Super reduzido */
+            font-size: 9px; /* Micro */
             color: #6c757d;
             text-align: center;
         }
@@ -349,12 +349,14 @@
             const filteredData = findInTree(hierarchicalData, lowerCaseSearchTerm);
             
             // Auto-expandir nós na busca
-            const flatNodes = flattenTree(filteredData);
-            flatNodes.forEach(node => {
-                if(node.children && node.children.length > 0) {
-                    expandedNodes.add(node.id);
-                }
-            });
+            if(searchTerm.length > 0) {
+                const flatNodes = flattenTree(filteredData);
+                flatNodes.forEach(node => {
+                    if(node.children && node.children.length > 0) {
+                        expandedNodes.add(node.id);
+                    }
+                });
+            }
 
             renderTree(filteredData);
         }
