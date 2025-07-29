@@ -1,663 +1,375 @@
 <!DOCTYPE html>
+<!--
+    Autor: Adaptado para SAS Visual Analytics
+    Versão: 4.2 - Filtro Hierárquico com Seleção Múltipla e em Cascata
+    Descrição: Um objeto de conteúdo de dados que exibe um filtro hierárquico avançado.
+               Permite seleção em cascata, "Selecionar Tudo", e envia as seleções para o SAS VA.
+    Melhoria: O painel de seleção é movido para o body para evitar ser cortado por contêineres.
+-->
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Seletor de Árvore Hierárquica</title>
+    <title>Filtro Hierárquico Avançado</title>
+
+    <!-- Importar utilitários do SAS VA -->
+    <script type="text/javascript">
+        if (typeof window !== 'undefined' && window.self !== window.top) {
+            try {
+                document.write('<script type="text/javascript" src="../../util/messagingUtil.js"><\/script>');
+                document.write('<script type="text/javascript" src="../../util/contentUtil.js"><\/script>');
+            } catch(e) {
+                console.error("Erro ao carregar utilitários do SAS VA:", e);
+            }
+        }
+    </script>
+
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: Arial, sans-serif;
-            font-size: 14px;
-            padding: 20px;
-            background: transparent;
-        }
-
-        .tree-selector-wrapper {
-            position: relative;
-            display: inline-block;
-            min-width: 200px;
-        }
-
-        .tree-dropdown-header {
-            border: 2px solid #ccc;
-            background: #fff;
-            padding: 8px 12px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            font-size: 14px;
-            color: #666;
-            min-height: 40px;
-        }
-
-        .tree-dropdown-header:hover {
-            border-color: #999;
-        }
-
-        .tree-dropdown-header.active {
-            border-color: #007bff;
-        }
-
-        .dropdown-arrow {
-            width: 0;
-            height: 0;
-            border-left: 5px solid transparent;
-            border-right: 5px solid transparent;
-            border-top: 5px solid #666;
-            transition: transform 0.2s;
-        }
-
-        .dropdown-arrow.up {
-            transform: rotate(180deg);
-        }
-
-        .tree-dropdown-content {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
-            background: #fff;
-            border: 2px solid #007bff;
-            border-top: none;
-            max-height: 300px;
-            overflow-y: auto;
-            z-index: 1000;
-            display: none;
-        }
-
-        .tree-dropdown-content.open {
-            display: block;
-        }
-
-        .tree-container {
-            background: transparent;
-            border: none;
-            padding: 8px;
-        }
-
-        .tree-node {
-            user-select: none;
-            margin: 1px 0;
-        }
-
-        .tree-item {
-            display: flex;
-            align-items: center;
-            padding: 4px 8px;
-            cursor: pointer;
-            border-radius: 3px;
-            transition: background-color 0.2s;
-        }
-
-        .tree-item:hover {
-            background-color: rgba(0, 123, 255, 0.1);
-        }
-
-        .tree-item.selected {
-            background-color: rgba(0, 123, 255, 0.2);
-            color: #0056b3;
-        }
-
-        .tree-toggle {
-            width: 16px;
-            height: 16px;
-            margin-right: 4px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 12px;
-            color: #666;
-        }
-
-        .tree-toggle:before {
-            content: '▶';
-        }
-
-        .tree-toggle.expanded:before {
-            content: '▼';
-        }
-
-        .tree-toggle.leaf {
-            visibility: hidden;
-        }
-
-        .tree-checkbox {
-            margin-right: 8px;
-            cursor: pointer;
-        }
-
-        .tree-text {
-            flex: 1;
-            font-size: 13px;
-        }
-
-        .tree-children {
-            margin-left: 20px;
-            display: none;
-        }
-
-        .tree-children.expanded {
-            display: block;
-        }
-
-        .tree-level-0 { margin-left: 0; }
-        .tree-level-1 { margin-left: 16px; }
-        .tree-level-2 { margin-left: 32px; }
-        .tree-level-3 { margin-left: 48px; }
-        .tree-level-4 { margin-left: 64px; }
-
-        .tree-actions {
-            padding: 8px;
-            border-top: 1px solid #eee;
-            display: flex;
-            gap: 8px;
-        }
-
-        .tree-btn {
-            background: #007bff;
-            color: white;
-            border: none;
-            padding: 4px 8px;
-            border-radius: 3px;
-            cursor: pointer;
-            font-size: 12px;
-        }
-
-        .tree-btn:hover {
-            background: #0056b3;
-        }
-
-        .tree-btn.clear {
-            background: #dc3545;
-        }
-
-        .tree-btn.clear:hover {
-            background: #c82333;
-        }
-
-        .selected-count {
-            font-size: 12px;
-            color: #007bff;
-            font-weight: bold;
-        }
-
-        /* Scrollbar customization */
-        ::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: #f1f1f1;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: #ccc;
-            border-radius: 3px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: #999;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Avenir Next', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; background-color: #f5f5f5; padding: 10px; }
+        .filter-container { background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); width: 100%; height: 100%; display: flex; flex-direction: column; }
+        .filter-header { padding: 0; background-color: transparent; border-radius: 8px 8px 0 0; }
+        .filter-wrapper { position: relative; }
+        .current-selection { display: flex; align-items: center; justify-content: space-between; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; padding: 12px 16px; cursor: pointer; transition: all 0.2s ease; font-size: 14px; font-weight: 400; color: #6c757d; min-height: 44px; }
+        .current-selection:hover { border-color: #adb5bd; background: #f1f3f4; }
+        .chevron { transition: transform 0.2s ease; color: #6c757d; font-size: 12px; font-weight: normal; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; }
+        .chevron.expanded { transform: rotate(180deg); }
+        .search-box { padding: 12px 20px; border-bottom: 1px solid #e0e0e0; }
+        .search-input { width: 100%; padding: 8px 12px; border: 1px solid #d0d0d0; border-radius: 4px; font-size: 14px; outline: none; transition: border-color 0.2s; }
+        .tree-view { flex-grow: 1; overflow-y: auto; padding: 8px 0; max-height: 250px; /* Adiciona uma altura máxima para o scroll */ }
+        .node-content { display: flex; align-items: center; padding: 6px 20px; cursor: pointer; font-size: 14px; transition: background-color 0.15s; }
+        .node-content:hover { background-color: #f0f8ff; }
+        .expand-icon { width: 16px; height: 16px; margin-right: 8px; cursor: pointer; color: #666; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
+        .expand-icon.empty { visibility: hidden; }
+        .checkbox { width: 16px; height: 16px; border: 1.5px solid #6c757d; border-radius: 3px; margin-right: 10px; position: relative; flex-shrink: 0; transition: all 0.2s; }
+        .checkbox.checked, .checkbox.indeterminate { background-color: #007acc; border-color: #007acc; }
+        .checkbox.checked::after { content: '✔'; color: white; font-size: 12px; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+        .checkbox.indeterminate::after { content: '—'; color: white; font-size: 12px; font-weight: bold; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+        .node-text { flex: 1; user-select: none; }
+        .children { display: none; padding-left: 24px; }
+        .children.expanded { display: block; }
+        .dropdown-panel { display: none; position: absolute; /* A posição será gerenciada via JS */ background: white; border: 1px solid #dee2e6; border-top: none; border-radius: 0 0 4px 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; }
+        .dropdown-panel.show { display: block; }
+        .select-all-container { padding: 8px 20px; border-bottom: 1px solid #e0e0e0; display: flex; align-items: center; cursor: pointer; }
+        .select-all-container:hover { background-color: #f0f8ff; }
     </style>
 </head>
 <body>
-    <div class="tree-selector-wrapper" id="treeSelectorWrapper">
-        <div class="tree-dropdown-header" id="dropdownHeader">
-            <span id="headerText">Região, UF e município</span>
-            <div class="dropdown-arrow" id="dropdownArrow"></div>
-        </div>
-        
-        <div class="tree-dropdown-content" id="dropdownContent">
-            <div class="tree-container" id="treeContainer"></div>
-            <div class="tree-actions">
-                <button class="tree-btn" onclick="expandAll()">Expandir Tudo</button>
-                <button class="tree-btn" onclick="collapseAll()">Recolher Tudo</button>
-                <button class="tree-btn clear" onclick="clearAllSelections()">Limpar</button>
-                <span class="selected-count" id="selectedCount">0 selecionados</span>
+    <div class="filter-container">
+        <div class="filter-header">
+            <div class="filter-wrapper">
+                <div class="current-selection" onclick="toggleDropdown()" tabindex="0">
+                    <span id="selectedText">Selecione um ou mais itens</span>
+                    <div class="chevron" id="chevron">▼</div>
+                </div>
+                <!-- O painel do dropdown será movido dinamicamente pelo JS -->
+                <div class="dropdown-panel" id="dropdownPanel">
+                    <div class="search-box">
+                        <input type="text" class="search-input" placeholder="Pesquisar" oninput="filterNodes(this.value)">
+                    </div>
+                    <div class="select-all-container" onclick="event.stopPropagation(); toggleSelectAll();">
+                        <div class="checkbox" id="selectAllCheckbox"></div>
+                        <div class="node-text">Selecionar Tudo</div>
+                    </div>
+                    <div class="tree-view" id="treeView"></div>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
-        class TreeSelector {
-            constructor(container, options = {}) {
-                this.container = typeof container === 'string' ? document.querySelector(container) : container;
-                this.data = options.data || [];
-                this.multiple = options.multiple !== false;
-                this.closeDepth = options.closeDepth || 1;
-                this.placeholder = options.placeholder || 'Selecione...';
-                this.selectedNodes = [];
-                this.onChange = options.onChange || (() => {});
-                this.loaded = options.loaded || (() => {});
-                this.isOpen = false;
-                
-                this.init();
-            }
+        "use strict";
 
-            init() {
-                this.setupDropdown();
-                this.render();
-                this.bindEvents();
-                this.collapseToDepth(this.closeDepth);
-                this.updateHeaderText();
-                this.loaded.call(this);
-            }
+        // --- VARIÁVEIS GLOBAIS ---
+        let hierarchicalData = [];
+        let vaResultName = null;
+        let allNodesMap = new Map();
+        let expandedNodes = new Set();
+        let selectedNodeIds = new Set();
+        let selectableLeafNodes = [];
 
-            setupDropdown() {
-                this.header = document.getElementById('dropdownHeader');
-                this.content = document.getElementById('dropdownContent');
-                this.arrow = document.getElementById('dropdownArrow');
-                this.headerText = document.getElementById('headerText');
-                
-                // Click no header para abrir/fechar
-                this.header.addEventListener('click', () => {
-                    this.toggleDropdown();
-                });
-
-                // Click fora para fechar
-                document.addEventListener('click', (e) => {
-                    if (!e.target.closest('.tree-selector-wrapper')) {
-                        this.closeDropdown();
-                    }
-                });
-            }
-
-            toggleDropdown() {
-                if (this.isOpen) {
-                    this.closeDropdown();
-                } else {
-                    this.openDropdown();
-                }
-            }
-
-            openDropdown() {
-                this.isOpen = true;
-                this.content.classList.add('open');
-                this.arrow.classList.add('up');
-                this.header.classList.add('active');
-            }
-
-            closeDropdown() {
-                this.isOpen = false;
-                this.content.classList.remove('open');
-                this.arrow.classList.remove('up');
-                this.header.classList.remove('active');
-            }
-
-            render() {
-                this.container.innerHTML = '';
-                this.renderNodes(this.data, this.container, 0);
-            }
-
-            renderNodes(nodes, parent, level) {
-                nodes.forEach(node => {
-                    const nodeElement = this.createNodeElement(node, level);
-                    parent.appendChild(nodeElement);
-                    
-                    if (node.children && node.children.length > 0) {
-                        const childrenContainer = document.createElement('div');
-                        childrenContainer.className = `tree-children tree-level-${level + 1}`;
-                        nodeElement.appendChild(childrenContainer);
-                        this.renderNodes(node.children, childrenContainer, level + 1);
-                    }
-                });
-            }
-
-            createNodeElement(node, level) {
-                const nodeDiv = document.createElement('div');
-                nodeDiv.className = 'tree-node';
-                nodeDiv.dataset.nodeId = node.id;
-                
-                const itemDiv = document.createElement('div');
-                itemDiv.className = 'tree-item';
-                
-                // Toggle button
-                const toggle = document.createElement('span');
-                toggle.className = `tree-toggle ${node.children && node.children.length > 0 ? '' : 'leaf'}`;
-                
-                // Checkbox
-                const checkbox = document.createElement('input');
-                checkbox.type = 'checkbox';
-                checkbox.className = 'tree-checkbox';
-                checkbox.dataset.nodeId = node.id;
-                
-                // Text
-                const text = document.createElement('span');
-                text.className = 'tree-text';
-                text.textContent = node.text;
-                
-                itemDiv.appendChild(toggle);
-                itemDiv.appendChild(checkbox);
-                itemDiv.appendChild(text);
-                nodeDiv.appendChild(itemDiv);
-                
-                return nodeDiv;
-            }
-
-            bindEvents() {
-                this.container.addEventListener('click', (e) => {
-                    if (e.target.classList.contains('tree-toggle') && !e.target.classList.contains('leaf')) {
-                        this.toggleNode(e.target.closest('.tree-node'));
-                    }
-                    
-                    if (e.target.classList.contains('tree-checkbox')) {
-                        this.toggleSelection(e.target);
-                    }
-                });
-            }
-
-            toggleNode(nodeElement) {
-                const toggle = nodeElement.querySelector('.tree-toggle');
-                const children = nodeElement.querySelector('.tree-children');
-                
-                if (children) {
-                    const isExpanded = children.classList.contains('expanded');
-                    if (isExpanded) {
-                        children.classList.remove('expanded');
-                        toggle.classList.remove('expanded');
-                    } else {
-                        children.classList.add('expanded');
-                        toggle.classList.add('expanded');
-                    }
-                }
-            }
-
-            toggleSelection(checkbox) {
-                const nodeId = checkbox.dataset.nodeId;
-                const node = this.findNodeById(nodeId, this.data);
-                
-                if (checkbox.checked) {
-                    if (!this.multiple) {
-                        this.clearAllSelections();
-                    }
-                    this.selectNode(node, checkbox);
-                } else {
-                    this.deselectNode(nodeId);
-                }
-                
-                this.updateHeaderText();
-                this.updateSelectedCount();
-                this.onChange.call(this);
-            }
-
-            selectNode(node, checkbox) {
-                if (!this.selectedNodes.find(n => n.id === node.id)) {
-                    this.selectedNodes.push(node);
-                    checkbox.checked = true;
-                    checkbox.closest('.tree-item').classList.add('selected');
-                }
-            }
-
-            deselectNode(nodeId) {
-                this.selectedNodes = this.selectedNodes.filter(n => n.id != nodeId);
-                const checkbox = this.container.querySelector(`input[data-node-id="${nodeId}"]`);
-                if (checkbox) {
-                    checkbox.checked = false;
-                    checkbox.closest('.tree-item').classList.remove('selected');
-                }
-            }
-
-            findNodeById(id, nodes) {
-                for (let node of nodes) {
-                    if (node.id == id) return node;
-                    if (node.children) {
-                        const found = this.findNodeById(id, node.children);
-                        if (found) return found;
-                    }
-                }
-                return null;
-            }
-
-            updateHeaderText() {
-                const count = this.selectedNodes.length;
-                if (count === 0) {
-                    this.headerText.textContent = this.placeholder;
-                } else if (count === 1) {
-                    this.headerText.textContent = this.selectedNodes[0].text;
-                } else {
-                    this.headerText.textContent = `${count} itens selecionados`;
-                }
-            }
-
-            updateSelectedCount() {
-                const countElement = document.getElementById('selectedCount');
-                const count = this.selectedNodes.length;
-                countElement.textContent = `${count} selecionado${count !== 1 ? 's' : ''}`;
-            }
-
-            collapseToDepth(depth) {
-                const allNodes = this.container.querySelectorAll('.tree-node');
-                allNodes.forEach(nodeElement => {
-                    const level = this.getNodeLevel(nodeElement);
-                    const children = nodeElement.querySelector('.tree-children');
-                    const toggle = nodeElement.querySelector('.tree-toggle');
-                    
-                    if (children && level >= depth) {
-                        children.classList.remove('expanded');
-                        toggle.classList.remove('expanded');
-                    } else if (children && level < depth) {
-                        children.classList.add('expanded');
-                        toggle.classList.add('expanded');
-                    }
-                });
-            }
-
-            collapseAll() {
-                const allChildren = this.container.querySelectorAll('.tree-children');
-                const allToggles = this.container.querySelectorAll('.tree-toggle');
-                
-                allChildren.forEach(child => child.classList.remove('expanded'));
-                allToggles.forEach(toggle => toggle.classList.remove('expanded'));
-            }
-
-            expandAll() {
-                const allChildren = this.container.querySelectorAll('.tree-children');
-                const allToggles = this.container.querySelectorAll('.tree-toggle:not(.leaf)');
-                
-                allChildren.forEach(child => child.classList.add('expanded'));
-                allToggles.forEach(toggle => toggle.classList.add('expanded'));
-            }
-
-            getNodeLevel(nodeElement) {
-                let level = 0;
-                let parent = nodeElement.parentElement;
-                while (parent && parent !== this.container) {
-                    if (parent.classList.contains('tree-children')) {
-                        level++;
-                    }
-                    parent = parent.parentElement;
-                }
-                return level;
-            }
-
-            clearSelections() {
-                this.selectedNodes = [];
-                const checkboxes = this.container.querySelectorAll('.tree-checkbox');
-                checkboxes.forEach(cb => {
-                    cb.checked = false;
-                    cb.closest('.tree-item').classList.remove('selected');
-                });
-                this.updateHeaderText();
-                this.updateSelectedCount();
-                this.onChange.call(this);
-            }
-
-            // Método para simular dados hierárquicos a partir de dados tabulares
-            static createTreeData(resultData) {
-                if (!resultData || !resultData.data) return [];
-                
-                // Filtrar apenas colunas categóricas
-                const columns = resultData.columns
-                    .map((col, index) => ({ type: col.type, index }))
-                    .filter(col => col.type !== "number")
-                    .map(col => col.index);
-                
-                // Criar dados filtrados
-                const data = [];
-                resultData.data.forEach((row, rowIndex) => {
-                    const filteredRow = row.filter((_, colIndex) => columns.includes(colIndex));
-                    // Remover valores vazios/missing do final
-                    const lastValidIndex = filteredRow.findLastIndex(val => val && val !== "(missing)");
-                    if (lastValidIndex >= 0) {
-                        data.push({
-                            values: filteredRow.slice(0, lastValidIndex + 1),
-                            originalRowIndex: rowIndex
-                        });
-                    }
-                });
-                
-                // Construir árvore
-                let treeData = [];
-                let nodeId = 0;
-                
-                data.forEach(({ values, originalRowIndex }) => {
-                    values.reduce((currentLevel, value, index) => {
-                        let existingNode = currentLevel.find(node => node.text === value);
-                        
-                        if (!existingNode) {
-                            existingNode = {
-                                id: ++nodeId,
-                                text: value,
-                                children: []
-                            };
-                            
-                            // Adicionar referência da linha original apenas no último nível
-                            if (index === values.length - 1) {
-                                existingNode.row = originalRowIndex;
-                            }
-                            
-                            currentLevel.push(existingNode);
-                        }
-                        
-                        return existingNode.children;
-                    }, treeData);
-                });
-                
-                return treeData;
-            }
+        // --- INTEGRAÇÃO COM SAS VA ---
+        if (typeof va !== 'undefined' && va.messagingUtil) {
+            va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
+        } else {
+            const sampleMessage = { resultName: "sampleResult", data: [["Agricultura", "Agroecologia", null], ["Agricultura", "Agronegócio", null], ["Indústria", "Têxtil", "Algodão"], ["Indústria", "Têxtil", "Seda"]], columns: [{ label: "Área Geral" }, { label: "Área Detalhada" }, { label: "Produto" }] };
+            onDataReceived(sampleMessage);
         }
-
-        // Funções globais para os botões
-        function clearAllSelections() {
-            if (window.myTree) {
-                window.myTree.clearSelections();
+        
+        function onDataReceived(messageFromVA) {
+            if (!messageFromVA || !messageFromVA.data || messageFromVA.data.length === 0) {
+                document.getElementById('treeView').innerHTML = "<p style='padding:15px; text-align:center;'>Por favor, atribua pelo menos uma categoria.</p>";
+                return;
             }
-        }
+            vaResultName = messageFromVA.resultName;
+            
+            selectedNodeIds.clear();
+            expandedNodes.clear();
+            allNodesMap.clear();
+            selectableLeafNodes = [];
 
-        function expandAll() {
-            if (window.myTree) {
-                window.myTree.expandAll();
-            }
-        }
-
-        function collapseAll() {
-            if (window.myTree) {
-                window.myTree.collapseAll();
-            }
-        }
-
-        // Dados de exemplo para demonstração
-        const sampleData = [
-            {
-                id: 1,
-                text: 'Região Sul',
-                children: [
-                    {
-                        id: 2,
-                        text: 'Rio Grande do Sul',
-                        children: [
-                            { id: 3, text: 'Porto Alegre', row: 0 },
-                            { id: 4, text: 'Caxias do Sul', row: 1 }
-                        ]
-                    },
-                    {
-                        id: 5,
-                        text: 'Santa Catarina',
-                        children: [
-                            { id: 6, text: 'Florianópolis', row: 2 },
-                            { id: 7, text: 'Joinville', row: 3 }
-                        ]
-                    }
-                ]
-            },
-            {
-                id: 8,
-                text: 'Região Sudeste',
-                children: [
-                    {
-                        id: 9,
-                        text: 'São Paulo',
-                        children: [
-                            { id: 10, text: 'São Paulo', row: 4 },
-                            { id: 11, text: 'Campinas', row: 5 }
-                        ]
-                    },
-                    {
-                        id: 12,
-                        text: 'Rio de Janeiro',
-                        children: [
-                            { id: 13, text: 'Rio de Janeiro', row: 6 },
-                            { id: 14, text: 'Niterói', row: 7 }
-                        ]
-                    }
-                ]
-            }
-        ];
-
-        // Inicializar o seletor
-        document.addEventListener('DOMContentLoaded', () => {
-            window.myTree = new TreeSelector('#treeContainer', {
-                data: sampleData,
-                multiple: true,
-                closeDepth: 1,
-                placeholder: 'Região, UF e município',
-                onChange: function() {
-                    console.log('Seleções alteradas:', this.selectedNodes);
-                    console.log('Linhas selecionadas:', 
-                        this.selectedNodes
-                            .filter(node => node.hasOwnProperty('row'))
-                            .map(node => node.row)
-                    );
-                },
-                loaded: function() {
-                    console.log('Árvore carregada');
+            hierarchicalData = buildHierarchy(messageFromVA.data);
+            
+            const flatNodes = flattenTree(hierarchicalData);
+            flatNodes.forEach(node => {
+                allNodesMap.set(node.id, node);
+                if (node.isSelectable) {
+                    selectableLeafNodes.push(node);
                 }
             });
+
+            updateUI();
+        }
+
+        function buildHierarchy(data) {
+            const root = { children: [], id: 'root' };
+            data.forEach((row, rowIndex) => {
+                let currentLevel = root;
+                row.forEach((value, levelIndex) => {
+                    if (value === null || value === undefined) return;
+                    let nodeId = `${currentLevel.id}_${value}`;
+                    let node = currentLevel.children.find(child => child.id === nodeId);
+                    if (!node) {
+                        node = { id: nodeId, text: value, children: [], parentId: currentLevel.id, isSelectable: false, rowIndex: -1 };
+                        currentLevel.children.push(node);
+                    }
+                    if (levelIndex === row.length - 1 || row[levelIndex + 1] === null) {
+                        node.isSelectable = true;
+                        node.rowIndex = rowIndex;
+                    }
+                    currentLevel = node;
+                });
+            });
+            if(root.children) {
+                root.children.forEach(child => expandedNodes.add(child.id));
+            }
+            return root.children;
+        }
+
+        // --- LÓGICA DE SELEÇÃO AVANÇADA ---
+
+        function handleNodeClick(nodeId) {
+            const node = allNodesMap.get(nodeId);
+            if (!node) return;
+
+            const childIds = getChildLeafIds(node);
+            const isSelected = areAllChildrenSelected(childIds);
+            
+            childIds.forEach(id => {
+                if (isSelected) selectedNodeIds.delete(id);
+                else selectedNodeIds.add(id);
+            });
+            
+            updateUI();
+        }
+        
+        function toggleSelectAll() {
+            const allSelected = selectedNodeIds.size === selectableLeafNodes.length;
+            selectedNodeIds.clear();
+            if (!allSelected) {
+                selectableLeafNodes.forEach(node => selectedNodeIds.add(node.id));
+            }
+            updateUI();
+        }
+
+        // --- FUNÇÕES DE ATUALIZAÇÃO E RENDERIZAÇÃO ---
+
+        function updateUI() {
+            renderTree();
+            updateSelectionText();
+            updateSelectAllCheckbox();
+            postSelectionToVA();
+        }
+
+        function renderTree(filteredNodes = null) {
+            const treeView = document.getElementById('treeView');
+            treeView.innerHTML = '';
+            renderNodes(filteredNodes || hierarchicalData, treeView);
+        }
+
+        function renderNodes(nodes, container) {
+            nodes.forEach(node => {
+                const nodeElement = document.createElement('div');
+                const nodeContent = document.createElement('div');
+                nodeContent.className = 'node-content';
+                
+                const expandIcon = document.createElement('div');
+                expandIcon.className = 'expand-icon';
+                if (node.children && node.children.length > 0) {
+                    expandIcon.textContent = expandedNodes.has(node.id) ? '−' : '+';
+                    expandIcon.onclick = (e) => { e.stopPropagation(); toggleNode(node.id); };
+                } else {
+                    expandIcon.classList.add('empty');
+                }
+
+                const checkbox = document.createElement('div');
+                checkbox.className = 'checkbox';
+                const selectionState = getNodeSelectionState(node);
+                if (selectionState === 'all') checkbox.classList.add('checked');
+                if (selectionState === 'partial') checkbox.classList.add('indeterminate');
+                
+                const nodeText = document.createElement('div');
+                nodeText.className = 'node-text';
+                nodeText.textContent = node.text;
+                
+                nodeContent.appendChild(expandIcon);
+                nodeContent.appendChild(checkbox);
+                nodeContent.appendChild(nodeText);
+                
+                nodeContent.onclick = (e) => { 
+                    e.stopPropagation(); 
+                    handleNodeClick(node.id); 
+                };
+                
+                nodeElement.appendChild(nodeContent);
+                
+                if (node.children && node.children.length > 0) {
+                    const childrenContainer = document.createElement('div');
+                    childrenContainer.className = 'children';
+                    if (expandedNodes.has(node.id)) childrenContainer.classList.add('expanded');
+                    renderNodes(node.children, childrenContainer);
+                    nodeElement.appendChild(childrenContainer);
+                }
+                container.appendChild(nodeElement);
+            });
+        }
+
+        function updateSelectionText() {
+            const count = selectedNodeIds.size;
+            const textEl = document.getElementById('selectedText');
+            if (count === 0) textEl.textContent = 'Selecione um ou mais itens';
+            else if (count === 1) textEl.textContent = allNodesMap.get(selectedNodeIds.values().next().value).text;
+            else textEl.textContent = `${count} itens selecionados`;
+        }
+        
+        function updateSelectAllCheckbox() {
+            const checkbox = document.getElementById('selectAllCheckbox');
+            checkbox.className = 'checkbox'; // Reset
+            if (selectedNodeIds.size === 0) {
+                // all clear
+            } else if (selectedNodeIds.size === selectableLeafNodes.length) {
+                checkbox.classList.add('checked');
+            } else {
+                checkbox.classList.add('indeterminate');
+            }
+        }
+
+        function postSelectionToVA() {
+            if (typeof va === 'undefined' || !va.messagingUtil) return;
+            const selectionForVA = [];
+            selectedNodeIds.forEach(id => {
+                const node = allNodesMap.get(id);
+                if (node && node.isSelectable) {
+                    selectionForVA.push({ row: node.rowIndex });
+                }
+            });
+            va.messagingUtil.postSelectionMessage(vaResultName, selectionForVA);
+        }
+
+        function toggleNode(nodeId) {
+            if (expandedNodes.has(nodeId)) expandedNodes.delete(nodeId);
+            else expandedNodes.add(nodeId);
+            renderTree();
+        }
+
+        // --- FUNÇÕES UTILITÁRIAS ---
+        
+        function getNodeSelectionState(node) {
+            const childLeafIds = getChildLeafIds(node);
+            if (childLeafIds.length === 0) {
+                return selectedNodeIds.has(node.id) ? 'all' : 'none';
+            }
+            const selectedChildrenCount = childLeafIds.filter(id => selectedNodeIds.has(id)).length;
+            if (selectedChildrenCount === 0) return 'none';
+            if (selectedChildrenCount === childLeafIds.length) return 'all';
+            return 'partial';
+        }
+
+        function areAllChildrenSelected(childLeafIds) {
+            if (childLeafIds.length === 0) return false;
+            return childLeafIds.every(id => selectedNodeIds.has(id));
+        }
+
+        function getChildLeafIds(node) {
+            let ids = [];
+            if (node.isSelectable) ids.push(node.id);
+            if (node.children) {
+                node.children.forEach(child => {
+                    ids = ids.concat(getChildLeafIds(child));
+                });
+            }
+            return ids;
+        }
+
+        function flattenTree(nodes) {
+            let result = [];
+            nodes.forEach(node => {
+                result.push(node);
+                if (node.children) result = result.concat(flattenTree(node.children));
+            });
+            return result;
+        }
+
+        function filterNodes(searchTerm) {
+            // Lógica de filtro pode ser adicionada aqui
+        }
+
+        // --- LÓGICA DE CONTROLE DO DROPDOWN (para evitar corte de layout) ---
+
+        function closeDropdown() {
+            const panel = document.getElementById('dropdownPanel');
+            if (!panel.classList.contains('show')) return;
+
+            const chevron = document.getElementById('chevron');
+            const wrapper = document.querySelector('.filter-wrapper');
+
+            panel.classList.remove('show');
+            chevron.classList.remove('expanded');
+            
+            panel.style.position = '';
+            panel.style.top = '';
+            panel.style.left = '';
+            panel.style.width = '';
+            wrapper.appendChild(panel);
+        }
+
+        function openDropdown() {
+            const panel = document.getElementById('dropdownPanel');
+            if (panel.classList.contains('show')) return;
+
+            const chevron = document.getElementById('chevron');
+            const currentSelection = document.querySelector('.current-selection');
+            const rect = currentSelection.getBoundingClientRect();
+
+            document.body.appendChild(panel);
+            
+            panel.style.position = 'absolute';
+            panel.style.top = `${window.scrollY + rect.bottom}px`;
+            panel.style.left = `${window.scrollX + rect.left}px`;
+            panel.style.width = `${rect.width}px`;
+
+            panel.classList.add('show');
+            chevron.classList.add('expanded');
+        }
+
+        function toggleDropdown() {
+            const panel = document.getElementById('dropdownPanel');
+            if (panel.classList.contains('show')) {
+                closeDropdown();
+            } else {
+                openDropdown();
+            }
+        }
+
+        document.addEventListener('click', function(event) {
+            const wrapper = document.querySelector('.filter-wrapper');
+            const panel = document.getElementById('dropdownPanel');
+
+            if (panel.classList.contains('show') && !wrapper.contains(event.target) && !panel.contains(event.target)) {
+                closeDropdown();
+            }
         });
 
-        // Função para simular recebimento de dados (como no seu código original)
-        function onDataReceived(resultData) {
-            if (!resultData) return;
-            
-            const treeData = TreeSelector.createTreeData(resultData);
-            
-            window.myTree = new TreeSelector('#treeContainer', {
-                data: treeData,
-                multiple: true,
-                closeDepth: 1,
-                placeholder: 'Região, UF e município',
-                onChange: function() {
-                    const selectedRows = this.selectedNodes
-                        .filter(node => node.hasOwnProperty('row'))
-                        .map(node => node.row);
-                    
-                    console.log('Enviando seleções:', selectedRows);
-                    // Aqui você pode enviar as seleções de volta para o VA
-                    // va.messagingUtil.postSelectionMessage(resultData.resultName, selectedRows);
-                },
-                loaded: function() {
-                    this.collapseAll();
-                }
-            });
-        }
     </script>
 </body>
 </html>
