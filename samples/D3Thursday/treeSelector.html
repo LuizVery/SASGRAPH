@@ -1,11 +1,10 @@
 <!DOCTYPE html>
 <!--
     Autor: Adaptado para SAS Visual Analytics
-    Versão: 4.1 - Filtro Hierárquico com Seleção Múltipla e em Cascata
+    Versão: 4.3 - Filtro Hierárquico com Seleção Múltipla e em Cascata
     Descrição: Um objeto de conteúdo de dados que exibe um filtro hierárquico avançado.
-               Permite seleção em cascata (pai/filho), "Selecionar Tudo", e envia
-               as seleções de volta para o SAS VA para filtrar o relatório.
-               Melhoria: O painel de seleção não fecha após o clique em um item.
+    Melhoria: Utiliza uma abordagem de overlay para garantir que o painel de seleção não seja cortado,
+               independentemente do tamanho do contêiner no SAS VA.
 -->
 <html lang="pt-BR">
 <head>
@@ -27,7 +26,7 @@
 
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Avenir Next', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; background-color: #f5f5f5; padding: 10px; }
+        body { font-family: 'Avenir Next', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; background-color: transparent; padding: 10px; }
         .filter-container { background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); width: 100%; height: 100%; display: flex; flex-direction: column; }
         .filter-header { padding: 0; background-color: transparent; border-radius: 8px 8px 0 0; }
         .filter-wrapper { position: relative; }
@@ -37,12 +36,11 @@
         .chevron.expanded { transform: rotate(180deg); }
         .search-box { padding: 12px 20px; border-bottom: 1px solid #e0e0e0; }
         .search-input { width: 100%; padding: 8px 12px; border: 1px solid #d0d0d0; border-radius: 4px; font-size: 14px; outline: none; transition: border-color 0.2s; }
-        .tree-view { flex-grow: 1; overflow-y: auto; padding: 8px 0; }
+        .tree-view { overflow-y: auto; padding: 8px 0; max-height: 250px; /* Altura máxima para o scroll */ }
         .node-content { display: flex; align-items: center; padding: 6px 20px; cursor: pointer; font-size: 14px; transition: background-color 0.15s; }
         .node-content:hover { background-color: #f0f8ff; }
         .expand-icon { width: 16px; height: 16px; margin-right: 8px; cursor: pointer; color: #666; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
         .expand-icon.empty { visibility: hidden; }
-        /* --- CSS CHECKBOX ATUALIZADO --- */
         .checkbox { width: 16px; height: 16px; border: 1.5px solid #6c757d; border-radius: 3px; margin-right: 10px; position: relative; flex-shrink: 0; transition: all 0.2s; }
         .checkbox.checked, .checkbox.indeterminate { background-color: #007acc; border-color: #007acc; }
         .checkbox.checked::after { content: '✔'; color: white; font-size: 12px; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
@@ -50,14 +48,42 @@
         .node-text { flex: 1; user-select: none; }
         .children { display: none; padding-left: 24px; }
         .children.expanded { display: block; }
-        .dropdown-panel { display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #dee2e6; border-top: none; border-radius: 0 0 4px 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; }
-        .dropdown-panel.show { display: block; }
-        /* --- CSS PARA "SELECIONAR TUDO" --- */
         .select-all-container { padding: 8px 20px; border-bottom: 1px solid #e0e0e0; display: flex; align-items: center; cursor: pointer; }
         .select-all-container:hover { background-color: #f0f8ff; }
+
+        /* --- LÓGICA DE LAYOUT ATUALIZADA --- */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.1);
+            z-index: 999;
+        }
+        .dropdown-panel {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            width: 100%;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 1000;
+        }
+        .dropdown-panel.show {
+            display: block;
+        }
     </style>
 </head>
 <body>
+    <!-- O overlay agora vive aqui -->
+    <div id="modalOverlay" onclick="closeDropdown()"></div>
+
     <div class="filter-container">
         <div class="filter-header">
             <div class="filter-wrapper">
@@ -65,12 +91,11 @@
                     <span id="selectedText">Selecione um ou mais itens</span>
                     <div class="chevron" id="chevron">▼</div>
                 </div>
-                <div class="dropdown-panel" id="dropdownPanel">
+                <div class="dropdown-panel" id="dropdownPanel" onclick="event.stopPropagation()">
                     <div class="search-box">
                         <input type="text" class="search-input" placeholder="Pesquisar" oninput="filterNodes(this.value)">
                     </div>
-                    <!-- NOVO: Container para "Selecionar Tudo" -->
-                    <div class="select-all-container" onclick="event.stopPropagation(); toggleSelectAll();">
+                    <div class="select-all-container" onclick="toggleSelectAll()">
                         <div class="checkbox" id="selectAllCheckbox"></div>
                         <div class="node-text">Selecionar Tudo</div>
                     </div>
@@ -219,11 +244,7 @@
                 nodeContent.appendChild(checkbox);
                 nodeContent.appendChild(nodeText);
                 
-                // ALTERAÇÃO AQUI: Adiciona stopPropagation para não fechar o painel
-                nodeContent.onclick = (e) => { 
-                    e.stopPropagation(); 
-                    handleNodeClick(node.id); 
-                };
+                nodeContent.onclick = () => handleNodeClick(node.id);
                 
                 nodeElement.appendChild(nodeContent);
                 
@@ -281,12 +302,9 @@
         function getNodeSelectionState(node) {
             const childLeafIds = getChildLeafIds(node);
             if (childLeafIds.length === 0) {
-                // Se é um nó folha, seu estado depende apenas de si mesmo
                 return selectedNodeIds.has(node.id) ? 'all' : 'none';
             }
-            
             const selectedChildrenCount = childLeafIds.filter(id => selectedNodeIds.has(id)).length;
-            
             if (selectedChildrenCount === 0) return 'none';
             if (selectedChildrenCount === childLeafIds.length) return 'all';
             return 'partial';
@@ -299,9 +317,7 @@
 
         function getChildLeafIds(node) {
             let ids = [];
-            if (node.isSelectable) {
-                ids.push(node.id);
-            }
+            if (node.isSelectable) ids.push(node.id);
             if (node.children) {
                 node.children.forEach(child => {
                     ids = ids.concat(getChildLeafIds(child));
@@ -320,25 +336,30 @@
         }
 
         function filterNodes(searchTerm) {
-            // Lógica de filtro pode ser adicionada aqui se necessário
+            // Lógica de filtro pode ser adicionada aqui
         }
 
-        document.addEventListener('click', function(event) {
-            const wrapper = document.querySelector('.filter-wrapper');
-            if (!wrapper.contains(event.target)) {
-                const panel = document.getElementById('dropdownPanel');
-                if (panel.classList.contains('show')) {
-                    panel.classList.remove('show');
-                    document.getElementById('chevron').classList.remove('expanded');
-                }
-            }
-        });
-        
+        // --- LÓGICA DE CONTROLE DO DROPDOWN (ATUALIZADA) ---
+
+        function closeDropdown() {
+            document.getElementById('dropdownPanel').classList.remove('show');
+            document.getElementById('chevron').classList.remove('expanded');
+            document.getElementById('modalOverlay').style.display = 'none';
+        }
+
+        function openDropdown() {
+            document.getElementById('dropdownPanel').classList.add('show');
+            document.getElementById('chevron').classList.add('expanded');
+            document.getElementById('modalOverlay').style.display = 'block';
+        }
+
         function toggleDropdown() {
             const panel = document.getElementById('dropdownPanel');
-            const chevron = document.getElementById('chevron');
-            panel.classList.toggle('show');
-            chevron.classList.toggle('expanded');
+            if (panel.classList.contains('show')) {
+                closeDropdown();
+            } else {
+                openDropdown();
+            }
         }
     </script>
 </body>
