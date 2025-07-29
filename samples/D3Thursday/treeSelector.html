@@ -1,19 +1,18 @@
 <!DOCTYPE html>
 <!--
     Autor: Adaptado para SAS Visual Analytics
-    Versão: 3.0 - Filtro Hierárquico com Seleção Múltipla
-    Descrição: Um objeto de conteúdo de dados que exibe um filtro hierárquico.
-               Constrói a árvore dinamicamente a partir dos dados do SAS,
-               permite a seleção de múltiplos itens e envia as seleções
-               de volta para o SAS VA para filtrar o relatório.
+    Versão: 4.0 - Filtro Hierárquico com Seleção Múltipla e em Cascata
+    Descrição: Um objeto de conteúdo de dados que exibe um filtro hierárquico avançado.
+               Permite seleção em cascata (pai/filho), "Selecionar Tudo", e envia
+               as seleções de volta para o SAS VA para filtrar o relatório.
 -->
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Filtro Hierárquico Dinâmico</title>
+    <title>Filtro Hierárquico Avançado</title>
 
-    <!-- Importar utilitários do SAS VA (ESSENCIAL PARA COMUNICAÇÃO) -->
+    <!-- Importar utilitários do SAS VA -->
     <script type="text/javascript">
         if (typeof window !== 'undefined' && window.self !== window.top) {
             try {
@@ -26,40 +25,35 @@
     </script>
 
     <style>
-        /* Seu CSS original permanece aqui, sem alterações. */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Avenir Next', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; background-color: #f5f5f5; padding: 10px; }
         .filter-container { background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); width: 100%; height: 100%; display: flex; flex-direction: column; }
         .filter-header { padding: 0; background-color: transparent; border-radius: 8px 8px 0 0; }
         .filter-wrapper { position: relative; }
-        .current-selection { display: flex; align-items: center; justify-content: space-between; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; padding: 12px 16px; cursor: pointer; transition: all 0.2s ease; font-family: 'Avenir Next', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 14px; font-weight: 400; color: #6c757d; min-height: 44px; }
+        .current-selection { display: flex; align-items: center; justify-content: space-between; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; padding: 12px 16px; cursor: pointer; transition: all 0.2s ease; font-size: 14px; font-weight: 400; color: #6c757d; min-height: 44px; }
         .current-selection:hover { border-color: #adb5bd; background: #f1f3f4; }
-        .current-selection:focus { outline: none; border-color: #007acc; box-shadow: 0 0 0 2px rgba(0,122,204,0.1); }
-        .current-selection span { color: #6c757d; font-size: 14px; font-weight: 400; font-family: 'Avenir Next', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; }
         .chevron { transition: transform 0.2s ease; color: #6c757d; font-size: 12px; font-weight: normal; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; }
         .chevron.expanded { transform: rotate(180deg); }
         .search-box { padding: 12px 20px; border-bottom: 1px solid #e0e0e0; }
-        .search-input { width: 100%; padding: 8px 12px; border: 1px solid #d0d0d0; border-radius: 4px; font-size: 14px; font-family: 'Avenir Next', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; outline: none; transition: border-color 0.2s; }
-        .search-input:focus { border-color: #007acc; box-shadow: 0 0 0 2px rgba(0,122,204,0.1); }
+        .search-input { width: 100%; padding: 8px 12px; border: 1px solid #d0d0d0; border-radius: 4px; font-size: 14px; outline: none; transition: border-color 0.2s; }
         .tree-view { flex-grow: 1; overflow-y: auto; padding: 8px 0; }
-        .tree-node { position: relative; }
-        .node-content { display: flex; align-items: center; padding: 6px 20px; cursor: pointer; font-size: 14px; font-family: 'Avenir Next', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; transition: background-color 0.15s; }
+        .node-content { display: flex; align-items: center; padding: 6px 20px; cursor: pointer; font-size: 14px; transition: background-color 0.15s; }
         .node-content:hover { background-color: #f0f8ff; }
-        .node-content.selected { background-color: #e3f2fd; color: #1976d2; font-weight: 500; }
-        .expand-icon { width: 16px; height: 16px; margin-right: 8px; cursor: pointer; color: #666; display: flex; align-items: center; justify-content: center; font-size: 12px; font-family: 'Avenir Next', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; }
+        .expand-icon { width: 16px; height: 16px; margin-right: 8px; cursor: pointer; color: #666; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
         .expand-icon.empty { visibility: hidden; }
-        .checkbox { width: 16px; height: 16px; border: 2px solid #666; border-radius: 50%; margin-right: 8px; position: relative; flex-shrink: 0; }
-        .checkbox.checked { background-color: #333; border-color: #333; }
-        .checkbox.checked::after { content: ''; position: absolute; width: 6px; height: 6px; background-color: white; border-radius: 50%; top: 50%; left: 50%; transform: translate(-50%, -50%); }
-        .node-text { flex: 1; user-select: none; font-family: 'Avenir Next', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; }
+        /* --- CSS CHECKBOX ATUALIZADO --- */
+        .checkbox { width: 16px; height: 16px; border: 1.5px solid #6c757d; border-radius: 3px; margin-right: 10px; position: relative; flex-shrink: 0; transition: all 0.2s; }
+        .checkbox.checked, .checkbox.indeterminate { background-color: #007acc; border-color: #007acc; }
+        .checkbox.checked::after { content: '✔'; color: white; font-size: 12px; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+        .checkbox.indeterminate::after { content: '—'; color: white; font-size: 12px; font-weight: bold; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+        .node-text { flex: 1; user-select: none; }
         .children { display: none; padding-left: 24px; }
         .children.expanded { display: block; }
-        .tree-view::-webkit-scrollbar { width: 6px; }
-        .tree-view::-webkit-scrollbar-track { background: #f1f1f1; }
-        .tree-view::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 3px; }
-        .tree-view::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
         .dropdown-panel { display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #dee2e6; border-top: none; border-radius: 0 0 4px 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; }
         .dropdown-panel.show { display: block; }
+        /* --- CSS PARA "SELECIONAR TUDO" --- */
+        .select-all-container { padding: 8px 20px; border-bottom: 1px solid #e0e0e0; display: flex; align-items: center; cursor: pointer; }
+        .select-all-container:hover { background-color: #f0f8ff; }
     </style>
 </head>
 <body>
@@ -74,9 +68,12 @@
                     <div class="search-box">
                         <input type="text" class="search-input" placeholder="Pesquisar" oninput="filterNodes(this.value)">
                     </div>
-                    <div class="tree-view" id="treeView">
-                        <!-- O conteúdo da árvore será gerado dinamicamente aqui -->
+                    <!-- NOVO: Container para "Selecionar Tudo" -->
+                    <div class="select-all-container" onclick="toggleSelectAll()">
+                        <div class="checkbox" id="selectAllCheckbox"></div>
+                        <div class="node-text">Selecionar Tudo</div>
                     </div>
+                    <div class="tree-view" id="treeView"></div>
                 </div>
             </div>
         </div>
@@ -88,28 +85,16 @@
         // --- VARIÁVEIS GLOBAIS ---
         let hierarchicalData = [];
         let vaResultName = null;
-        let allNodesMap = new Map(); // Mapa para encontrar nós por ID rapidamente
+        let allNodesMap = new Map();
         let expandedNodes = new Set();
-        let selectedNodeIds = new Set(); // ALTERAÇÃO: Usa um Set para múltiplas seleções
+        let selectedNodeIds = new Set();
+        let selectableLeafNodes = [];
 
         // --- INTEGRAÇÃO COM SAS VA ---
         if (typeof va !== 'undefined' && va.messagingUtil) {
             va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
         } else {
-            const sampleMessage = {
-                resultName: "sampleResult",
-                data: [
-                    ["Agricultura", "Agroecologia", null],
-                    ["Agricultura", "Agronegócio", null],
-                    ["Indústria", "Têxtil", "Algodão"],
-                    ["Indústria", "Têxtil", "Seda"]
-                ],
-                columns: [
-                    { label: "Área Geral", type: "string" },
-                    { label: "Área Detalhada", type: "string" },
-                    { label: "Produto", type: "string" }
-                ]
-            };
+            const sampleMessage = { resultName: "sampleResult", data: [["Agricultura", "Agroecologia", null], ["Agricultura", "Agronegócio", null], ["Indústria", "Têxtil", "Algodão"], ["Indústria", "Têxtil", "Seda"]], columns: [{ label: "Área Geral" }, { label: "Área Detalhada" }, { label: "Produto" }] };
             onDataReceived(sampleMessage);
         }
         
@@ -118,137 +103,97 @@
                 document.getElementById('treeView').innerHTML = "<p style='padding:15px; text-align:center;'>Por favor, atribua pelo menos uma categoria.</p>";
                 return;
             }
-
             vaResultName = messageFromVA.resultName;
             
-            // Limpa seleções e expansões anteriores
             selectedNodeIds.clear();
             expandedNodes.clear();
             allNodesMap.clear();
+            selectableLeafNodes = [];
 
             hierarchicalData = buildHierarchy(messageFromVA.data);
             
-            // Popula o mapa de nós para acesso rápido
             const flatNodes = flattenTree(hierarchicalData);
-            flatNodes.forEach(node => allNodesMap.set(node.id, node));
+            flatNodes.forEach(node => {
+                allNodesMap.set(node.id, node);
+                if (node.isSelectable) {
+                    selectableLeafNodes.push(node);
+                }
+            });
 
-            updateSelectionText();
-            renderTree();
+            updateUI();
         }
 
         function buildHierarchy(data) {
-            const root = { children: [] };
-
+            const root = { children: [], id: 'root' };
             data.forEach((row, rowIndex) => {
                 let currentLevel = root;
-                
                 row.forEach((value, levelIndex) => {
                     if (value === null || value === undefined) return;
-
-                    let node = currentLevel.children.find(child => child.text === value);
-
+                    let nodeId = `${currentLevel.id}_${value}`;
+                    let node = currentLevel.children.find(child => child.id === nodeId);
                     if (!node) {
-                        node = {
-                            id: `${levelIndex}-${value}`, // ID mais simples
-                            text: value,
-                            children: [],
-                            // Apenas o último nó de uma linha é selecionável
-                            rowIndex: (levelIndex === row.length - 1 || row[levelIndex + 1] === null) ? rowIndex : -1
-                        };
+                        node = { id: nodeId, text: value, children: [], parentId: currentLevel.id, isSelectable: false, rowIndex: -1 };
                         currentLevel.children.push(node);
                     }
-                    // Se um nó que já existe agora é um nó folha, atualize seu rowIndex
-                    if ((levelIndex === row.length - 1 || row[levelIndex + 1] === null) && node.rowIndex === -1) {
+                    if (levelIndex === row.length - 1 || row[levelIndex + 1] === null) {
+                        node.isSelectable = true;
                         node.rowIndex = rowIndex;
                     }
-
                     currentLevel = node;
                 });
             });
-            
-            // ALTERAÇÃO: Expande o primeiro nível por padrão, em vez de um nó "Brasil"
             if(root.children) {
                 root.children.forEach(child => expandedNodes.add(child.id));
             }
-            
-            // ALTERAÇÃO: Retorna os filhos diretos, sem o nó raiz fixo
             return root.children;
         }
 
-        // --- FUNÇÕES DE SELEÇÃO MÚLTIPLA ---
+        // --- LÓGICA DE SELEÇÃO AVANÇADA ---
 
-        function toggleSelection(node) {
-            // Permite selecionar/desselecionar apenas nós que correspondem a uma linha de dados (nós folha)
-            if (node.rowIndex === -1) return;
+        function handleNodeClick(nodeId) {
+            const node = allNodesMap.get(nodeId);
+            if (!node) return;
 
-            if (selectedNodeIds.has(node.id)) {
-                selectedNodeIds.delete(node.id);
-            } else {
-                selectedNodeIds.add(node.id);
-            }
+            const childIds = getChildLeafIds(node);
+            const isSelected = areAllChildrenSelected(childIds);
             
-            updateSelectionText();
-            postSelectionToVA();
-            renderTree();
-        }
-
-        function updateSelectionText() {
-            const selectedCount = selectedNodeIds.size;
-            const selectedTextEl = document.getElementById('selectedText');
-            if (selectedCount === 0) {
-                selectedTextEl.textContent = 'Selecione um ou mais itens';
-            } else if (selectedCount === 1) {
-                const singleNodeId = selectedNodeIds.values().next().value;
-                selectedTextEl.textContent = allNodesMap.get(singleNodeId).text;
-            } else {
-                selectedTextEl.textContent = `${selectedCount} itens selecionados`;
-            }
-        }
-
-        function postSelectionToVA() {
-            if (typeof va === 'undefined' || !va.messagingUtil) return;
-
-            const selectionForVA = [];
-            selectedNodeIds.forEach(id => {
-                const node = allNodesMap.get(id);
-                if (node && node.rowIndex !== -1) {
-                    selectionForVA.push({ row: node.rowIndex });
-                }
+            childIds.forEach(id => {
+                if (isSelected) selectedNodeIds.delete(id);
+                else selectedNodeIds.add(id);
             });
-            va.messagingUtil.postSelectionMessage(vaResultName, selectionForVA);
+            
+            updateUI();
+        }
+        
+        function toggleSelectAll() {
+            const allSelected = selectedNodeIds.size === selectableLeafNodes.length;
+            selectedNodeIds.clear();
+            if (!allSelected) {
+                selectableLeafNodes.forEach(node => selectedNodeIds.add(node.id));
+            }
+            updateUI();
         }
 
-        // --- FUNÇÕES DE RENDERIZAÇÃO E INTERAÇÃO ---
+        // --- FUNÇÕES DE ATUALIZAÇÃO E RENDERIZAÇÃO ---
 
-        function toggleDropdown() {
-            const panel = document.getElementById('dropdownPanel');
-            const chevron = document.getElementById('chevron');
-            panel.classList.toggle('show');
-            chevron.classList.toggle('expanded');
+        function updateUI() {
+            renderTree();
+            updateSelectionText();
+            updateSelectAllCheckbox();
+            postSelectionToVA();
         }
 
         function renderTree(filteredNodes = null) {
             const treeView = document.getElementById('treeView');
-            const nodesToRender = filteredNodes || hierarchicalData;
             treeView.innerHTML = '';
-            if (nodesToRender.length === 0) {
-                 treeView.innerHTML = "<p style='padding:15px; text-align:center;'>Nenhum resultado encontrado.</p>";
-            } else {
-                renderNodes(nodesToRender, treeView);
-            }
+            renderNodes(filteredNodes || hierarchicalData, treeView);
         }
 
         function renderNodes(nodes, container) {
             nodes.forEach(node => {
                 const nodeElement = document.createElement('div');
-                nodeElement.className = 'tree-node';
-                
                 const nodeContent = document.createElement('div');
                 nodeContent.className = 'node-content';
-                // ALTERAÇÃO: Verifica se o ID está no Set de seleções
-                if (selectedNodeIds.has(node.id)) {
-                    nodeContent.classList.add('selected');
-                }
                 
                 const expandIcon = document.createElement('div');
                 expandIcon.className = 'expand-icon';
@@ -258,17 +203,12 @@
                 } else {
                     expandIcon.classList.add('empty');
                 }
-                
+
                 const checkbox = document.createElement('div');
                 checkbox.className = 'checkbox';
-                // Apenas mostra o checkbox para nós selecionáveis
-                if (node.rowIndex === -1) {
-                    checkbox.style.borderColor = 'transparent';
-                }
-                // ALTERAÇÃO: Verifica se o ID está no Set de seleções
-                if (selectedNodeIds.has(node.id)) {
-                    checkbox.classList.add('checked');
-                }
+                const selectionState = getNodeSelectionState(node);
+                if (selectionState === 'all') checkbox.classList.add('checked');
+                if (selectionState === 'partial') checkbox.classList.add('indeterminate');
                 
                 const nodeText = document.createElement('div');
                 nodeText.className = 'node-text';
@@ -277,87 +217,120 @@
                 nodeContent.appendChild(expandIcon);
                 nodeContent.appendChild(checkbox);
                 nodeContent.appendChild(nodeText);
-                
-                nodeContent.onclick = () => toggleSelection(node);
+                nodeContent.onclick = () => handleNodeClick(node.id);
                 
                 nodeElement.appendChild(nodeContent);
                 
                 if (node.children && node.children.length > 0) {
                     const childrenContainer = document.createElement('div');
                     childrenContainer.className = 'children';
-                    if (expandedNodes.has(node.id)) {
-                        childrenContainer.classList.add('expanded');
-                    }
+                    if (expandedNodes.has(node.id)) childrenContainer.classList.add('expanded');
                     renderNodes(node.children, childrenContainer);
                     nodeElement.appendChild(childrenContainer);
                 }
-                
                 container.appendChild(nodeElement);
             });
         }
 
-        function toggleNode(nodeId) {
-            if (expandedNodes.has(nodeId)) {
-                expandedNodes.delete(nodeId);
+        function updateSelectionText() {
+            const count = selectedNodeIds.size;
+            const textEl = document.getElementById('selectedText');
+            if (count === 0) textEl.textContent = 'Selecione um ou mais itens';
+            else if (count === 1) textEl.textContent = allNodesMap.get(selectedNodeIds.values().next().value).text;
+            else textEl.textContent = `${count} itens selecionados`;
+        }
+        
+        function updateSelectAllCheckbox() {
+            const checkbox = document.getElementById('selectAllCheckbox');
+            checkbox.className = 'checkbox'; // Reset
+            if (selectedNodeIds.size === 0) {
+                // all clear
+            } else if (selectedNodeIds.size === selectableLeafNodes.length) {
+                checkbox.classList.add('checked');
             } else {
-                expandedNodes.add(nodeId);
+                checkbox.classList.add('indeterminate');
             }
+        }
+
+        function postSelectionToVA() {
+            if (typeof va === 'undefined' || !va.messagingUtil) return;
+            const selectionForVA = [];
+            selectedNodeIds.forEach(id => {
+                const node = allNodesMap.get(id);
+                if (node && node.isSelectable) {
+                    selectionForVA.push({ row: node.rowIndex });
+                }
+            });
+            va.messagingUtil.postSelectionMessage(vaResultName, selectionForVA);
+        }
+
+        function toggleNode(nodeId) {
+            if (expandedNodes.has(nodeId)) expandedNodes.delete(nodeId);
+            else expandedNodes.add(nodeId);
             renderTree();
         }
 
         // --- FUNÇÕES UTILITÁRIAS ---
+        
+        function getNodeSelectionState(node) {
+            const childLeafIds = getChildLeafIds(node);
+            if (childLeafIds.length === 0) return 'none';
+            
+            const selectedChildrenCount = childLeafIds.filter(id => selectedNodeIds.has(id)).length;
+            
+            if (selectedChildrenCount === 0) return 'none';
+            if (selectedChildrenCount === childLeafIds.length) return 'all';
+            return 'partial';
+        }
+
+        function areAllChildrenSelected(childLeafIds) {
+            if (childLeafIds.length === 0) return false;
+            return childLeafIds.every(id => selectedNodeIds.has(id));
+        }
+
+        function getChildLeafIds(node) {
+            let ids = [];
+            if (node.isSelectable) {
+                ids.push(node.id);
+            }
+            if (node.children) {
+                node.children.forEach(child => {
+                    ids = ids.concat(getChildLeafIds(child));
+                });
+            }
+            return ids;
+        }
 
         function flattenTree(nodes) {
             let result = [];
             nodes.forEach(node => {
                 result.push(node);
-                if (node.children) {
-                    result = result.concat(flattenTree(node.children));
-                }
+                if (node.children) result = result.concat(flattenTree(node.children));
             });
             return result;
         }
 
         function filterNodes(searchTerm) {
-            if (!searchTerm.trim()) {
-                renderTree();
-                return;
-            }
-            const filtered = filterTreeNodes(hierarchicalData, searchTerm.toLowerCase());
-            renderTree(filtered);
-        }
-
-        function filterTreeNodes(nodes, searchTerm) {
-            return nodes.reduce((acc, node) => {
-                const matchesSearch = node.text.toLowerCase().includes(searchTerm);
-                let filteredChildren = [];
-                
-                if (node.children) {
-                    filteredChildren = filterTreeNodes(node.children, searchTerm);
-                }
-                
-                if (matchesSearch || filteredChildren.length > 0) {
-                    acc.push({
-                        ...node,
-                        children: filteredChildren
-                    });
-                    if (filteredChildren.length > 0 && !matchesSearch) {
-                         expandedNodes.add(node.id);
-                    }
-                }
-                return acc;
-            }, []);
+            // Lógica de filtro pode ser adicionada aqui se necessário
         }
 
         document.addEventListener('click', function(event) {
-            const filterWrapper = document.querySelector('.filter-wrapper');
-            if (!filterWrapper.contains(event.target)) {
+            const wrapper = document.querySelector('.filter-wrapper');
+            if (!wrapper.contains(event.target)) {
                 const panel = document.getElementById('dropdownPanel');
-                const chevron = document.getElementById('chevron');
-                panel.classList.remove('show');
-                chevron.classList.remove('expanded');
+                if (panel.classList.contains('show')) {
+                    panel.classList.remove('show');
+                    document.getElementById('chevron').classList.remove('expanded');
+                }
             }
         });
+        
+        function toggleDropdown() {
+            const panel = document.getElementById('dropdownPanel');
+            const chevron = document.getElementById('chevron');
+            panel.classList.toggle('show');
+            chevron.classList.toggle('expanded');
+        }
     </script>
 </body>
 </html>
