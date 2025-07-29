@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<!--
+    Autor: Adaptado para SAS Visual Analytics
+    Versão: 4.4 - Filtro Hierárquico com Layout Adaptável
+    Descrição: Um objeto de conteúdo de dados que exibe um filtro hierárquico avançado.
+    Melhoria: O layout foi redesenhado para ser um painel autônomo e rolável,
+               eliminando o conceito de dropdown para garantir que o conteúdo nunca seja cortado.
+-->
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Filtro Hierárquico Adaptável</title>
+
+    <!-- Importar utilitários do SAS VA -->
+    <script type="text/javascript">
+        if (typeof window !== 'undefined' && window.self !== window.top) {
+            try {
+                document.write('<script type="text/javascript" src="../../util/messagingUtil.js"><\/script>');
+                document.write('<script type="text/javascript" src="../../util/contentUtil.js"><\/script>');
+            } catch(e) {
+                console.error("Erro ao carregar utilitários do SAS VA:", e);
+            }
+        }
+    </script>
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Avenir Next', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            background-color: white;
+        }
+        .filter-panel {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+        }
+        .filter-controls {
+            flex-shrink: 0; /* Não encolhe */
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .search-box {
+            padding: 8px;
+        }
+        .search-input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #d0d0d0;
+            border-radius: 4px;
+            font-size: 14px;
+            outline: none;
+        }
+        .select-all-container {
+            padding: 8px 12px;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            background-color: #f8f9fa;
+        }
+        .select-all-container:hover {
+            background-color: #f0f8ff;
+        }
+        .tree-view {
+            flex-grow: 1; /* Ocupa todo o espaço restante */
+            overflow-y: auto;
+            padding: 8px 0;
+        }
+        .node-content { display: flex; align-items: center; padding: 6px 12px; cursor: pointer; font-size: 14px; }
+        .node-content:hover { background-color: #f0f8ff; }
+        .expand-icon { width: 16px; height: 16px; margin-right: 8px; cursor: pointer; color: #666; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
+        .expand-icon.empty { visibility: hidden; }
+        .checkbox { width: 16px; height: 16px; border: 1.5px solid #6c757d; border-radius: 3px; margin-right: 10px; position: relative; flex-shrink: 0; }
+        .checkbox.checked, .checkbox.indeterminate { background-color: #007acc; border-color: #007acc; }
+        .checkbox.checked::after { content: '✔'; color: white; font-size: 12px; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+        .checkbox.indeterminate::after { content: '—'; color: white; font-size: 12px; font-weight: bold; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+        .node-text { flex: 1; user-select: none; }
+        .children { padding-left: 24px; }
+        .filter-status {
+            flex-shrink: 0;
+            padding: 6px 12px;
+            background-color: #f8f9fa;
+            border-top: 1px solid #e0e0e0;
+            font-size: 12px;
+            color: #6c757d;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="filter-panel">
+        <div class="filter-controls">
+            <div class="search-box">
+                <input type="text" class="search-input" placeholder="Pesquisar..." oninput="filterNodes(this.value)">
+            </div>
+            <div class="select-all-container" onclick="toggleSelectAll()">
+                <div class="checkbox" id="selectAllCheckbox"></div>
+                <div class="node-text">Selecionar Tudo</div>
+            </div>
+        </div>
+        <div class="tree-view" id="treeView">
+            <!-- Conteúdo da árvore gerado aqui -->
+        </div>
+        <div class="filter-status" id="statusText">
+            Nenhum item selecionado
+        </div>
+    </div>
+
+    <script>
+        "use strict";
+
+        // --- VARIÁVEIS GLOBAIS ---
+        let hierarchicalData = [];
+        let vaResultName = null;
+        let allNodesMap = new Map();
+        let expandedNodes = new Set();
+        let selectedNodeIds = new Set();
+        let selectableLeafNodes = [];
+
+        // --- INTEGRAÇÃO COM SAS VA ---
+        if (typeof va !== 'undefined' && va.messagingUtil) {
+            va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
+        } else {
+            const sampleMessage = { resultName: "sampleResult", data: [["Agricultura", "Agroecologia", null], ["Agricultura", "Agronegócio", null], ["Indústria", "Têxtil", "Algodão"], ["Indústria", "Têxtil", "Seda"]], columns: [{ label: "Área Geral" }, { label: "Área Detalhada" }, { label: "Produto" }] };
+            onDataReceived(sampleMessage);
+        }
+        
+        function onDataReceived(messageFromVA) {
+            if (!messageFromVA || !messageFromVA.data || messageFromVA.data.length === 0) {
+                document.getElementById('treeView').innerHTML = "<p style='padding:15px; text-align:center;'>Por favor, atribua pelo menos uma categoria.</p>";
+                return;
+            }
+            vaResultName = messageFromVA.resultName;
+            
+            selectedNodeIds.clear();
+            expandedNodes.clear();
+            allNodesMap.clear();
+            selectableLeafNodes = [];
+
+            hierarchicalData = buildHierarchy(messageFromVA.data);
+            
+            const flatNodes = flattenTree(hierarchicalData);
+            flatNodes.forEach(node => {
+                allNodesMap.set(node.id, node);
+                if (node.isSelectable) {
+                    selectableLeafNodes.push(node);
+                }
+            });
+
+            updateUI();
+        }
+
+        function buildHierarchy(data) {
+            const root = { children: [], id: 'root' };
+            data.forEach((row, rowIndex) => {
+                let currentLevel = root;
+                row.forEach((value, levelIndex) => {
+                    if (value === null || value === undefined) return;
+                    let nodeId = `${currentLevel.id}_${value}`;
+                    let node = currentLevel.children.find(child => child.id === nodeId);
+                    if (!node) {
+                        node = { id: nodeId, text: value, children: [], parentId: currentLevel.id, isSelectable: false, rowIndex: -1 };
+                        currentLevel.children.push(node);
+                    }
+                    if (levelIndex === row.length - 1 || row[levelIndex + 1] === null) {
+                        node.isSelectable = true;
+                        node.rowIndex = rowIndex;
+                    }
+                    currentLevel = node;
+                });
+            });
+            if(root.children) {
+                root.children.forEach(child => expandedNodes.add(child.id));
+            }
+            return root.children;
+        }
+
+        // --- LÓGICA DE SELEÇÃO AVANÇADA ---
+
+        function handleNodeClick(nodeId) {
+            const node = allNodesMap.get(nodeId);
+            if (!node) return;
+
+            const childIds = getChildLeafIds(node);
+            const isSelected = areAllChildrenSelected(childIds);
+            
+            childIds.forEach(id => {
+                if (isSelected) selectedNodeIds.delete(id);
+                else selectedNodeIds.add(id);
+            });
+            
+            updateUI();
+        }
+        
+        function toggleSelectAll() {
+            const allSelected = selectedNodeIds.size === selectableLeafNodes.length;
+            selectedNodeIds.clear();
+            if (!allSelected) {
+                selectableLeafNodes.forEach(node => selectedNodeIds.add(node.id));
+            }
+            updateUI();
+        }
+
+        // --- FUNÇÕES DE ATUALIZAÇÃO E RENDERIZAÇÃO ---
+
+        function updateUI() {
+            renderTree();
+            updateSelectionText();
+            updateSelectAllCheckbox();
+            postSelectionToVA();
+        }
+
+        function renderTree(nodesToRender = hierarchicalData) {
+            const treeView = document.getElementById('treeView');
+            treeView.innerHTML = '';
+            if (nodesToRender.length === 0) {
+                 treeView.innerHTML = "<p style='padding:15px; text-align:center;'>Nenhum resultado encontrado.</p>";
+            } else {
+                renderNodes(nodesToRender, treeView);
+            }
+        }
+
+        function renderNodes(nodes, container) {
+            nodes.forEach(node => {
+                const nodeElement = document.createElement('div');
+                const nodeContent = document.createElement('div');
+                nodeContent.className = 'node-content';
+                
+                const expandIcon = document.createElement('div');
+                expandIcon.className = 'expand-icon';
+                if (node.children && node.children.length > 0) {
+                    expandIcon.textContent = expandedNodes.has(node.id) ? '−' : '+';
+                    expandIcon.onclick = (e) => { e.stopPropagation(); toggleNode(node.id); };
+                } else {
+                    expandIcon.classList.add('empty');
+                }
+
+                const checkbox = document.createElement('div');
+                checkbox.className = 'checkbox';
+                const selectionState = getNodeSelectionState(node);
+                if (selectionState === 'all') checkbox.classList.add('checked');
+                if (selectionState === 'partial') checkbox.classList.add('indeterminate');
+                
+                const nodeText = document.createElement('div');
+                nodeText.className = 'node-text';
+                nodeText.textContent = node.text;
+                
+                nodeContent.appendChild(expandIcon);
+                nodeContent.appendChild(checkbox);
+                nodeContent.appendChild(nodeText);
+                
+                nodeContent.onclick = () => handleNodeClick(node.id);
+                
+                nodeElement.appendChild(nodeContent);
+                
+                const childrenContainer = document.createElement('div');
+                childrenContainer.className = 'children';
+                if (expandedNodes.has(node.id) && node.children && node.children.length > 0) {
+                    renderNodes(node.children, childrenContainer);
+                    nodeElement.appendChild(childrenContainer);
+                }
+                container.appendChild(nodeElement);
+            });
+        }
+
+        function updateSelectionText() {
+            const count = selectedNodeIds.size;
+            const textEl = document.getElementById('statusText');
+            if (count === 0) textEl.textContent = 'Nenhum item selecionado';
+            else if (count === 1) textEl.textContent = `1 item selecionado`;
+            else textEl.textContent = `${count} itens selecionados`;
+        }
+        
+        function updateSelectAllCheckbox() {
+            const checkbox = document.getElementById('selectAllCheckbox');
+            checkbox.className = 'checkbox';
+            if (selectedNodeIds.size === 0) {
+                // do nothing
+            } else if (selectedNodeIds.size === selectableLeafNodes.length) {
+                checkbox.classList.add('checked');
+            } else {
+                checkbox.classList.add('indeterminate');
+            }
+        }
+
+        function postSelectionToVA() {
+            if (typeof va === 'undefined' || !va.messagingUtil) return;
+            const selectionForVA = [];
+            selectedNodeIds.forEach(id => {
+                const node = allNodesMap.get(id);
+                if (node && node.isSelectable) {
+                    selectionForVA.push({ row: node.rowIndex });
+                }
+            });
+            va.messagingUtil.postSelectionMessage(vaResultName, selectionForVA);
+        }
+
+        function toggleNode(nodeId) {
+            if (expandedNodes.has(nodeId)) expandedNodes.delete(nodeId);
+            else expandedNodes.add(nodeId);
+            renderTree();
+        }
+
+        // --- FUNÇÕES UTILITÁRIAS ---
+        
+        function getNodeSelectionState(node) {
+            const childLeafIds = getChildLeafIds(node);
+            if (childLeafIds.length === 0) {
+                return selectedNodeIds.has(node.id) ? 'all' : 'none';
+            }
+            const selectedChildrenCount = childLeafIds.filter(id => selectedNodeIds.has(id)).length;
+            if (selectedChildrenCount === 0) return 'none';
+            if (selectedChildrenCount === childLeafIds.length) return 'all';
+            return 'partial';
+        }
+
+        function areAllChildrenSelected(childLeafIds) {
+            if (childLeafIds.length === 0) return false;
+            return childLeafIds.every(id => selectedNodeIds.has(id));
+        }
+
+        function getChildLeafIds(node) {
+            let ids = [];
+            if (node.isSelectable) ids.push(node.id);
+            if (node.children) {
+                node.children.forEach(child => {
+                    ids = ids.concat(getChildLeafIds(child));
+                });
+            }
+            return ids;
+        }
+
+        function flattenTree(nodes) {
+            let result = [];
+            nodes.forEach(node => {
+                result.push(node);
+                if (node.children) result = result.concat(flattenTree(node.children));
+            });
+            return result;
+        }
+
+        function filterNodes(searchTerm) {
+            const lowerCaseSearchTerm = searchTerm.toLowerCase();
+            const filteredData = findInTree(hierarchicalData, lowerCaseSearchTerm);
+            
+            // Auto-expandir nós na busca
+            const flatNodes = flattenTree(filteredData);
+            flatNodes.forEach(node => {
+                if(node.children && node.children.length > 0) {
+                    expandedNodes.add(node.id);
+                }
+            });
+
+            renderTree(filteredData);
+        }
+
+        function findInTree(nodes, searchTerm) {
+            return nodes.map(node => ({...node})).filter(node => {
+                const hasMatchingChildren = node.children && node.children.length > 0;
+                if (hasMatchingChildren) {
+                    node.children = findInTree(node.children, searchTerm);
+                }
+                return node.text.toLowerCase().includes(searchTerm) || (node.children && node.children.length > 0);
+            });
+        }
+    </script>
+</body>
+</html>
