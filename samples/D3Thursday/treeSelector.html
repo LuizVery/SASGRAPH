@@ -1,17 +1,17 @@
 <!DOCTYPE html>
 <!--
     Autor: Adaptado para SAS Visual Analytics
-    Versão: 2.0 - Filtro Hierárquico Dinâmico
+    Versão: 3.0 - Filtro Hierárquico com Seleção Múltipla
     Descrição: Um objeto de conteúdo de dados que exibe um filtro hierárquico.
-               Recebe 3 colunas (nível 1, 2 e 3 da hierarquia), constrói a árvore
-               dinamicamente e envia a seleção do usuário de volta para o SAS VA
-               para filtrar outros objetos no relatório.
+               Constrói a árvore dinamicamente a partir dos dados do SAS,
+               permite a seleção de múltiplos itens e envia as seleções
+               de volta para o SAS VA para filtrar o relatório.
 -->
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Filtro Hierárquico - Região, UF, Município</title>
+    <title>Filtro Hierárquico Dinâmico</title>
 
     <!-- Importar utilitários do SAS VA (ESSENCIAL PARA COMUNICAÇÃO) -->
     <script type="text/javascript">
@@ -45,7 +45,7 @@
         .tree-node { position: relative; }
         .node-content { display: flex; align-items: center; padding: 6px 20px; cursor: pointer; font-size: 14px; font-family: 'Avenir Next', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; transition: background-color 0.15s; }
         .node-content:hover { background-color: #f0f8ff; }
-        .node-content.selected { background-color: #e3f2fd; color: #1976d2; }
+        .node-content.selected { background-color: #e3f2fd; color: #1976d2; font-weight: 500; }
         .expand-icon { width: 16px; height: 16px; margin-right: 8px; cursor: pointer; color: #666; display: flex; align-items: center; justify-content: center; font-size: 12px; font-family: 'Avenir Next', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; }
         .expand-icon.empty { visibility: hidden; }
         .checkbox { width: 16px; height: 16px; border: 2px solid #666; border-radius: 50%; margin-right: 8px; position: relative; flex-shrink: 0; }
@@ -67,7 +67,7 @@
         <div class="filter-header">
             <div class="filter-wrapper">
                 <div class="current-selection" onclick="toggleDropdown()" tabindex="0">
-                    <span id="selectedText">Selecione uma localidade</span>
+                    <span id="selectedText">Selecione um ou mais itens</span>
                     <div class="chevron" id="chevron">▼</div>
                 </div>
                 <div class="dropdown-panel" id="dropdownPanel">
@@ -86,95 +86,139 @@
         "use strict";
 
         // --- VARIÁVEIS GLOBAIS ---
-        let hierarchicalData = []; // Armazenará os dados vindos do SAS
-        let vaResultName = null;   // Nome do resultado do SAS, necessário para enviar seleções
-        let vaData = [];           // Dados brutos do SAS
+        let hierarchicalData = [];
+        let vaResultName = null;
+        let allNodesMap = new Map(); // Mapa para encontrar nós por ID rapidamente
         let expandedNodes = new Set();
-        let selectedNodeId = null; // Armazena o ID do nó selecionado
+        let selectedNodeIds = new Set(); // ALTERAÇÃO: Usa um Set para múltiplas seleções
 
         // --- INTEGRAÇÃO COM SAS VA ---
         if (typeof va !== 'undefined' && va.messagingUtil) {
             va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
         } else {
-            // Dados de exemplo para teste fora do SAS VA
             const sampleMessage = {
                 resultName: "sampleResult",
                 data: [
-                    ["Sudeste", "São Paulo", "São Paulo"],
-                    ["Sudeste", "São Paulo", "Campinas"],
-                    ["Sudeste", "Rio de Janeiro", "Rio de Janeiro"],
-                    ["Nordeste", "Bahia", "Salvador"]
+                    ["Agricultura", "Agroecologia", null],
+                    ["Agricultura", "Agronegócio", null],
+                    ["Indústria", "Têxtil", "Algodão"],
+                    ["Indústria", "Têxtil", "Seda"]
                 ],
                 columns: [
-                    { label: "Região", type: "string" },
-                    { label: "UF", type: "string" },
-                    { label: "Município", type: "string" }
+                    { label: "Área Geral", type: "string" },
+                    { label: "Área Detalhada", type: "string" },
+                    { label: "Produto", type: "string" }
                 ]
             };
             onDataReceived(sampleMessage);
         }
-
-        /**
-         * Função principal que é chamada quando o SAS VA envia dados.
-         */
+        
         function onDataReceived(messageFromVA) {
             if (!messageFromVA || !messageFromVA.data || messageFromVA.data.length === 0) {
-                document.getElementById('treeView').innerHTML = "<p style='padding:15px; text-align:center;'>Por favor, atribua 3 categorias para a hierarquia.</p>";
+                document.getElementById('treeView').innerHTML = "<p style='padding:15px; text-align:center;'>Por favor, atribua pelo menos uma categoria.</p>";
                 return;
             }
 
             vaResultName = messageFromVA.resultName;
-            vaData = messageFromVA.data; // Armazena os dados brutos
-
-            // Transforma os dados planos do SAS em uma estrutura de árvore
-            hierarchicalData = buildHierarchy(vaData);
             
-            // Inicia a renderização da árvore
+            // Limpa seleções e expansões anteriores
+            selectedNodeIds.clear();
+            expandedNodes.clear();
+            allNodesMap.clear();
+
+            hierarchicalData = buildHierarchy(messageFromVA.data);
+            
+            // Popula o mapa de nós para acesso rápido
+            const flatNodes = flattenTree(hierarchicalData);
+            flatNodes.forEach(node => allNodesMap.set(node.id, node));
+
+            updateSelectionText();
             renderTree();
         }
 
-        /**
-         * Constrói uma estrutura de árvore hierárquica a partir de dados planos.
-         * Ex: [["Sudeste", "SP", "São Paulo"], ["Sudeste", "SP", "Campinas"]]
-         * se torna uma árvore com nós aninhados.
-         */
         function buildHierarchy(data) {
             const root = { children: [] };
-            const levelMap = new Map();
 
             data.forEach((row, rowIndex) => {
                 let currentLevel = root;
                 
                 row.forEach((value, levelIndex) => {
-                    if (!value) return; // Ignora valores nulos/vazios
+                    if (value === null || value === undefined) return;
 
                     let node = currentLevel.children.find(child => child.text === value);
 
                     if (!node) {
                         node = {
-                            id: `${levelIndex}-${value}-${rowIndex}`, // ID único
+                            id: `${levelIndex}-${value}`, // ID mais simples
                             text: value,
                             children: [],
-                            rowIndex: rowIndex // Guarda o índice da linha original para seleção
+                            // Apenas o último nó de uma linha é selecionável
+                            rowIndex: (levelIndex === row.length - 1 || row[levelIndex + 1] === null) ? rowIndex : -1
                         };
                         currentLevel.children.push(node);
                     }
+                    // Se um nó que já existe agora é um nó folha, atualize seu rowIndex
+                    if ((levelIndex === row.length - 1 || row[levelIndex + 1] === null) && node.rowIndex === -1) {
+                        node.rowIndex = rowIndex;
+                    }
+
                     currentLevel = node;
                 });
             });
-            // Adiciona um nó raiz "Brasil" para começar a árvore
-            const brasilRoot = {
-                id: 'brasil-root',
-                text: 'Brasil',
-                children: root.children,
-                rowIndex: -1 // Nó raiz não selecionável
-            };
-            expandedNodes.add(brasilRoot.id); // Expande o nó raiz por padrão
-            return [brasilRoot];
+            
+            // ALTERAÇÃO: Expande o primeiro nível por padrão, em vez de um nó "Brasil"
+            if(root.children) {
+                root.children.forEach(child => expandedNodes.add(child.id));
+            }
+            
+            // ALTERAÇÃO: Retorna os filhos diretos, sem o nó raiz fixo
+            return root.children;
         }
 
+        // --- FUNÇÕES DE SELEÇÃO MÚLTIPLA ---
 
-        // --- FUNÇÕES DE RENDERIZAÇÃO E INTERAÇÃO (a maior parte do seu código original) ---
+        function toggleSelection(node) {
+            // Permite selecionar/desselecionar apenas nós que correspondem a uma linha de dados (nós folha)
+            if (node.rowIndex === -1) return;
+
+            if (selectedNodeIds.has(node.id)) {
+                selectedNodeIds.delete(node.id);
+            } else {
+                selectedNodeIds.add(node.id);
+            }
+            
+            updateSelectionText();
+            postSelectionToVA();
+            renderTree();
+        }
+
+        function updateSelectionText() {
+            const selectedCount = selectedNodeIds.size;
+            const selectedTextEl = document.getElementById('selectedText');
+            if (selectedCount === 0) {
+                selectedTextEl.textContent = 'Selecione um ou mais itens';
+            } else if (selectedCount === 1) {
+                const singleNodeId = selectedNodeIds.values().next().value;
+                selectedTextEl.textContent = allNodesMap.get(singleNodeId).text;
+            } else {
+                selectedTextEl.textContent = `${selectedCount} itens selecionados`;
+            }
+        }
+
+        function postSelectionToVA() {
+            if (typeof va === 'undefined' || !va.messagingUtil) return;
+
+            const selectionForVA = [];
+            selectedNodeIds.forEach(id => {
+                const node = allNodesMap.get(id);
+                if (node && node.rowIndex !== -1) {
+                    selectionForVA.push({ row: node.rowIndex });
+                }
+            });
+            va.messagingUtil.postSelectionMessage(vaResultName, selectionForVA);
+        }
+
+        // --- FUNÇÕES DE RENDERIZAÇÃO E INTERAÇÃO ---
 
         function toggleDropdown() {
             const panel = document.getElementById('dropdownPanel');
@@ -201,7 +245,8 @@
                 
                 const nodeContent = document.createElement('div');
                 nodeContent.className = 'node-content';
-                if (selectedNodeId === node.id) {
+                // ALTERAÇÃO: Verifica se o ID está no Set de seleções
+                if (selectedNodeIds.has(node.id)) {
                     nodeContent.classList.add('selected');
                 }
                 
@@ -216,7 +261,12 @@
                 
                 const checkbox = document.createElement('div');
                 checkbox.className = 'checkbox';
-                if (selectedNodeId === node.id) {
+                // Apenas mostra o checkbox para nós selecionáveis
+                if (node.rowIndex === -1) {
+                    checkbox.style.borderColor = 'transparent';
+                }
+                // ALTERAÇÃO: Verifica se o ID está no Set de seleções
+                if (selectedNodeIds.has(node.id)) {
                     checkbox.classList.add('checked');
                 }
                 
@@ -228,7 +278,7 @@
                 nodeContent.appendChild(checkbox);
                 nodeContent.appendChild(nodeText);
                 
-                nodeContent.onclick = () => selectNode(node);
+                nodeContent.onclick = () => toggleSelection(node);
                 
                 nodeElement.appendChild(nodeContent);
                 
@@ -255,30 +305,17 @@
             renderTree();
         }
 
-        /**
-         * Função chamada quando um nó é selecionado.
-         * ATUALIZADO: Agora envia a seleção para o SAS VA.
-         */
-        function selectNode(node) {
-            // Não permite selecionar o nó raiz
-            if (node.rowIndex === -1) {
-                // Limpa a seleção se o usuário clicar no nó raiz
-                selectedNodeId = null;
-                document.getElementById('selectedText').textContent = 'Selecione uma localidade';
-                va.messagingUtil.postSelectionMessage(vaResultName, []);
-            } else {
-                selectedNodeId = node.id;
-                document.getElementById('selectedText').textContent = node.text;
+        // --- FUNÇÕES UTILITÁRIAS ---
 
-                // Envia a mensagem de seleção para o SAS
-                // Isso fará com que os outros objetos no relatório sejam filtrados
-                if (typeof va !== 'undefined' && va.messagingUtil) {
-                    va.messagingUtil.postSelectionMessage(vaResultName, [{ row: node.rowIndex }]);
+        function flattenTree(nodes) {
+            let result = [];
+            nodes.forEach(node => {
+                result.push(node);
+                if (node.children) {
+                    result = result.concat(flattenTree(node.children));
                 }
-            }
-
-            renderTree();
-            toggleDropdown();
+            });
+            return result;
         }
 
         function filterNodes(searchTerm) {
@@ -312,7 +349,6 @@
             }, []);
         }
 
-        // Fechar dropdown ao clicar fora
         document.addEventListener('click', function(event) {
             const filterWrapper = document.querySelector('.filter-wrapper');
             if (!filterWrapper.contains(event.target)) {
