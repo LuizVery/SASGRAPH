@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<!--
+    Autor: Adaptado para SAS Visual Analytics
+    Versão: 2.0 - Filtro Hierárquico Dinâmico
+    Descrição: Um objeto de conteúdo de dados que exibe um filtro hierárquico.
+               Recebe 3 colunas (nível 1, 2 e 3 da hierarquia), constrói a árvore
+               dinamicamente e envia a seleção do usuário de volta para o SAS VA
+               para filtrar outros objetos no relatório.
+-->
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Filtro Hierárquico - Região, UF, Município</title>
+
+    <!-- Importar utilitários do SAS VA (ESSENCIAL PARA COMUNICAÇÃO) -->
+    <script type="text/javascript">
+        if (typeof window !== 'undefined' && window.self !== window.top) {
+            try {
+                document.write('<script type="text/javascript" src="../../util/messagingUtil.js"><\/script>');
+                document.write('<script type="text/javascript" src="../../util/contentUtil.js"><\/script>');
+            } catch(e) {
+                console.error("Erro ao carregar utilitários do SAS VA:", e);
+            }
+        }
+    </script>
+
+    <style>
+        /* Seu CSS original permanece aqui, sem alterações. */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Avenir Next', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; background-color: #f5f5f5; padding: 10px; }
+        .filter-container { background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); width: 100%; height: 100%; display: flex; flex-direction: column; }
+        .filter-header { padding: 0; background-color: transparent; border-radius: 8px 8px 0 0; }
+        .filter-wrapper { position: relative; }
+        .current-selection { display: flex; align-items: center; justify-content: space-between; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; padding: 12px 16px; cursor: pointer; transition: all 0.2s ease; font-family: 'Avenir Next', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 14px; font-weight: 400; color: #6c757d; min-height: 44px; }
+        .current-selection:hover { border-color: #adb5bd; background: #f1f3f4; }
+        .current-selection:focus { outline: none; border-color: #007acc; box-shadow: 0 0 0 2px rgba(0,122,204,0.1); }
+        .current-selection span { color: #6c757d; font-size: 14px; font-weight: 400; font-family: 'Avenir Next', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; }
+        .chevron { transition: transform 0.2s ease; color: #6c757d; font-size: 12px; font-weight: normal; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; }
+        .chevron.expanded { transform: rotate(180deg); }
+        .search-box { padding: 12px 20px; border-bottom: 1px solid #e0e0e0; }
+        .search-input { width: 100%; padding: 8px 12px; border: 1px solid #d0d0d0; border-radius: 4px; font-size: 14px; font-family: 'Avenir Next', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; outline: none; transition: border-color 0.2s; }
+        .search-input:focus { border-color: #007acc; box-shadow: 0 0 0 2px rgba(0,122,204,0.1); }
+        .tree-view { flex-grow: 1; overflow-y: auto; padding: 8px 0; }
+        .tree-node { position: relative; }
+        .node-content { display: flex; align-items: center; padding: 6px 20px; cursor: pointer; font-size: 14px; font-family: 'Avenir Next', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; transition: background-color 0.15s; }
+        .node-content:hover { background-color: #f0f8ff; }
+        .node-content.selected { background-color: #e3f2fd; color: #1976d2; }
+        .expand-icon { width: 16px; height: 16px; margin-right: 8px; cursor: pointer; color: #666; display: flex; align-items: center; justify-content: center; font-size: 12px; font-family: 'Avenir Next', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; }
+        .expand-icon.empty { visibility: hidden; }
+        .checkbox { width: 16px; height: 16px; border: 2px solid #666; border-radius: 50%; margin-right: 8px; position: relative; flex-shrink: 0; }
+        .checkbox.checked { background-color: #333; border-color: #333; }
+        .checkbox.checked::after { content: ''; position: absolute; width: 6px; height: 6px; background-color: white; border-radius: 50%; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+        .node-text { flex: 1; user-select: none; font-family: 'Avenir Next', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; }
+        .children { display: none; padding-left: 24px; }
+        .children.expanded { display: block; }
+        .tree-view::-webkit-scrollbar { width: 6px; }
+        .tree-view::-webkit-scrollbar-track { background: #f1f1f1; }
+        .tree-view::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 3px; }
+        .tree-view::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+        .dropdown-panel { display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #dee2e6; border-top: none; border-radius: 0 0 4px 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; }
+        .dropdown-panel.show { display: block; }
+    </style>
+</head>
+<body>
+    <div class="filter-container">
+        <div class="filter-header">
+            <div class="filter-wrapper">
+                <div class="current-selection" onclick="toggleDropdown()" tabindex="0">
+                    <span id="selectedText">Selecione uma localidade</span>
+                    <div class="chevron" id="chevron">▼</div>
+                </div>
+                <div class="dropdown-panel" id="dropdownPanel">
+                    <div class="search-box">
+                        <input type="text" class="search-input" placeholder="Pesquisar" oninput="filterNodes(this.value)">
+                    </div>
+                    <div class="tree-view" id="treeView">
+                        <!-- O conteúdo da árvore será gerado dinamicamente aqui -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        "use strict";
+
+        // --- VARIÁVEIS GLOBAIS ---
+        let hierarchicalData = []; // Armazenará os dados vindos do SAS
+        let vaResultName = null;   // Nome do resultado do SAS, necessário para enviar seleções
+        let vaData = [];           // Dados brutos do SAS
+        let expandedNodes = new Set();
+        let selectedNodeId = null; // Armazena o ID do nó selecionado
+
+        // --- INTEGRAÇÃO COM SAS VA ---
+        if (typeof va !== 'undefined' && va.messagingUtil) {
+            va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
+        } else {
+            // Dados de exemplo para teste fora do SAS VA
+            const sampleMessage = {
+                resultName: "sampleResult",
+                data: [
+                    ["Sudeste", "São Paulo", "São Paulo"],
+                    ["Sudeste", "São Paulo", "Campinas"],
+                    ["Sudeste", "Rio de Janeiro", "Rio de Janeiro"],
+                    ["Nordeste", "Bahia", "Salvador"]
+                ],
+                columns: [
+                    { label: "Região", type: "string" },
+                    { label: "UF", type: "string" },
+                    { label: "Município", type: "string" }
+                ]
+            };
+            onDataReceived(sampleMessage);
+        }
+
+        /**
+         * Função principal que é chamada quando o SAS VA envia dados.
+         */
+        function onDataReceived(messageFromVA) {
+            if (!messageFromVA || !messageFromVA.data || messageFromVA.data.length === 0) {
+                document.getElementById('treeView').innerHTML = "<p style='padding:15px; text-align:center;'>Por favor, atribua 3 categorias para a hierarquia.</p>";
+                return;
+            }
+
+            vaResultName = messageFromVA.resultName;
+            vaData = messageFromVA.data; // Armazena os dados brutos
+
+            // Transforma os dados planos do SAS em uma estrutura de árvore
+            hierarchicalData = buildHierarchy(vaData);
+            
+            // Inicia a renderização da árvore
+            renderTree();
+        }
+
+        /**
+         * Constrói uma estrutura de árvore hierárquica a partir de dados planos.
+         * Ex: [["Sudeste", "SP", "São Paulo"], ["Sudeste", "SP", "Campinas"]]
+         * se torna uma árvore com nós aninhados.
+         */
+        function buildHierarchy(data) {
+            const root = { children: [] };
+            const levelMap = new Map();
+
+            data.forEach((row, rowIndex) => {
+                let currentLevel = root;
+                
+                row.forEach((value, levelIndex) => {
+                    if (!value) return; // Ignora valores nulos/vazios
+
+                    let node = currentLevel.children.find(child => child.text === value);
+
+                    if (!node) {
+                        node = {
+                            id: `${levelIndex}-${value}-${rowIndex}`, // ID único
+                            text: value,
+                            children: [],
+                            rowIndex: rowIndex // Guarda o índice da linha original para seleção
+                        };
+                        currentLevel.children.push(node);
+                    }
+                    currentLevel = node;
+                });
+            });
+            // Adiciona um nó raiz "Brasil" para começar a árvore
+            const brasilRoot = {
+                id: 'brasil-root',
+                text: 'Brasil',
+                children: root.children,
+                rowIndex: -1 // Nó raiz não selecionável
+            };
+            expandedNodes.add(brasilRoot.id); // Expande o nó raiz por padrão
+            return [brasilRoot];
+        }
+
+
+        // --- FUNÇÕES DE RENDERIZAÇÃO E INTERAÇÃO (a maior parte do seu código original) ---
+
+        function toggleDropdown() {
+            const panel = document.getElementById('dropdownPanel');
+            const chevron = document.getElementById('chevron');
+            panel.classList.toggle('show');
+            chevron.classList.toggle('expanded');
+        }
+
+        function renderTree(filteredNodes = null) {
+            const treeView = document.getElementById('treeView');
+            const nodesToRender = filteredNodes || hierarchicalData;
+            treeView.innerHTML = '';
+            if (nodesToRender.length === 0) {
+                 treeView.innerHTML = "<p style='padding:15px; text-align:center;'>Nenhum resultado encontrado.</p>";
+            } else {
+                renderNodes(nodesToRender, treeView);
+            }
+        }
+
+        function renderNodes(nodes, container) {
+            nodes.forEach(node => {
+                const nodeElement = document.createElement('div');
+                nodeElement.className = 'tree-node';
+                
+                const nodeContent = document.createElement('div');
+                nodeContent.className = 'node-content';
+                if (selectedNodeId === node.id) {
+                    nodeContent.classList.add('selected');
+                }
+                
+                const expandIcon = document.createElement('div');
+                expandIcon.className = 'expand-icon';
+                if (node.children && node.children.length > 0) {
+                    expandIcon.textContent = expandedNodes.has(node.id) ? '−' : '+';
+                    expandIcon.onclick = (e) => { e.stopPropagation(); toggleNode(node.id); };
+                } else {
+                    expandIcon.classList.add('empty');
+                }
+                
+                const checkbox = document.createElement('div');
+                checkbox.className = 'checkbox';
+                if (selectedNodeId === node.id) {
+                    checkbox.classList.add('checked');
+                }
+                
+                const nodeText = document.createElement('div');
+                nodeText.className = 'node-text';
+                nodeText.textContent = node.text;
+                
+                nodeContent.appendChild(expandIcon);
+                nodeContent.appendChild(checkbox);
+                nodeContent.appendChild(nodeText);
+                
+                nodeContent.onclick = () => selectNode(node);
+                
+                nodeElement.appendChild(nodeContent);
+                
+                if (node.children && node.children.length > 0) {
+                    const childrenContainer = document.createElement('div');
+                    childrenContainer.className = 'children';
+                    if (expandedNodes.has(node.id)) {
+                        childrenContainer.classList.add('expanded');
+                    }
+                    renderNodes(node.children, childrenContainer);
+                    nodeElement.appendChild(childrenContainer);
+                }
+                
+                container.appendChild(nodeElement);
+            });
+        }
+
+        function toggleNode(nodeId) {
+            if (expandedNodes.has(nodeId)) {
+                expandedNodes.delete(nodeId);
+            } else {
+                expandedNodes.add(nodeId);
+            }
+            renderTree();
+        }
+
+        /**
+         * Função chamada quando um nó é selecionado.
+         * ATUALIZADO: Agora envia a seleção para o SAS VA.
+         */
+        function selectNode(node) {
+            // Não permite selecionar o nó raiz
+            if (node.rowIndex === -1) {
+                // Limpa a seleção se o usuário clicar no nó raiz
+                selectedNodeId = null;
+                document.getElementById('selectedText').textContent = 'Selecione uma localidade';
+                va.messagingUtil.postSelectionMessage(vaResultName, []);
+            } else {
+                selectedNodeId = node.id;
+                document.getElementById('selectedText').textContent = node.text;
+
+                // Envia a mensagem de seleção para o SAS
+                // Isso fará com que os outros objetos no relatório sejam filtrados
+                if (typeof va !== 'undefined' && va.messagingUtil) {
+                    va.messagingUtil.postSelectionMessage(vaResultName, [{ row: node.rowIndex }]);
+                }
+            }
+
+            renderTree();
+            toggleDropdown();
+        }
+
+        function filterNodes(searchTerm) {
+            if (!searchTerm.trim()) {
+                renderTree();
+                return;
+            }
+            const filtered = filterTreeNodes(hierarchicalData, searchTerm.toLowerCase());
+            renderTree(filtered);
+        }
+
+        function filterTreeNodes(nodes, searchTerm) {
+            return nodes.reduce((acc, node) => {
+                const matchesSearch = node.text.toLowerCase().includes(searchTerm);
+                let filteredChildren = [];
+                
+                if (node.children) {
+                    filteredChildren = filterTreeNodes(node.children, searchTerm);
+                }
+                
+                if (matchesSearch || filteredChildren.length > 0) {
+                    acc.push({
+                        ...node,
+                        children: filteredChildren
+                    });
+                    if (filteredChildren.length > 0 && !matchesSearch) {
+                         expandedNodes.add(node.id);
+                    }
+                }
+                return acc;
+            }, []);
+        }
+
+        // Fechar dropdown ao clicar fora
+        document.addEventListener('click', function(event) {
+            const filterWrapper = document.querySelector('.filter-wrapper');
+            if (!filterWrapper.contains(event.target)) {
+                const panel = document.getElementById('dropdownPanel');
+                const chevron = document.getElementById('chevron');
+                panel.classList.remove('show');
+                chevron.classList.remove('expanded');
+            }
+        });
+    </script>
+</body>
+</html>
