@@ -7,6 +7,7 @@ VERSÃO ADAPTADA: Trabalha com múltiplas linhas ao invés de arrays
 MODIFICAÇÃO: Layout horizontal - gráfico alargado, variações compactas
 ATUALIZAÇÃO: Formatação correta dos valores (máximo 3 dígitos, sem .0 desnecessário)
 MELHORIAS: Layout responsivo horizontal, fonte Avenir Next, valores destacados
+MODIFICAÇÃO FINAL: Rótulos de valor do gráfico de linha removidos, mantendo os anos.
 -->
 <html>
 <head>
@@ -14,7 +15,7 @@ MELHORIAS: Layout responsivo horizontal, fonte Avenir Next, valores destacados
     <title>KPI Card Responsive Proper Formatting para SAS VA</title>
     <!-- Import D3.js -->
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
- 
+
     <!-- Importar utilitários do SAS VA (apenas se disponível) -->
     <script type="text/javascript">
         // Verifica se os utilitários do SAS VA estão disponíveis antes de importar
@@ -41,7 +42,7 @@ MELHORIAS: Layout responsivo horizontal, fonte Avenir Next, valores destacados
         font-family: 'Avenir Next', 'Avenir', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
         background-color: #f5f5f5; /* Cor de fundo para modo de depuração */
     }
- 
+
     /* Estilos para os textos dentro do card - COM MAIS DESTAQUE */
     .title-text {
         fill: #f1f1f1f1;
@@ -49,24 +50,24 @@ MELHORIAS: Layout responsivo horizontal, fonte Avenir Next, valores destacados
         text-anchor: middle;
         text-shadow: 0px 1px 2px rgba(0,0,0,0.1);
     }
- 
+
     .main-label-text {
         fill: #f1f1f1f1;
         font-weight: 600;
     }
- 
+
     .main-value-text {
         fill: #f1f1f1f1;
         font-weight: 700;
         text-shadow: 0px 2px 4px rgba(0,0,0,0.15);
     }
- 
+
     .secondary-label-text {
         fill: #f1f1f1f1;
         font-weight: 600;
         text-anchor: middle;
     }
- 
+
     .secondary-value-text {
         fill: #f1f1f1f1;
         font-weight: 700;
@@ -74,12 +75,12 @@ MELHORIAS: Layout responsivo horizontal, fonte Avenir Next, valores destacados
         text-shadow: 0px 1px 2px rgba(0,0,0,0.1);
     }
 </style>
- 
+
 <div id="chart-container"></div>
- 
+
 <script>
 "use strict";
- 
+
 // Função para aguardar o carregamento do D3
 function waitForD3(callback) {
     if (typeof d3 !== 'undefined') {
@@ -90,36 +91,36 @@ function waitForD3(callback) {
         }, 100);
     }
 }
- 
+
 // Aguarda tanto o DOM quanto o D3 estarem prontos
 document.addEventListener("DOMContentLoaded", function() {
     waitForD3(function() {
         initializeKPICard();
     });
 });
- 
+
 function initializeKPICard() {
     /*******************************************************
-     * DECLARAÇÃO DE VARIÁVEIS               *
+     * DECLARAÇÃO DE VARIÁVEIS                            *
      *******************************************************/
- 
+
     // Constantes e configurações
     const SVG_CONTAINER_ID = "chart-container"; // ID do container do gráfico
     let VA_RESULT_NAME; // Nome do resultado para comunicação com o VA
- 
+
     // Dados dinâmicos
     let vaMessage; // Mensagem de dados recebida do VA
     let processedData; // Dados processados e prontos para uso
     let lastRenderTime = 0; // Para debouncing de atualizações
     const renderDelay = 250; // Atraso para evitar renderizações excessivas
- 
+
     // Elementos D3
     let svg, mainGroup;
- 
+
     /*******************************************************
-     * FUNÇÃO DE FORMATAÇÃO PERSONALIZADA      *
+     * FUNÇÃO DE FORMATAÇÃO PERSONALIZADA                 *
      *******************************************************/
-   
+    
     /**
      * Formata valores com máximo 3 dígitos e sem .0 desnecessário
      * @param {number} value - Valor a ser formatado
@@ -165,9 +166,9 @@ function initializeKPICard() {
             }
         }
     }
- 
+
     /*******************************************************
-     * CONFIGURAÇÃO PARA DEBUG FORA DO SAS VA      *
+     * CONFIGURAÇÃO PARA DEBUG FORA DO SAS VA             *
      *******************************************************/
     // Mensagem de dados de exemplo para renderizar o gráfico fora do VA para depuração
     // Simula múltiplas linhas como virão do SAS VA
@@ -188,18 +189,18 @@ function initializeKPICard() {
             { label: "Valor Temporal", type: "number", format: { name: "BEST", precision: 0 } }
         ]
     };
- 
+
     /*******************************************************
-     * FUNÇÕES DE CALLBACK DO SAS VA          *
+     * FUNÇÕES DE CALLBACK DO SAS VA                      *
      *******************************************************/
- 
+
     if (isInSASVA()) {
         // Este bloco é executado APENAS DENTRO do SAS Visual Analytics
         // Define a função de callback para receber dados do SAS VA
         if (typeof va !== 'undefined' && va.messagingUtil) {
             va.messagingUtil.setOnDataReceivedCallback(handleDataReceived);
         }
- 
+
         // Define a função de callback para redimensionamento da janela
         if (typeof va !== 'undefined' && va.contentUtil) {
             va.contentUtil.setupResizeListener(renderCard);
@@ -211,7 +212,7 @@ function initializeKPICard() {
         // Adiciona um listener de redimensionamento padrão do navegador
         window.addEventListener("resize", renderCard);
     }
- 
+
     /**
      * Verifica se está rodando dentro do SAS Visual Analytics
      * @returns {boolean} - Verdadeiro se estiver no SAS VA
@@ -227,7 +228,7 @@ function initializeKPICard() {
             return false;
         }
     }
- 
+
     /**
      * Controla o fluxo de recebimento de dados para evitar atualizações simultâneas.
      * @param {object} messageFromVA - O objeto de dados enviado pelo SAS VA.
@@ -243,7 +244,7 @@ function initializeKPICard() {
         }
         lastRenderTime = now;
     }
- 
+
     /**
      * Processa os dados recebidos do SAS VA e inicia a renderização.
      * @param {object} messageFromVA - O objeto de dados.
@@ -251,11 +252,11 @@ function initializeKPICard() {
     function onDataReceived(messageFromVA) {
         vaMessage = messageFromVA;
         VA_RESULT_NAME = messageFromVA.resultName;
- 
+
         // Validação de papéis (roles): espera dados temporais com múltiplas linhas
         if (isInSASVA() && typeof va !== 'undefined' && va.contentUtil) {
             const expectedRoles = ["string", "number", "number"];
-               
+                
             if (!va.contentUtil.validateRoles(messageFromVA, expectedRoles, false)) {
                 if (va.messagingUtil) {
                     va.messagingUtil.postInstructionalMessage(
@@ -270,72 +271,72 @@ function initializeKPICard() {
                 return;
             }
         }
- 
+
         // Se não houver dados, limpa o gráfico e sai
         if (!messageFromVA.data || messageFromVA.data.length === 0) {
             processedData = null;
             d3.select("#" + SVG_CONTAINER_ID).selectAll("*").remove();
             return;
         }
- 
+
         // Processa os dados das múltiplas linhas
         const columns = messageFromVA.columns;
         const allData = messageFromVA.data;
-       
+        
         // Agrupa os dados temporais
         const timeSeriesData = [];
         let titulo = "";
-       
+        
         // Processa cada linha de dados
         allData.forEach(function(row, index) {
             if (index === 0) {
                 // Pega informações da primeira linha
                 titulo = row[0];
             }
-           
+            
             // Adiciona ponto temporal
             timeSeriesData.push({
                 periodo: row[1], // Ano ou período
                 valor: row[2]    // Valor temporal
             });
         });
-       
+        
         // Ordena por período para garantir ordem cronológica
         timeSeriesData.sort(function(a, b) {
             return a.periodo - b.periodo;
         });
-       
+        
         // Calcula valores derivados
         const valores = timeSeriesData.map(function(d) { return d.valor; });
         const ultimoValor = valores[valores.length - 1];
         const primeiroValor = valores[0];
         const penultimoValor = valores.length > 1 ? valores[valores.length - 2] : null;
-       
+        
         // Cálculo da variação no período (KPI principal)
         let variacaoPeriodo = 0;
         if (primeiroValor !== 0 && primeiroValor !== null && ultimoValor !== null) {
             variacaoPeriodo = ((ultimoValor - primeiroValor) / primeiroValor) * 100;
         }
-       
+        
         // Cálculo da variação em relação ao ano anterior
         let variacaoAnterior = 0;
         if (penultimoValor !== null && penultimoValor !== 0 && ultimoValor !== null) {
             variacaoAnterior = ((ultimoValor - penultimoValor) / penultimoValor) * 100;
         }
- 
+
         // Cálculo da média anual em porcentagem
         let mediaAnual = 0;
         if (timeSeriesData.length > 1) {
             const primeiroAno = timeSeriesData[0].periodo;
             const ultimoAno = timeSeriesData[timeSeriesData.length - 1].periodo;
             const anosDecorridos = ultimoAno - primeiroAno;
-           
+            
             if (anosDecorridos > 0 && primeiroValor !== 0 && primeiroValor !== null) {
                 // Calcula a taxa de crescimento composta anual (CAGR)
                 mediaAnual = (Math.pow(ultimoValor / primeiroValor, 1 / anosDecorridos) - 1) * 100;
             }
         }
-       
+        
         processedData = {
             titulo: titulo,
             valorPrincipal: {
@@ -368,14 +369,14 @@ function initializeKPICard() {
                 label: columns[2].label
             }
         };
- 
+
         renderCard();
     }
- 
+
     /*******************************************************
-     * FUNÇÃO PRINCIPAL DE RENDERIZAÇÃO      *
+     * FUNÇÃO PRINCIPAL DE RENDERIZAÇÃO                   *
      *******************************************************/
- 
+
     /**
      * Renderiza ou atualiza o card KPI no SVG.
      * Esta função é chamada na primeira carga, em atualizações de dados e em redimensionamentos.
@@ -384,23 +385,23 @@ function initializeKPICard() {
         if (!processedData) {
             return;
         }
- 
+
         // Obtém as dimensões do container
         const width = document.body.clientWidth;
         const height = document.body.clientHeight;
- 
+
         // Detecta se é um formato compacto horizontal (como 677x203)
         const isCompactHorizontal = (width / height) > 2.5;
-       
+        
         // Limpa o container antes de desenhar
         d3.select("#" + SVG_CONTAINER_ID).selectAll("*").remove();
- 
+
         // Cria o elemento SVG principal
         svg = d3.select("#" + SVG_CONTAINER_ID)
             .append("svg")
             .attr("width", width)
             .attr("height", height);
- 
+
         // --- Definição do Gradiente CORRIGIDO: Branco predominante com verde suave ---
         const defs = svg.append("defs");
         const gradient = defs.append("linearGradient")
@@ -409,7 +410,7 @@ function initializeKPICard() {
             .attr("x2", "100%").attr("y2", "100%");
         gradient.append("stop").attr("offset", "0%").attr("stop-color", "#2F77AE");
         gradient.append("stop").attr("offset", "100%").attr("stop-color", "#126DA3");
- 
+
         // --- Fundo do Card com Borda ---
         svg.append("rect")
             .attr("width", width)
@@ -418,17 +419,17 @@ function initializeKPICard() {
             .attr("fill", "url(#cardGradient)")
             .attr("stroke", "#d0d0d0")
             .attr("stroke-width", 1);
- 
+
         // Agrupador principal para facilitar o posicionamento
         mainGroup = svg.append("g");
-       
+        
         // --- Cálculo de Posições e Tamanhos Responsivos OTIMIZADOS PARA FORMATO COMPACTO ---
         const padding = Math.max(width * 0.015, 8); // Padding reduzido para formato compacto
         const contentWidth = width - (padding * 2);
-       
+        
         // TAMANHOS DE FONTE AINDA MENORES PARA O TÍTULO
         let titleFontSize, labelFontSize, valueFontSize, titleHeight;
-       
+        
         if (isCompactHorizontal) {
             // Para formatos muito horizontais (como 677x203) - TÍTULO AINDA MENOR
             titleFontSize = Math.min(Math.max(height * 0.1, 12), 16);
@@ -442,10 +443,10 @@ function initializeKPICard() {
             valueFontSize = Math.min(Math.max(height * 0.09, 20), width * 0.05, 30);
             titleHeight = Math.max(height * 0.12, 45);
         }
- 
+
         // --- Layout Horizontal Responsivo ADAPTADO - GRÁFICO MAIS LARGO ---
         const contentSectionHeight = height - titleHeight - padding;
-       
+        
         // NOVA DIVISÃO: Mais espaço para gráfico, menos para variações
         let chartWidthRatio, variationsWidthRatio;
         if (isCompactHorizontal) {
@@ -457,10 +458,10 @@ function initializeKPICard() {
             chartWidthRatio = 0.75;
             variationsWidthRatio = 0.25;
         }
-       
+        
         const chartWidth = Math.max(contentWidth * chartWidthRatio, 180); // Mínimo aumentado
         const variationsWidth = contentWidth - chartWidth - padding;
- 
+
         // --- Título Principal (AINDA MENOR) ---
         mainGroup.append("text")
             .attr("class", "title-text")
@@ -468,35 +469,35 @@ function initializeKPICard() {
             .attr("y", padding + titleFontSize * 0.8)
             .attr("font-size", titleFontSize + "px")
             .text(processedData.titulo);
- 
+
         // --- Seção do Gráfico (Lado Esquerdo - MAIS LARGO) ---
         const chartY = titleHeight;
         const chartPadding = Math.max(width * 0.015, 8);
-        const chartHeight = Math.max(contentSectionHeight * 0.75, 80);
-       
+        const chartHeight = Math.max(contentSectionHeight * 0.85, 80); // Reduzido para dar espaço aos anos
+        
         const chartGroup = mainGroup.append("g")
             .attr("transform", "translate(" + padding + ", " + chartY + ")");
-       
+        
         const valores = processedData.serieTemporal.valores;
         const periodos = processedData.serieTemporal.periodos;
-       
+        
         if (valores.length > 0) {
             // Calcula escala para os dados
             const minVal = d3.min(valores);
             const maxVal = d3.max(valores);
             const range = maxVal - minVal || 1;
-           
+            
             // Margem interna do gráfico responsiva
             const innerChartPadding = Math.max(chartWidth * 0.04, 10);
             const innerWidth = chartWidth - (innerChartPadding * 2);
             const innerHeight = chartHeight - (innerChartPadding * 2);
-           
+            
             // Prepara os dados para a linha
             const lineData = valores.map(function(valor, i) {
                 const x = innerChartPadding + (innerWidth / Math.max(valores.length - 1, 1)) * i;
                 const normalizedY = range > 0 ? (valor - minVal) / range : 0.5;
                 const y = innerChartPadding + innerHeight * (1 - normalizedY);
-               
+                
                 return {
                     x: x,
                     y: y,
@@ -504,17 +505,17 @@ function initializeKPICard() {
                     period: periodos[i] || ("P" + (i + 1))
                 };
             });
-           
+            
             // Desenha a linha principal - responsiva
             const line = d3.line()
                 .x(function(d) { return d.x; })
                 .y(function(d) { return d.y; })
                 .curve(d3.curveMonotoneX);
-           
+            
             const strokeWidth = isCompactHorizontal ?
                 Math.min(Math.max(height * 0.02, 2), 5) :
                 Math.min(Math.max(width * 0.008, 3), 8);
-           
+            
             chartGroup.append("path")
                 .datum(lineData)
                 .attr("d", line)
@@ -523,12 +524,12 @@ function initializeKPICard() {
                 .attr("fill", "none")
                 .attr("stroke-linecap", "round")
                 .attr("opacity", 1);
-           
+            
             // Adiciona pontos na linha - tamanho responsivo
             const pointRadius = isCompactHorizontal ?
                 Math.min(Math.max(height * 0.015, 2), 4) :
                 Math.min(Math.max(width * 0.005, 3), 7);
-           
+            
             chartGroup.selectAll(".data-point")
                 .data(lineData)
                 .enter()
@@ -540,29 +541,12 @@ function initializeKPICard() {
                 .attr("fill", "#36EBD6")
                 .attr("stroke", "#ffffff")
                 .attr("stroke-width", Math.max(pointRadius * 0.3, 1));
-           
-            // TAMANHO DE FONTE DOS ANOS (para equalizar com valores)
+            
+            // --- RÓTULOS DE DADOS RESTAURADOS (APENAS ANOS) ---
             const yearLabelFontSize = isCompactHorizontal ?
                 Math.min(Math.max(height * 0.08, 7), 12) :
                 Math.min(Math.max(height * 0.04, 10), width * 0.025, 15);
-           
-            // Adiciona os valores reais acima dos pontos - FORMATAÇÃO CORRETA
-            chartGroup.selectAll(".value-label")
-                .data(lineData)
-                .enter()
-                .append("text")
-                .attr("class", "value-label")
-                .attr("x", function(d) { return d.x; })
-                .attr("y", function(d) { return d.y - Math.max(8, height * 0.015); })
-                .attr("font-size", yearLabelFontSize + "px") // MESMO TAMANHO DOS ANOS
-                .attr("fill", "#f1f1f1")
-                .attr("text-anchor", "middle")
-                .attr("font-weight", "700")
-                .text(function(d) {
-                    // USA A FUNÇÃO DE FORMATAÇÃO PERSONALIZADA
-                    return formatValue(d.value);
-                });
-           
+            
             // Adiciona os anos/períodos abaixo do gráfico - fonte responsiva
             chartGroup.selectAll(".year-label")
                 .data(lineData)
@@ -576,7 +560,7 @@ function initializeKPICard() {
                 .attr("text-anchor", "middle")
                 .attr("font-weight", "600")
                 .text(function(d) { return d.period; });
-           
+            
         } else {
             // Exibe mensagem quando não há dados temporais
             chartGroup.append("text")
@@ -587,7 +571,7 @@ function initializeKPICard() {
                 .attr("text-anchor", "middle")
                 .text("Sem dados temporais");
         }
- 
+
         // --- Linha Separadora Vertical ---
         const separatorX = padding + chartWidth + (padding / 2);
         mainGroup.append("line")
@@ -595,30 +579,30 @@ function initializeKPICard() {
             .attr("y1", chartY)
             .attr("x2", separatorX)
             .attr("y2", chartY + contentSectionHeight)
-            .attr("stroke", "rgba(45,80,22,0.3)")
+            .attr("stroke", "rgba(241,241,241,0.3)") // Cor mais suave
             .attr("stroke-width", 1);
- 
+
         // --- Seção das Variações (Lado Direito - MAIS COMPACTA) ---
         const variationsX = separatorX + (padding / 2);
         const variationsGroup = mainGroup.append("g")
             .attr("transform", "translate(" + variationsX + ", " + chartY + ")");
-       
+        
         // Calcula espaçamento vertical para as variações OTIMIZADO PARA ESPAÇO MENOR
         const availableVariationsHeight = contentSectionHeight * 0.9;
         const variationBlockHeight = availableVariationsHeight / 3;
         const variationStartY = contentSectionHeight * 0.05;
-       
+        
         // Espaçamento entre label e valor adaptado ao formato COMPACTO
         const labelValueSpacing = isCompactHorizontal ?
             Math.max(variationBlockHeight * 0.45, 12) : // Reduzido de 0.5 para 0.45
             Math.max(variationBlockHeight * 0.35, 20);  // Reduzido de 0.4 para 0.35
-       
+        
         // Centraliza horizontalmente na seção de variações
         const variationCenterX = variationsWidth / 2;
-       
+        
         // PRIMEIRA VARIAÇÃO: Variação no Período
         const variation1Y = variationStartY;
-       
+        
         // Nome da variação (em cima)
         variationsGroup.append("text")
             .attr("class", "secondary-label-text")
@@ -626,7 +610,7 @@ function initializeKPICard() {
             .attr("y", variation1Y)
             .attr("font-size", labelFontSize + "px")
             .text(processedData.valorPrincipal.label);
- 
+
         // Valor da variação (embaixo, maior que o nome)
         variationsGroup.append("text")
             .attr("class", "secondary-value-text")
@@ -634,10 +618,10 @@ function initializeKPICard() {
             .attr("y", variation1Y + labelValueSpacing)
             .attr("font-size", valueFontSize + "px")
             .text(processedData.valorPrincipal.format(processedData.valorPrincipal.value));
- 
+
         // SEGUNDA VARIAÇÃO: Variação vs Ano Anterior
         const variation2Y = variation1Y + variationBlockHeight;
-       
+        
         // Nome da variação (em cima)
         variationsGroup.append("text")
             .attr("class", "secondary-label-text")
@@ -645,7 +629,7 @@ function initializeKPICard() {
             .attr("y", variation2Y)
             .attr("font-size", labelFontSize + "px")
             .text(processedData.valorSecundario.label);
-       
+        
         // Valor da variação (embaixo, maior que o nome)
         variationsGroup.append("text")
             .attr("class", "secondary-value-text")
@@ -653,10 +637,10 @@ function initializeKPICard() {
             .attr("y", variation2Y + labelValueSpacing)
             .attr("font-size", valueFontSize + "px")
             .text(processedData.valorSecundario.format(processedData.valorSecundario.value));
- 
+
         // TERCEIRA VARIAÇÃO: Média Anual (CAGR)
         const variation3Y = variation2Y + variationBlockHeight;
-       
+        
         // Nome da variação (em cima)
         variationsGroup.append("text")
             .attr("class", "secondary-label-text")
@@ -664,7 +648,7 @@ function initializeKPICard() {
             .attr("y", variation3Y)
             .attr("font-size", labelFontSize + "px")
             .text(processedData.valorTerciario.label);
-       
+        
         // Valor da variação (embaixo, maior que o nome)
         variationsGroup.append("text")
             .attr("class", "secondary-value-text")
